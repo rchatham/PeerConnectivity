@@ -97,7 +97,7 @@ public class PeerConnectionManager {
         listener.listenOn(certificateReceived: { (peer, certificate, handler) -> Void in
             print("PeerConnectionManager: listenOn: certificateReceived")
             handler(true)
-            }, withKey: "CertificateRecieved")
+            }, performListenerInBackground: true, withKey: "CertificateRecieved")
     }
     
     deinit {
@@ -143,7 +143,7 @@ extension PeerConnectionManager {
         sessionObserver.addObserver { [weak self] event in
             switch event {
             case .DevicesChanged(peer: let peer):
-                guard let connectedPeers = self?.connectedPeers else { return }
+                guard let connectedPeers = self?.connectedPeers else { break }
                 self?.observer.value = .DevicesChanged(peer: peer, connectedPeers: connectedPeers)
             case .DidReceiveData(peer: let peer, data: let data):
                 self?.observer.value = .ReceivedData(peer: peer, data: data)
@@ -162,9 +162,10 @@ extension PeerConnectionManager {
         browserObserver.addObserver { [weak self] event in
             switch event {
             case .FoundPeer(let peer):
+                guard let peers = self?.foundPeers where !peers.contains(peer) else { break }
                 self?.foundPeers.append(peer)
             case .LostPeer(let peer):
-                guard let index = self?.foundPeers.indexOf(peer) else { return }
+                guard let index = self?.foundPeers.indexOf(peer) else { break }
                 self?.foundPeers.removeAtIndex(index)
             default: break
             }
@@ -216,6 +217,7 @@ extension PeerConnectionManager {
         browser.startBrowsing()
         advertiser.startAdvertising()
         
+        observer.value = .Started
         completion?()
     }
     
@@ -268,6 +270,8 @@ extension PeerConnectionManager {
     }
     
     public func stop() {
+        observer.value = .Ended
+        
         session.stopSession()
         browser.stopBrowsing()
         advertiser.stopAdvertising()
@@ -286,6 +290,8 @@ extension PeerConnectionManager {
         advertiserObserver.value = .None
         advertiserAssisstantObserver.value = .None
         browserViewControllerObserver.value = .None
+        
+        observer.value = .Ready
     }
 }
 
@@ -306,6 +312,7 @@ extension PeerConnectionManager {
         foundPeer: FoundPeerListener = { _ in },
         lostPeer: LostPeerListener = { _ in },
         receivedInvitation: ReceivedInvitationListener = { _ in },
+        performListenerInBackground: Bool = false,
         withKey key: String) -> PeerConnectionManager {
         
         let invitationReceiver = {
@@ -320,22 +327,23 @@ extension PeerConnectionManager {
             })
         }
         
-            listener.listenOn(
-                ready: ready,
-                started: started,
-                devicesChanged: devicesChanged,
-                eventReceived: eventReceived,
-                dataReceived: dataReceived,
-                streamReceived: streamReceived,
-                receivingResourceStarted: receivingResourceStarted,
-                receivingResourceFinished: receivingResourceFinished,
-                certificateReceived: certificateReceived,
-                ended: ended,
-                error: error,
-                foundPeer: foundPeer,
-                lostPeer: lostPeer,
-                receivedInvitation: invitationReceiver,
-                withKey: key)
+        listener.listenOn(
+            ready: ready,
+            started: started,
+            devicesChanged: devicesChanged,
+            eventReceived: eventReceived,
+            dataReceived: dataReceived,
+            streamReceived: streamReceived,
+            receivingResourceStarted: receivingResourceStarted,
+            receivingResourceFinished: receivingResourceFinished,
+            certificateReceived: certificateReceived,
+            ended: ended,
+            error: error,
+            foundPeer: foundPeer,
+            lostPeer: lostPeer,
+            receivedInvitation: invitationReceiver,
+            performListenerInBackground: performListenerInBackground,
+            withKey: key)
         
         return self
     }

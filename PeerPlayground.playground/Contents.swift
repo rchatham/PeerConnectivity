@@ -3,6 +3,23 @@
 import UIKit
 import PeerConnectivity
 
+
+/*
+ Welcome to the PeerPlayground!
+ 
+ This playground shows the general workflow of using the PeerConnectivity framework.
+ 
+ The basics:
+    1) Creating a PeerConnectionManager
+    2) Handling invitations
+    3) Sending information
+    4) Handling incoming information
+*/
+
+
+
+// MARK: Creating/Stopping/Starting the manager
+
 // Default joins mpc rooms automatically and uses the users device name as the display name
 var pcm = PeerConnectionManager(serviceType: "local")
 
@@ -14,11 +31,70 @@ pcm.start()
 pcm.stop()
 
 // Can join chatrooms using .Automatic, .InviteOnly, and .Custom
+// The manager must be initialized with a contructed peer representing the local user
 pcm = PeerConnectionManager(serviceType: "local", connectionType: .Custom, peer: Peer(displayName: "I_AM_KING"))
 
 // Start again at any time
 pcm.start() {
     // Do something when finished starting the session
+}
+
+
+
+// MARK: - Inviting peers/ Handling invitations
+
+// Add multiple listeners with one key
+pcm.listenOn(foundPeer: { (peer) in
+    print("Found peer \(peer.displayName)")
+    
+    // This is already handled if you initialize the PeerConnectionManager
+    // with PeerConnectionType.Automatic.
+    
+    // Invite peer to your session easily
+    pcm.invitePeer(peer)
+    
+    // Invite peers with context data
+    let someInfoAboutSession = [
+        "ThisSession" : "IsCool"
+    ]
+    let sessionContextData = NSKeyedArchiver.archivedDataWithRootObject(someInfoAboutSession)
+    
+    pcm.invitePeer(peer, withContext: sessionContextData, timeout: 10)
+    
+    }, lostPeer: { (peer) in
+        print("Lost peer \(peer.displayName)")
+        
+    }, receivedInvitation: { (peer, withContext, invitationHandler) in
+        print("\(peer.displayName) invited you to join their session")
+        
+        var shouldJoin = false
+        
+        defer {
+            invitationHandler(shouldJoin)
+        }
+        
+        guard let context = withContext,
+            invitationContext = NSKeyedUnarchiver.unarchiveObjectWithData(context) as? [String:String],
+            isItCool = invitationContext["ThisSession"]
+            else { return }
+        
+        shouldJoin = (isItCool == "IsCool")
+        
+    }, withKey: "ConnectAutomaticallyIfItsCool")
+
+// Refresh an active session. This will cause you to lose connection to your current session.
+// Use after changing information affecting how you want to connect to peers.
+// Calls .stop() then .start()
+pcm.refresh() {
+    // Do something after the session restarts
+}
+
+// Found peers includes peers that have already joined the session
+let peersAvailableForInvite = pcm.foundPeers.filter{ !pcm.connectedPeers.contains($0) }
+
+// Invite them manually at any time
+for peer in peersAvailableForInvite {
+    pcm.invitePeer(peer)
 }
 
 
@@ -39,6 +115,13 @@ let connectedPeers: [Peer] = pcm.connectedPeers
 // DO NOT CREATE PEERS THIS WAY. ONLY CREATE THE LOCAL PEER ONCE USING THIS.
 // ALWAYS GET PEERS FROM .connectedPeers
 let somePeerThatIAmConnectedTo = Peer(displayName: "donotcreatethisway")
+
+switch somePeerThatIAmConnectedTo {
+case .CurrentUser:
+    print("Was created by current user")
+default:
+    print("Something else happened")
+}
 
 // Events can be sent to specific peers
 pcm.sendEvent(event, toPeers: [somePeerThatIAmConnectedTo])
@@ -79,64 +162,13 @@ pcm.listenOn(eventReceived: eventListener, withKey: "SomeEvent")
     }
 }, withKey: "ConnectedDevicesChanged")
 
+// Optionally respond to events asynchronously. Default is false.
+pcm.listenOn(eventReceived: eventListener,
+             performListenerInBackground: true,
+             withKey: "SomeEvent")
 
 
-// MARK: - Inviting peers/ Handling invitations
 
-// Add multiple listeners with one key
-pcm.listenOn(foundPeer: { (peer) in
-        print("Found peer \(peer.displayName)")
-    
-        // This is already handled if you initialize the PeerConnectionManager 
-        // with PeerConnectionType.Automatic.
-    
-        // Invite peer to your session easily
-        pcm.invitePeer(peer)
-    
-        // Invite peers with context data
-        let someInfoAboutSession = [
-            "ThisSession" : "IsCool"
-        ]
-        let sessionContextData = NSKeyedArchiver.archivedDataWithRootObject(someInfoAboutSession)
-        
-        pcm.invitePeer(peer, withContext: sessionContextData, timeout: 10)
-        
-    }, lostPeer: { (peer) in
-        print("Lost peer \(peer.displayName)")
-        
-    }, receivedInvitation: { (peer, withContext, invitationHandler) in
-        print("\(peer.displayName) invited you to join their session")
-        
-        var shouldJoin = false
-        
-        defer {
-            invitationHandler(shouldJoin)
-        }
-        
-        guard let context = withContext,
-            invitationContext = NSKeyedUnarchiver.unarchiveObjectWithData(context) as? [String:String],
-            isItCool = invitationContext["ThisSession"]
-            else { return }
-        
-        shouldJoin = (isItCool == "IsCool")
-        
-    }, withKey: "ConnectAutomaticallyIfItsCool")
-
-
-// Refresh an active session. This will cause you to lose connection to your current session.
-// Use after changing information affecting how you want to connect to peers.
-// Calls .stop() then .start()
-pcm.refresh() {
-    // Do something after the session restarts
-}
-
-// Found peers includes peers that have already joined the session
-let peersAvailableForInvite = pcm.foundPeers.filter{ !pcm.connectedPeers.contains($0) }
-
-// Invite them manually at any time
-for peer in peersAvailableForInvite {
-    pcm.invitePeer(peer)
-}
 
 // You should always stop the connection manager when you are done with it.
 pcm.stop()
