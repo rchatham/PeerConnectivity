@@ -6,12 +6,26 @@ import PeerConnectivity
 // Default joins mpc rooms automatically and uses the users device name as the display name
 var pcm = PeerConnectionManager(serviceType: "local")
 
+// Start peerconnectivity
+pcm.start()
+
+// Stop the connection manager
+// Always stop running connection managers before changing
+pcm.stop()
+
 // Can join chatrooms using .Automatic, .InviteOnly, and .Custom
 pcm = PeerConnectionManager(serviceType: "local", connectionType: .Custom, peer: Peer(displayName: "I_AM_KING"))
 
+// Start again at any time
+pcm.start() {
+    // Do something when finished starting the session
+}
 
 
-// Create events as [Strng:AnyObject] Dictionaries
+
+// MARK: - Sending Events/Information
+
+// Create events as [String:AnyObject] Dictionaries
 let event: [String: AnyObject] = [
     "EventKey" : NSDate()
 ]
@@ -19,8 +33,8 @@ let event: [String: AnyObject] = [
 // Sends to all connected peers
 pcm.sendEvent(event)
 
-//Use this to access the connectedPeers [Peer]
-let connectedPeers = pcm.connectedPeers
+// Use this to access the connectedPeers
+let connectedPeers: [Peer] = pcm.connectedPeers
 
 // DO NOT CREATE PEERS THIS WAY. ONLY CREATE THE LOCAL PEER ONCE USING THIS.
 // ALWAYS GET PEERS FROM .connectedPeers
@@ -31,6 +45,9 @@ pcm.sendEvent(event, toPeers: [somePeerThatIAmConnectedTo])
 
 
 
+// MARK: - Handling incoming events
+
+// Create an event listener
 let eventListener: EventListener = { (peer: Peer, eventInfo: [String:AnyObject]) in
     print("Received some event \(eventInfo) from \(peer.displayName)")
     
@@ -41,15 +58,16 @@ let eventListener: EventListener = { (peer: Peer, eventInfo: [String:AnyObject])
 // Set up listeners
 pcm.listenOn(eventReceived: eventListener, withKey: "SomeEvent")
 
-// Start peerconnectivity
-pcm.start()
-
 // Add and remove listeners at any time
 pcm.removeListenerForKey("SomeEvent")
+
+
 
 // String adding multiple listeners together
 pcm.listenOn(eventReceived: eventListener, withKey: "SomeEvent")
    .listenOn(devicesChanged: { (peer, connectedPeers) in
+    
+    // Get informed about changes in the peers connected to the current session
     switch peer {
     case .Connected :
         print("\(peer.displayName) connected to session")
@@ -61,6 +79,8 @@ pcm.listenOn(eventReceived: eventListener, withKey: "SomeEvent")
     }
 }, withKey: "ConnectedDevicesChanged")
 
+
+// MARK: - Inviting peers/ Handling invitations
 
 // Add multiple listeners with one key
 pcm.listenOn(foundPeer: { (peer) in
@@ -93,34 +113,37 @@ pcm.listenOn(foundPeer: { (peer) in
         }
         
         guard let context = withContext,
-            invitationContext: [String:String] = NSKeyedUnarchiver.unarchiveObjectWithData(context) as? [String:String],
+            invitationContext = NSKeyedUnarchiver.unarchiveObjectWithData(context) as? [String:String],
             isItCool = invitationContext["ThisSession"]
             else { return }
         
         shouldJoin = (isItCool == "IsCool")
         
-    }, withKey: "ConnectManually")
+    }, withKey: "ConnectAutomaticallyIfItsCool")
+
+
+// Refresh an active session. This will cause you to lose connection to your current session.
+// Use after changing information affecting how you want to connect to peers.
+// Calls .stop() then .start()
+pcm.refresh() {
+    // Do something after the session restarts
+}
 
 // Found peers includes peers that have already joined the session
 let peersAvailableForInvite = pcm.foundPeers.filter{ !pcm.connectedPeers.contains($0) }
 
+// Invite them manually at any time
 for peer in peersAvailableForInvite {
     pcm.invitePeer(peer)
 }
 
-// Stop the connection manager
-// Always stop running connection managers before changing
-pcm.stop()
-// Restart at any time
-
-pcm.refresh() // Calls .stop() then .start()
-// Use after changing information affecting how you want to connect to peers in your current session
-
+// You should always stop the connection manager when you are done with it.
 pcm.stop()
 
 
 // TODO: - Add streams
-
-
-
+// TODO: - Test sending resources at URL
+// TODO: - Extend service with NSNetService and Bonjour C API for manually
+//      configuring the PeerSession.
+// TODO: - Add Testing
 
