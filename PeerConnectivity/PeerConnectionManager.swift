@@ -93,6 +93,11 @@ public class PeerConnectionManager {
         advertiserAssisstant = PeerAdvertiserAssisstant(session: session, serviceType: serviceType, eventProducer: advertiserAssisstantEventProducer)
         
         listener = PeerConnectionListener(observer: observer)
+        
+        listener.listenOn(certificateReceived: { (peer, certificate, handler) -> Void in
+            print("PeerConnectionManager: listenOn: certificateReceived")
+            handler(true)
+            }, withKey: "CertificateRecieved")
     }
     
     deinit {
@@ -181,11 +186,6 @@ extension PeerConnectionManager {
             default: break
             }
         }
-        
-        listener.listenOn(certificateReceived: { (peer, certificate, handler) -> Void in
-            print("PeerConnectionManager: listenOn: certificateReceived")
-            handler(true)
-            }, withKey: "CertificateRecieved")
         
         switch connectionType {
         case .Automatic:
