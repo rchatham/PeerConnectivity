@@ -206,20 +206,15 @@ extension PeerConnectionManager {
                 default: break
                 }
             }
-        default: break
-        }
-        
-        session.startSession()
-        browser.startBrowsing()
-        advertiser.startAdvertising()
-        
-        switch connectionType {
-        case .Automatic: break
         case .InviteOnly:
             browserAssisstant.startBrowsingAssisstant()
             advertiserAssisstant.startAdvertisingAssisstant()
         case .Custom: break
         }
+        
+        session.startSession()
+        browser.startBrowsing()
+        advertiser.startAdvertising()
         
         completion?()
     }
