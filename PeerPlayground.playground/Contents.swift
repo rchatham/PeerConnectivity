@@ -45,7 +45,9 @@ pcm.sendEvent(event, toPeers: [somePeerThatIAmConnectedTo])
 
 
 
-// MARK: - Handling incoming events
+// MARK: - Handling incoming events/notifications
+
+// It is generally a good idea to configure your peer session before calling .start()
 
 // Create an event listener
 let eventListener: EventListener = { (peer: Peer, eventInfo: [String:AnyObject]) in
@@ -60,8 +62,6 @@ pcm.listenOn(eventReceived: eventListener, withKey: "SomeEvent")
 
 // Add and remove listeners at any time
 pcm.removeListenerForKey("SomeEvent")
-
-
 
 // String adding multiple listeners together
 pcm.listenOn(eventReceived: eventListener, withKey: "SomeEvent")
@@ -78,6 +78,7 @@ pcm.listenOn(eventReceived: eventListener, withKey: "SomeEvent")
     default : break
     }
 }, withKey: "ConnectedDevicesChanged")
+
 
 
 // MARK: - Inviting peers/ Handling invitations
