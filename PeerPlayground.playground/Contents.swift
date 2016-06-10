@@ -31,7 +31,8 @@ pcm.start()
 pcm.stop()
 
 // Can join chatrooms using .Automatic, .InviteOnly, and .Custom
-// The manager must be initialized with a contructed peer representing the local user
+// The manager can be initialized with a contructed peer representing the local user
+// with a custom displayName
 pcm = PeerConnectionManager(serviceType: "local", connectionType: .Custom, peer: Peer(displayName: "I_AM_KING"))
 
 // Start again at any time

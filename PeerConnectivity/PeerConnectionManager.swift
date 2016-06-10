@@ -101,6 +101,8 @@ public class PeerConnectionManager {
     }
     
     deinit {
+        observer.value = .Ended
+        
         session.stopSession()
         browser.stopBrowsing()
         advertiser.stopAdvertising()
@@ -160,51 +162,58 @@ extension PeerConnectionManager {
         }
         
         browserObserver.addObserver { [weak self] event in
-            switch event {
-            case .FoundPeer(let peer):
-                guard let peers = self?.foundPeers where !peers.contains(peer) else { break }
-                self?.foundPeers.append(peer)
-            case .LostPeer(let peer):
-                guard let index = self?.foundPeers.indexOf(peer) else { break }
-                self?.foundPeers.removeAtIndex(index)
-            default: break
+            dispatch_async(dispatch_get_main_queue()) {
+                switch event {
+                case .FoundPeer(let peer):
+                    guard let peers = self?.foundPeers where !peers.contains(peer) else { break }
+                    self?.foundPeers.append(peer)
+                case .LostPeer(let peer):
+                    guard let index = self?.foundPeers.indexOf(peer) else { break }
+                    self?.foundPeers.removeAtIndex(index)
+                default: break
+                }
+                print(self?.foundPeers)
             }
-            print(self?.foundPeers)
         }
         
         sessionObserver.addObserver { [weak self] event in
-            
-            guard let peerCount = self?.connectedPeers.count else { return }
-            
-            switch event {
-            case .DevicesChanged(peer: let peer) where peerCount <= 0 :
-                switch peer {
-                case .NotConnected(_):
-                    print("Lost Connection")
-                    self?.refresh()
+            dispatch_async(dispatch_get_main_queue()) {
+                guard let peerCount = self?.connectedPeers.count else { return }
+                
+                switch event {
+                case .DevicesChanged(peer: let peer) where peerCount <= 0 :
+                    switch peer {
+                    case .NotConnected(_):
+                        print("Lost Connection")
+                        self?.refresh()
+                    default: break
+                    }
                 default: break
                 }
-            default: break
             }
         }
         
         switch connectionType {
         case .Automatic:
             browserObserver.addObserver { [unowned self] event in
-                switch event {
-                case .FoundPeer(let peer):
-                    print("Invite Peer to session")
-                    self.browser.invitePeer(peer)
-                default: break
+                dispatch_async(dispatch_get_main_queue()) {
+                    switch event {
+                    case .FoundPeer(let peer):
+                        print("Invite Peer: \(peer.displayName) to session")
+                        self.browser.invitePeer(peer)
+                    default: break
+                    }
                 }
             }
             advertiserObserver.addObserver { [unowned self] event in
-                switch event {
-                case .DidReceiveInvitationFromPeer(peer: _, withContext: _, invitationHandler: let handler):
-                    print("Responding to invitation")
-                    handler(true, self.session)
-                    self.advertiser.stopAdvertising()
-                default: break
+                dispatch_async(dispatch_get_main_queue()) {
+                    switch event {
+                    case .DidReceiveInvitationFromPeer(peer: _, withContext: _, invitationHandler: let handler):
+                        print("Responding to invitation")
+                        handler(true, self.session)
+                        self.advertiser.stopAdvertising()
+                    default: break
+                    }
                 }
             }
         case .InviteOnly:
