@@ -250,26 +250,37 @@ extension PeerConnectionManager {
         session.sendData(eventData, toPeers: peers)
     }
     
+    public func sendDataStream(streamName name: String, toPeer peer: Peer) throws -> NSOutputStream {
+        do {
+            return try session.sendDataStream(name, toPeer: peer)
+        } catch let error {
+            throw error
+        }
+    }
+    
     // TODO: Sending resources is untested
     public func sendResourceAtURL(resourceURL: NSURL,
-                         withName name: String,
-                           toPeer peer: Peer? = nil,
-      withCompletionHandler completion: ((NSError?) -> Void)? ) -> [NSProgress?] {
+                                withName name: String,
+                                toPeers peers: [Peer] = [],
+             withCompletionHandler completion: ((NSError?) -> Void)? ) -> [Peer:NSProgress?] {
         
-        var progress : [NSProgress?] = []
+        var progress : [Peer:NSProgress?] = [:]
             
-        guard let peer = peer
+        guard !peers.isEmpty
             else {
                 for peer in connectedPeers {
-                    progress.append(session.sendResourceAtURL(resourceURL, withName: name,
+                    progress[peer] = session.sendResourceAtURL(resourceURL, withName: name,
                                                                              toPeer: peer,
-                                                              withCompletionHandler: completion))
+                                                              withCompletionHandler: completion)
                 }
                 return progress
             }
-        progress.append(session.sendResourceAtURL(resourceURL, withName: name,
-                                                                 toPeer: peer,
-                                                  withCompletionHandler: completion))
+        for peer in peers {
+            progress[peer] = session.sendResourceAtURL(resourceURL, withName: name,
+                                                                     toPeer: peer,
+                                                      withCompletionHandler: completion)
+        }
+        
         return progress
     }
     

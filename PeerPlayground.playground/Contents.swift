@@ -62,26 +62,26 @@ pcm.listenOn(foundPeer: { (peer) in
     
     pcm.invitePeer(peer, withContext: sessionContextData, timeout: 10)
     
-    }, lostPeer: { (peer) in
-        print("Lost peer \(peer.displayName)")
-        
-    }, receivedInvitation: { (peer, withContext, invitationHandler) in
-        print("\(peer.displayName) invited you to join their session")
-        
-        var shouldJoin = false
-        
-        defer {
-            invitationHandler(shouldJoin)
-        }
-        
-        guard let context = withContext,
-            invitationContext = NSKeyedUnarchiver.unarchiveObjectWithData(context) as? [String:String],
-            isItCool = invitationContext["ThisSession"]
-            else { return }
-        
-        shouldJoin = (isItCool == "IsCool")
-        
-    }, withKey: "ConnectAutomaticallyIfItsCool")
+}, lostPeer: { (peer) in
+    print("Lost peer \(peer.displayName)")
+    
+}, receivedInvitation: { (peer, withContext, invitationHandler) in
+    print("\(peer.displayName) invited you to join their session")
+    
+    var shouldJoin = false
+    
+    defer {
+        invitationHandler(shouldJoin)
+    }
+    
+    guard let context = withContext,
+        invitationContext = NSKeyedUnarchiver.unarchiveObjectWithData(context) as? [String:String],
+        isItCool = invitationContext["ThisSession"]
+        else { return }
+    
+    shouldJoin = (isItCool == "IsCool")
+    
+}, withKey: "ConnectAutomaticallyIfItsCool")
 
 // Refresh an active session. This will cause you to lose connection to your current session.
 // Use after changing information affecting how you want to connect to peers.
@@ -126,6 +126,20 @@ default:
 
 // Events can be sent to specific peers
 pcm.sendEvent(event, toPeers: [somePeerThatIAmConnectedTo])
+
+let stream = try? pcm.sendDataStream(streamName: "some-stream", toPeer: somePeerThatIAmConnectedTo)
+
+if let stream = stream {
+    // Do something with stream
+} else {
+    // Error: Stream failed
+    // Can use do {} catch let error {} to handle error
+}
+
+let progress: [Peer:NSProgress?] = pcm.sendResourceAtURL(NSURL(string: "someurl")!, withName: "resource-name", toPeers: [somePeerThatIAmConnectedTo]) { (error: NSError?) in
+    // Handle some error
+    print("Error: \(error)")
+}
 
 
 

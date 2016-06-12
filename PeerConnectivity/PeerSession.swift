@@ -47,11 +47,13 @@ internal struct PeerSession {
         }
     }
     
-    internal func sendDataStream(streamName: String, toPeer peer: Peer) {
+    internal func sendDataStream(streamName: String, toPeer peer: Peer) throws -> NSOutputStream {
         do {
-            try session.startStreamWithName(streamName, toPeer: peer.peerID)
+            let stream = try session.startStreamWithName(streamName, toPeer: peer.peerID)
+            return stream
         } catch let error {
             NSLog("%@", "Error starting stream to \(peer.displayName): \(error)")
+            throw error
         }
     }
     
