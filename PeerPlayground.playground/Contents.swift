@@ -129,7 +129,7 @@ pcm.sendEvent(event, toPeers: [somePeerThatIAmConnectedTo])
 
 let stream = try? pcm.sendDataStream(streamName: "some-stream", toPeer: somePeerThatIAmConnectedTo)
 
-if let stream = stream {
+if stream != nil {
     // Do something with stream
 } else {
     // Error: Stream failed
@@ -137,7 +137,7 @@ if let stream = stream {
 }
 
 let progress: [Peer:NSProgress?] = pcm.sendResourceAtURL(NSURL(string: "someurl")!, withName: "resource-name", toPeers: [somePeerThatIAmConnectedTo]) { (error: NSError?) in
-    // Handle some error
+    // Handle potential error
     print("Error: \(error)")
 }
 
@@ -182,15 +182,32 @@ pcm.listenOn(eventReceived: eventListener,
              performListenerInBackground: true,
              withKey: "SomeEvent")
 
+// Listen to streams
+pcm.listenOn(streamReceived: { (peer, stream, name) in
+    print("Recieved stream with name: \(name) from peer: \(peer.displayName)")
+    // Do something with input stream
+    
+}, performListenerInBackground: true, withKey: "StreamListener")
+
+// Receiving resources
+pcm.listenOn(receivingResourceStarted: { (peer, name, progress) in
+    // Started receivng resource from peer
+    print("Receiving resource with name: \(name) from peer: \(peer.displayName) with progress: \(progress)")
+    
+}, receivingResourceFinished: { (peer, name, url, error) in
+    print("Finished receiving resource with name: \(name) from peer: \(peer.displayName) at url: \(url.path) with error: \(error)")
+    // Load resource from url
+    
+}, performListenerInBackground: true, withKey: "ResourceListener")
 
 
 
 // You should always stop the connection manager when you are done with it.
+// Starting a new manager without properly stopping other managers on the same device can
+// result in undefined behavior.
 pcm.stop()
 
 
-// TODO: - Add streams
-// TODO: - Test sending resources at URL
 // TODO: - Extend service with NSNetService and Bonjour C API for manually
 //      configuring the PeerSession.
 // TODO: - Add Testing
