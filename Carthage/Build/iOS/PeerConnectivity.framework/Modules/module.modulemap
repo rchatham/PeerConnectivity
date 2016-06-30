@@ -1,0 +1,10 @@
+framework module PeerConnectivity {
+  umbrella header "PeerConnectivity.h"
+
+  export *
+  module * { export * }
+}
+
+module PeerConnectivity.Swift {
+    header "PeerConnectivity-Swift.h"
+}
