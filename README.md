@@ -1,6 +1,8 @@
 PeerConnectivity
 ================
 
+[![Carthage compatible](https://img.shields.io/badge/Carthage-compatible-4BC51D.svg?style=flat)](https://github.com/Carthage/Carthage)
+
 ####A functional wrapper for the MultipeerConnectivity framework. 
 
 ######PeerConnectivity is meant to have a lightweight easy to use syntax, be extensible and flexible, and handle the heavy lifting and edge cases quietly in the background. 
@@ -9,6 +11,14 @@ PeerConnectivity
 
 ######Check out the Playground!
 
+
+### Installation
+
+#####Carthage
+
+```
+github 'rchatham/PeerConnectivity'
+```
 
 
 ### Creating/Stopping/Starting
