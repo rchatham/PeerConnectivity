@@ -72,10 +72,13 @@ public class PeerConnectionManager {
         return connectedPeers.map { $0.displayName }
     }
     
-    public var foundPeers: [Peer] = []
+    private(set) var foundPeers: [Peer] = []
     
     
-    public init(serviceType: ServiceType, connectionType: PeerConnectionType = .Automatic, peer: Peer = Peer(displayName: UIDevice.currentDevice().name)) {
+    public init(serviceType: ServiceType,
+                connectionType: PeerConnectionType = .Automatic,
+                peer: Peer = Peer(displayName: UIDevice.currentDevice().name)) {
+        
         self.connectionType = connectionType
         self.serviceType = serviceType
         self.peer = peer
@@ -101,21 +104,8 @@ public class PeerConnectionManager {
     }
     
     deinit {
-        observer.value = .Ended
-        
-        session.stopSession()
-        browser.stopBrowsing()
-        advertiser.stopAdvertising()
-        advertiserAssisstant.stopAdvertisingAssisstant()
-        browserAssisstant.stopBrowsingAssistant()
-        foundPeers = []
-        
-        sessionObserver.observers = []
-        browserObserver.observers = []
-        advertiserObserver.observers = []
-        advertiserAssisstantObserver.observers = []
-        browserViewControllerObserver.observers = []
-        stopListening()
+        stop()
+        removeAllListeners()
     }
 }
 
@@ -319,21 +309,21 @@ extension PeerConnectionManager {
     // MARK: Add listener
     
     public func listenOn(ready ready: ReadyListener = { _ in },
-        started: StartListener = { _ in },
-        devicesChanged: DevicesChangedListener = { _ in },
-        eventReceived: EventListener = { _ in },
-        dataReceived: DataListener = { _ in },
-        streamReceived: StreamListener = { _ in },
-        receivingResourceStarted: StartedReceivingResourceListener = { _ in },
-        receivingResourceFinished: FinishedReceivingResourceListener = { _ in },
-        certificateReceived: CertificateReceivedListener = { _ in },
-        ended: SessionEndedListener = { _ in },
-        error: ErrorListener = { _ in },
-        foundPeer: FoundPeerListener = { _ in },
-        lostPeer: LostPeerListener = { _ in },
-        receivedInvitation: ReceivedInvitationListener = { _ in },
-        performListenerInBackground: Bool = false,
-        withKey key: String) -> PeerConnectionManager {
+                               started: StartListener = { _ in },
+                               ended: SessionEndedListener = { _ in },
+                               devicesChanged: DevicesChangedListener = { _ in },
+                               eventReceived: EventListener = { _ in },
+                               dataReceived: DataListener = { _ in },
+                               streamReceived: StreamListener = { _ in },
+                               receivingResourceStarted: StartedReceivingResourceListener = { _ in },
+                               receivingResourceFinished: FinishedReceivingResourceListener = { _ in },
+                               certificateReceived: CertificateReceivedListener = { _ in },
+                               error: ErrorListener = { _ in },
+                               foundPeer: FoundPeerListener = { _ in },
+                               lostPeer: LostPeerListener = { _ in },
+                               receivedInvitation: ReceivedInvitationListener = { _ in },
+                               performListenerInBackground: Bool = false,
+                               withKey key: String) -> PeerConnectionManager {
         
         let invitationReceiver = {
             [weak self]
@@ -350,6 +340,7 @@ extension PeerConnectionManager {
         listener.listenOn(
             ready: ready,
             started: started,
+            ended: ended,
             devicesChanged: devicesChanged,
             eventReceived: eventReceived,
             dataReceived: dataReceived,
@@ -357,7 +348,6 @@ extension PeerConnectionManager {
             receivingResourceStarted: receivingResourceStarted,
             receivingResourceFinished: receivingResourceFinished,
             certificateReceived: certificateReceived,
-            ended: ended,
             error: error,
             foundPeer: foundPeer,
             lostPeer: lostPeer,
@@ -372,7 +362,7 @@ extension PeerConnectionManager {
         listener.removeListenerForKey(key)
     }
     
-    private func stopListening() {
-        listener.stopListening()
+    public func removeAllListeners() {
+        listener.removeAllListeners()
     }
 }

@@ -75,7 +75,7 @@ class PeerConnectionListener {
     }
     
     internal //mutating
-    func stopListening() {
+    func removeAllListeners() {
         listeners = [:]
         peerEventObserver.observers = [:]
     }
@@ -88,21 +88,21 @@ class PeerConnectionListener {
     
     internal //mutating
     func listenOn(ready ready: ReadyListener = { _ in },
-        started: StartListener = { _ in },
-        devicesChanged: DevicesChangedListener = { _ in },
-        eventReceived: EventListener = { _ in },
-        dataReceived: DataListener = { _ in },
-        streamReceived: StreamListener = { _ in },
-        receivingResourceStarted: StartedReceivingResourceListener = { _ in },
-        receivingResourceFinished: FinishedReceivingResourceListener = { _ in },
-        certificateReceived: CertificateReceivedListener = { _ in },
-        ended: SessionEndedListener = { _ in },
-        error: ErrorListener = { _ in },
-        foundPeer: FoundPeerListener = { _ in },
-        lostPeer: LostPeerListener = { _ in },
-        receivedInvitation: InternalInvitationListener = { _ in },
-        performListenerInBackground: Bool,
-        withKey key: String) -> PeerConnectionListener {
+                        started: StartListener = { _ in },
+                        ended: SessionEndedListener = { _ in },
+                        devicesChanged: DevicesChangedListener = { _ in },
+                        eventReceived: EventListener = { _ in },
+                        dataReceived: DataListener = { _ in },
+                        streamReceived: StreamListener = { _ in },
+                        receivingResourceStarted: StartedReceivingResourceListener = { _ in },
+                        receivingResourceFinished: FinishedReceivingResourceListener = { _ in },
+                        certificateReceived: CertificateReceivedListener = { _ in },
+                        error: ErrorListener = { _ in },
+                        foundPeer: FoundPeerListener = { _ in },
+                        lostPeer: LostPeerListener = { _ in },
+                        receivedInvitation: InternalInvitationListener = { _ in },
+                        performListenerInBackground: Bool,
+                        withKey key: String) -> PeerConnectionListener {
         
         func switchOnEvent(event: PeerConnectionEvent) {
             switch event {

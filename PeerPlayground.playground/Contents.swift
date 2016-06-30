@@ -30,10 +30,17 @@ pcm.start()
 // Always stop running connection managers before changing
 pcm.stop()
 
-// Can join chatrooms using .Automatic, .InviteOnly, and .Custom
+// Can join chatrooms using PeerConnectionType.Automatic, .InviteOnly, and .Custom
+//  - .Automatic : automatically searches and joins other devices with the same service type
+//  - .InviteOnly : provides a browserViewController and invite alert controllers
+//  - .Custom : no default behavior is implemented
+
 // The manager can be initialized with a contructed peer representing the local user
 // with a custom displayName
-pcm = PeerConnectionManager(serviceType: "local", connectionType: .Custom, peer: Peer(displayName: "I_AM_KING"))
+
+let localPeer = Peer(displayName: "I_AM_KING")
+
+pcm = PeerConnectionManager(serviceType: "local", connectionType: .Custom, peer: localPeer)
 
 // Start again at any time
 pcm.start() {
@@ -127,14 +134,13 @@ default:
 // Events can be sent to specific peers
 pcm.sendEvent(event, toPeers: [somePeerThatIAmConnectedTo])
 
-let stream = try? pcm.sendDataStream(streamName: "some-stream", toPeer: somePeerThatIAmConnectedTo)
-
-if stream != nil {
+do {
+    let stream = try pcm.sendDataStream(streamName: "some-stream", toPeer: somePeerThatIAmConnectedTo)
     // Do something with stream
-} else {
-    // Error: Stream failed
-    // Can use do {} catch let error {} to handle error
+} catch let error {
+    print("Error: \(error)")
 }
+
 
 let progress: [Peer:NSProgress?] = pcm.sendResourceAtURL(NSURL(string: "someurl")!, withName: "resource-name", toPeers: [somePeerThatIAmConnectedTo]) { (error: NSError?) in
     // Handle potential error
