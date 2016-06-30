@@ -77,8 +77,6 @@ pcm.listenOn(eventReceived: { (peer: Peer, eventInfo: [String:AnyObject]) in
 pcm.removeListenerForKey("SomeEvent")
 ```
 
-#####In addition to event received there are also a full range of listeners and methods that give you full control over the entire range of MultipeerConnectivity options.
-
 ###Initializer
 
 ```swift
@@ -124,7 +122,11 @@ sendResourceAtURL(resourceURL: NSURL,
 refresh(completion: (Void->Void)? = nil)
 
 stop()
+```
 
+#####In addition these methods there is a full range of listeners that give you total control over the entire range of MultipeerConnectivity options.
+
+```swift
 listenOn(ready ready: ReadyListener = { _ in },
         started: StartListener = { _ in },
         ended: SessionEndedListener = { _ in },
