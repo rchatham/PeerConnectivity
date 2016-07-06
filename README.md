@@ -5,7 +5,7 @@ PeerConnectivity
 
 ####A functional wrapper for the MultipeerConnectivity framework. 
 
-######PeerConnectivity is meant to have a lightweight easy to use syntax, be extensible and flexible, and handle the heavy lifting and edge cases quietly in the background. 
+######PeerConnectivity is meant to have a lightweight easy to use syntax, be extensible and flexible, and handle the heavy lifting and edge cases of the MultipeerConnectivity framework quietly in the background. 
 
 ######Please open an issue or submit a pull request if you have any suggestions!
 
@@ -134,7 +134,7 @@ refresh(completion: (Void->Void)? = nil)
 stop()
 ```
 
-#####In addition these methods there is a full range of listeners that give you total control over the entire range of MultipeerConnectivity options.
+#####In addition to these methods there is a full range of listeners that give you total control over the entire range of MultipeerConnectivity options.
 
 ```swift
 listenOn(ready ready: ReadyListener = { _ in },
