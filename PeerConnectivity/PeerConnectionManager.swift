@@ -12,6 +12,10 @@ import UIKit
 
 public typealias ServiceType = String
 
+public struct PeerConnectivityKeys {
+    static let CertificateListener = "CertificateRecievedListener"
+}
+
 public enum PeerConnectionType : Equatable, Hashable {
     case Automatic
     case InviteOnly
@@ -72,7 +76,7 @@ public class PeerConnectionManager {
         return connectedPeers.map { $0.displayName }
     }
     
-    private(set) var foundPeers: [Peer] = []
+    public private(set) var foundPeers: [Peer] = []
     
     
     public init(serviceType: ServiceType,
@@ -100,7 +104,7 @@ public class PeerConnectionManager {
         listener.listenOn(certificateReceived: { (peer, certificate, handler) -> Void in
             print("PeerConnectionManager: listenOn: certificateReceived")
             handler(true)
-            }, performListenerInBackground: true, withKey: "CertificateRecieved")
+            }, performListenerInBackground: true, withKey: PeerConnectivityKeys.CertificateListener)
     }
     
     deinit {
