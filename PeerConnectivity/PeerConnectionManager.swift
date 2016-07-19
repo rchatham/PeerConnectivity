@@ -16,21 +16,9 @@ public struct PeerConnectivityKeys {
     static let CertificateListener = "CertificateRecievedListener"
 }
 
-public enum PeerConnectionType : Equatable, Hashable {
-    case Automatic
-    case InviteOnly
-    case Custom
-    
-    public var hashValue : Int {
-        switch self {
-        case .Automatic:
-            return 1
-        case .InviteOnly:
-            return 2
-        case .Custom:
-            return 3
-        }
-    }
+public enum PeerConnectionType : Int {
+    case Automatic = 0
+    case InviteOnly, Custom
 }
 public func ==(lhs: PeerConnectionType, rhs: PeerConnectionType) -> Bool {
     return lhs.hashValue == rhs.hashValue
@@ -254,36 +242,18 @@ extension PeerConnectionManager {
     }
     
     public func sendDataStream(streamName name: String, toPeer peer: Peer) throws -> NSOutputStream {
-        do {
-            return try session.sendDataStream(name, toPeer: peer)
-        } catch let error {
-            throw error
-        }
+        do { return try session.sendDataStream(name, toPeer: peer) }
+        catch let error { throw error }
     }
     
     // TODO: Sending resources is untested
-    public func sendResourceAtURL(resourceURL: NSURL,
-                                withName name: String,
-                                toPeers peers: [Peer] = [],
-             withCompletionHandler completion: ((NSError?) -> Void)? ) -> [Peer:NSProgress?] {
+    public func sendResourceAtURL(resourceURL: NSURL, withName name: String, toPeers peers: [Peer] = [], withCompletionHandler completion: (NSError? -> Void)? ) -> [Peer:NSProgress?] {
         
         var progress : [Peer:NSProgress?] = [:]
-            
-        guard !peers.isEmpty
-            else {
-                for peer in connectedPeers {
-                    progress[peer] = session.sendResourceAtURL(resourceURL, withName: name,
-                                                                             toPeer: peer,
-                                                              withCompletionHandler: completion)
-                }
-                return progress
-            }
+        let peers = (peers.isEmpty) ? self.connectedPeers : peers
         for peer in peers {
-            progress[peer] = session.sendResourceAtURL(resourceURL, withName: name,
-                                                                     toPeer: peer,
-                                                      withCompletionHandler: completion)
+            progress[peer] = session.sendResourceAtURL(resourceURL, withName: name, toPeer: peer, withCompletionHandler: completion)
         }
-        
         return progress
     }
     
@@ -339,12 +309,10 @@ extension PeerConnectionManager {
                                withKey key: String) -> PeerConnectionManager {
         
         let invitationReceiver = {
-            [weak self]
-            (peer: Peer, withContext: NSData?, invitationHandler: (Bool, PeerSession) -> Void) in
+            [weak self] (peer: Peer, withContext: NSData?, invitationHandler: (Bool, PeerSession) -> Void) in
             
             guard let session = self?.session else { return }
-            receivedInvitation(peer: peer, withContext: withContext, invitationHandler: {
-                joinResponse in
+            receivedInvitation(peer: peer, withContext: withContext, invitationHandler: { joinResponse in
                 if joinResponse { print("PeerConnectionManager: Join peer session") }
                 invitationHandler(joinResponse, session)
             })
