@@ -42,6 +42,8 @@ Functional wrapper for Apple's MultipeerConnectivity framework.
 */
 public class PeerConnectionManager {
     
+    public private(set) static var shared : [ServiceType:PeerConnectionManager] = [:]
+    
     public let connectionType : PeerConnectionType
     private let serviceType : ServiceType
     
@@ -105,9 +107,16 @@ public class PeerConnectionManager {
             print("PeerConnectionManager: listenOn: certificateReceived")
             handler(true)
             }, performListenerInBackground: true, withKey: PeerConnectivityKeys.CertificateListener)
+        
+        // Prevent mingling signals from the same device
+        if let existing = PeerConnectionManager.shared[serviceType] {
+            existing.stop()
+            PeerConnectionManager.shared[serviceType] = self
+        }
     }
     
     deinit {
+        PeerConnectionManager.shared.removeValueForKey(serviceType)
         stop()
         removeAllListeners()
     }
