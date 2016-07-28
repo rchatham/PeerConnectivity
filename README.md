@@ -114,7 +114,7 @@ foundPeers: [Peer] { get }
 ```swift
 start(completion: (Void->Void)? = nil)
 
-browserViewController() -> UIViewController?
+browserViewController(callback: PeerBrowserViewControllerEvent->Void) -> UIViewController?
 
 invitePeer(peer: Peer, withContext context: NSData? = nil, timeout: NSTimeInterval = 30)
 
