@@ -9,7 +9,7 @@
 import Foundation
 import MultipeerConnectivity
 
-internal enum PeerBrowserViewControllerEvent {
+public enum PeerBrowserViewControllerEvent {
     //    case ShouldPresentNearbyPeer
     case None
     case DidFinish

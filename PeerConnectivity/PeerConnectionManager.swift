@@ -7,8 +7,6 @@
 //
 
 import UIKit
-//import Foundation
-//import MultipeerConnectivity
 
 public typealias ServiceType = String
 
@@ -104,9 +102,9 @@ public class PeerConnectionManager {
     }
     
     deinit {
-        PeerConnectionManager.shared.removeValueForKey(serviceType)
         stop()
         removeAllListeners()
+        PeerConnectionManager.shared.removeValueForKey(serviceType)
     }
 }
 
@@ -221,7 +219,8 @@ extension PeerConnectionManager {
         completion?()
     }
     
-    public func browserViewController() -> UIViewController? {
+    public func browserViewController(callback: PeerBrowserViewControllerEvent->Void) -> UIViewController? {
+        browserViewControllerObserver.addObserver { callback($0) }
         switch connectionType {
         case .InviteOnly: return browserAssisstant.peerBrowserViewController()
         default: return nil
