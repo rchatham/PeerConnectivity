@@ -38,9 +38,7 @@ pcm.stop()
 // The manager can be initialized with a contructed peer representing the local user
 // with a custom displayName
 
-let localPeer = Peer(displayName: "I_AM_KING")
-
-pcm = PeerConnectionManager(serviceType: "local", connectionType: .Custom, peer: localPeer)
+pcm = PeerConnectionManager(serviceType: "local", connectionType: .Custom, displayName: "I_AM_KING")
 
 // Start again at any time
 pcm.start() {
@@ -120,33 +118,31 @@ pcm.sendEvent(event)
 // Use this to access the connectedPeers
 let connectedPeers: [Peer] = pcm.connectedPeers
 
-// DO NOT CREATE PEERS THIS WAY. ONLY CREATE THE LOCAL PEER ONCE USING THIS.
-// ALWAYS GET PEERS FROM .connectedPeers
-let somePeerThatIAmConnectedTo = Peer(displayName: "donotcreatethisway")
-
-switch somePeerThatIAmConnectedTo {
-case .CurrentUser:
-    print("Was created by current user")
-default:
-    print("Something else happened")
+if let somePeerThatIAmConnectedTo = connectedPeers.first {
+    
+    switch somePeerThatIAmConnectedTo.status {
+    case .CurrentUser:
+        print("Was created by current user")
+    default:
+        print("Something else happened")
+    }
+    
+    // Events can be sent to specific peers
+    pcm.sendEvent(event, toPeers: [somePeerThatIAmConnectedTo])
+    
+    do {
+        let stream = try pcm.sendDataStream(streamName: "some-stream", toPeer: somePeerThatIAmConnectedTo)
+        // Do something with stream
+    } catch let error {
+        print("Error: \(error)")
+    }
+    
+    
+    let progress: [Peer:NSProgress?] = pcm.sendResourceAtURL(NSURL(string: "someurl")!, withName: "resource-name", toPeers: [somePeerThatIAmConnectedTo]) { (error: NSError?) in
+        // Handle potential error
+        print("Error: \(error)")
+    }
 }
-
-// Events can be sent to specific peers
-pcm.sendEvent(event, toPeers: [somePeerThatIAmConnectedTo])
-
-do {
-    let stream = try pcm.sendDataStream(streamName: "some-stream", toPeer: somePeerThatIAmConnectedTo)
-    // Do something with stream
-} catch let error {
-    print("Error: \(error)")
-}
-
-
-let progress: [Peer:NSProgress?] = pcm.sendResourceAtURL(NSURL(string: "someurl")!, withName: "resource-name", toPeers: [somePeerThatIAmConnectedTo]) { (error: NSError?) in
-    // Handle potential error
-    print("Error: \(error)")
-}
-
 
 
 // MARK: - Handling incoming events/notifications
@@ -172,7 +168,7 @@ pcm.listenOn(eventReceived: eventListener, withKey: "SomeEvent")
    .listenOn(devicesChanged: { (peer, connectedPeers) in
     
     // Get informed about changes in the peers connected to the current session
-    switch peer {
+    switch peer.status {
     case .Connected :
         print("\(peer.displayName) connected to session")
     case .Connecting :

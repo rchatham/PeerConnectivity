@@ -40,7 +40,7 @@ extension PeerAdvertiserEventProducer: MCNearbyServiceAdvertiserDelegate {
             invitationHandler(accept, session.session)
         }
         
-        let peer = Peer.NotConnected(peerID)
+        let peer = Peer(peerID: peerID, status: .NotConnected)
         let event: PeerAdvertiserEvent = .DidReceiveInvitationFromPeer(peer: peer, withContext: context, invitationHandler: handler)
         self.observer.value = event
     }

@@ -37,7 +37,7 @@ extension PeerBrowserEventProducer: MCNearbyServiceBrowserDelegate {
     internal func browser(browser: MCNearbyServiceBrowser, foundPeer peerID: MCPeerID, withDiscoveryInfo info: [String : String]?) {
         NSLog("%@", "foundPeer: \(peerID)")
         
-        let peer = Peer.NotConnected(peerID)
+        let peer = Peer(peerID: peerID, status: .NotConnected)
         let event : PeerBrowserEvent = .FoundPeer(peer)
         self.observer.value = event
     }
@@ -45,7 +45,7 @@ extension PeerBrowserEventProducer: MCNearbyServiceBrowserDelegate {
     internal func browser(browser: MCNearbyServiceBrowser, lostPeer peerID: MCPeerID) {
         NSLog("%@", "lostPeer: \(peerID)")
         
-        let peer = Peer.NotConnected(peerID)
+        let peer = Peer(peerID: peerID, status: .NotConnected)
         let event : PeerBrowserEvent = .LostPeer(peer)
         self.observer.value = event
     }

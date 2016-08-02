@@ -16,7 +16,7 @@ internal struct PeerSession {
     private let eventProducer: PeerSessionEventProducer
     
     internal var connectedPeers : [Peer] {
-        return session.connectedPeers.map { Peer.Connected($0) }
+        return session.connectedPeers.map { Peer(peerID: $0, status: .Connected) }
     }
     
     internal init(peer: Peer, eventProducer: PeerSessionEventProducer) {

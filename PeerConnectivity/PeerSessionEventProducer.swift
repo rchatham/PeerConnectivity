@@ -49,11 +49,11 @@ extension PeerSessionEventProducer: MCSessionDelegate {
         
         switch state {
         case .Connected:
-            peer = Peer.Connected(peerID)
+            peer = Peer(peerID: peerID, status: .Connected)
         case .Connecting:
-            peer = Peer.Connecting(peerID)
+            peer = Peer(peerID: peerID, status: .Connecting)
         case .NotConnected:
-            peer = Peer.NotConnected(peerID)
+            peer = Peer(peerID: peerID, status: .NotConnected)
         }
         
         let event: PeerSessionEvent = .DevicesChanged(peer: peer)
@@ -63,7 +63,7 @@ extension PeerSessionEventProducer: MCSessionDelegate {
     internal func session(session: MCSession, didReceiveData data: NSData, fromPeer peerID: MCPeerID) {
         NSLog("%@", "didReceiveData")
         
-        let peer = Peer.Connected(peerID)
+        let peer = Peer(peerID: peerID, status: .Connected)
         let event: PeerSessionEvent = .DidReceiveData(peer: peer, data: data)
         self.observer.value = event
     }
@@ -71,7 +71,7 @@ extension PeerSessionEventProducer: MCSessionDelegate {
     internal func session(session: MCSession, didReceiveStream stream: NSInputStream, withName streamName: String, fromPeer peerID: MCPeerID) {
         NSLog("%@", "didReceiveStream")
         
-        let peer = Peer.Connected(peerID)
+        let peer = Peer(peerID: peerID, status: .Connected)
         let event: PeerSessionEvent = .DidReceiveStream(peer: peer, stream: stream, name: streamName)
         self.observer.value = event
     }
@@ -79,7 +79,7 @@ extension PeerSessionEventProducer: MCSessionDelegate {
     internal func session(session: MCSession, didStartReceivingResourceWithName resourceName: String, fromPeer peerID: MCPeerID, withProgress progress: NSProgress) {
         NSLog("%@", "didStartReceivingResourceWithName")
         
-        let peer = Peer.Connected(peerID)
+        let peer = Peer(peerID: peerID, status: .Connected)
         let event: PeerSessionEvent = .StartedReceivingResource(peer: peer, name: resourceName, progress: progress)
         self.observer.value = event
     }
@@ -87,7 +87,7 @@ extension PeerSessionEventProducer: MCSessionDelegate {
     internal func session(session: MCSession, didFinishReceivingResourceWithName resourceName: String, fromPeer peerID: MCPeerID, atURL localURL: NSURL, withError error: NSError?) {
         NSLog("%@", "didFinishReceivingResourceWithName")
         
-        let peer = Peer.Connected(peerID)
+        let peer = Peer(peerID: peerID, status: .Connected)
         let event: PeerSessionEvent = .FinishedReceivingResource(peer: peer, name: resourceName, url: localURL, error: error)
         self.observer.value = event
     }
@@ -95,7 +95,7 @@ extension PeerSessionEventProducer: MCSessionDelegate {
     internal func session(session: MCSession, didReceiveCertificate certificate: [AnyObject]?, fromPeer peerID: MCPeerID, certificateHandler: (Bool) -> Void) {
         NSLog("%@", "didReceiveCertificate")
         
-        let peer = Peer.Connected(peerID)
+        let peer = Peer(peerID: peerID, status: .Connected)
         let event: PeerSessionEvent = .DidReceiveCertificate(peer: peer, certificate: certificate, handler: certificateHandler)
         self.observer.value = event
     }
