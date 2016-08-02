@@ -20,6 +20,12 @@ PeerConnectivity
 github 'rchatham/PeerConnectivity'
 ```
 
+####Cocoapods
+
+```
+pod "rchatham/PeerConnectivity"
+```
+
 
 ### Creating/Stopping/Starting
 
