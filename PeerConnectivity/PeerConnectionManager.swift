@@ -206,7 +206,6 @@ extension PeerConnectionManager {
                 }
             }
         case .InviteOnly:
-            browserAssisstant.startBrowsingAssisstant()
             advertiserAssisstant.startAdvertisingAssisstant()
         case .Custom: break
         }
@@ -268,7 +267,6 @@ extension PeerConnectionManager {
         browser.stopBrowsing()
         advertiser.stopAdvertising()
         advertiserAssisstant.stopAdvertisingAssisstant()
-        browserAssisstant.stopBrowsingAssistant()
         foundPeers = []
         
         sessionObserver.observers = []
