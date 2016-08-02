@@ -23,7 +23,7 @@ github 'rchatham/PeerConnectivity'
 ####Cocoapods
 
 ```
-pod "rchatham/PeerConnectivity"
+pod 'PeerConnectivity'
 ```
 
 
