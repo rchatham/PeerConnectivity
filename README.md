@@ -16,13 +16,13 @@ PeerConnectivity
 
 ####Carthage
 
-```
+```ruby
 github 'rchatham/PeerConnectivity'
 ```
 
 ####Cocoapods
 
-```
+```ruby
 pod 'PeerConnectivity'
 ```
 
