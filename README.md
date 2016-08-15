@@ -14,7 +14,7 @@ PeerConnectivity
 
 ### Installation
 
-#####Carthage
+####Carthage
 
 ```
 github 'rchatham/PeerConnectivity'
