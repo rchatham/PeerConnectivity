@@ -339,6 +339,14 @@ extension PeerConnectionManager {
         
         observer.value = .Ready
     }
+    
+    public func closeSession() {
+        browser.stopBrowsing()
+    }
+    
+    public func openSession() {
+        browser.startBrowsing()
+    }
 }
 
 extension PeerConnectionManager {
