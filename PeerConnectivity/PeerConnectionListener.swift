@@ -8,6 +8,9 @@
 
 import Foundation
 
+/**
+ Network events that can be responded to via PeerConnectivity.
+ */
 public enum PeerConnectionEvent {
     case Ready
     case Started
@@ -25,12 +28,18 @@ public enum PeerConnectionEvent {
     case ReceivedInvitation(peer: Peer, withContext: NSData?, invitationHandler: (Bool)->Void)
 }
 
+/**
+ Error reporting for PeerConnectivity.
+ */
 public enum PeerConnectionError : ErrorType {
     case Error(NSError)
     case DidNotStartAdvertisingPeer(NSError)
     case DidNotStartBrowsingForPeers(NSError)
 }
 
+/**
+ Listener for responding to `PeerConnectionEvent`s.
+ */
 public typealias PeerConnectionEventListener = PeerConnectionEvent->Void
 
 // TODO: Should this be a class or a struct?
