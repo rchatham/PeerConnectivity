@@ -17,7 +17,7 @@ PeerConnectivity
 ####Swift Package Manager
 
 ```swift
-.Package(url: "https://github.com/rchatham/PeerConnectivity.git", majorVersion: 0.3)
+.Package(url: "https://github.com/rchatham/PeerConnectivity.git", majorVersion: 0)
 ```
 
 ####Cocoapods
