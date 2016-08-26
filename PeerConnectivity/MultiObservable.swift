@@ -1,6 +1,6 @@
 //
-//  MultiObserver.swift
-//  GameController
+//  MultiObservable.swift
+//  PeerConnectivity
 //
 //  Created by Reid Chatham on 1/18/16.
 //  Copyright © 2016 Reid Chatham. All rights reserved.

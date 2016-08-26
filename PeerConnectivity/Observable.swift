@@ -1,6 +1,6 @@
 //
 //  Observable.swift
-//  GameController
+//  PeerConnectivity
 //
 //  Created by Reid Chatham on 12/21/15.
 //  Copyright © 2015 Reid Chatham. All rights reserved.

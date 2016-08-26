@@ -1,6 +1,6 @@
 //
 //  PeerBrowserViewController.swift
-//  GameController
+//  PeerConnectivity
 //
 //  Created by Reid Chatham on 12/24/15.
 //  Copyright © 2015 Reid Chatham. All rights reserved.
