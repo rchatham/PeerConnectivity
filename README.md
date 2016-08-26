@@ -80,11 +80,15 @@ if let somePeerThatIAmConnectedTo = connectedPeers.first {
 
 ```swift
 // Listen to an event
-pcm.listenOn(eventReceived: { (peer: Peer, eventInfo: [String:AnyObject]) in
-    print("Received some event \(eventInfo) from \(peer.displayName)")
-    
-    guard let date = eventInfo["EventKey"] as? NSDate else { return }
-    print(date)
+pcm.listenOn({ event in
+    switch event {
+    case .ReceivedData(let peer, let data):
+        let eventInfo = NSKeyedUnarchiver.unarchiveObjectWithData(data) as? [String:AnyObject]
+        print("Received some event \(eventInfo) from \(peer.displayName)")
+        guard let date = eventInfo?["EventKey"] as? NSDate else { return }
+        print(date)
+    default: break
+    }
 }, withKey: "SomeEvent")
 
 // Stop listening to an event
@@ -141,43 +145,9 @@ stop()
 #####In addition to these methods there is a full range of listeners that give you total control over the entire range of MultipeerConnectivity options.
 
 ```swift
-listenOn(ready ready: ReadyListener = { _ in },
-        started: StartListener = { _ in },
-        ended: SessionEndedListener = { _ in },
-        devicesChanged: DevicesChangedListener = { _ in },
-        eventReceived: EventListener = { _ in },
-        dataReceived: DataListener = { _ in },
-        streamReceived: StreamListener = { _ in },
-        receivingResourceStarted: StartedReceivingResourceListener = { _ in },
-        receivingResourceFinished: FinishedReceivingResourceListener = { _ in },
-        certificateReceived: CertificateReceivedListener = { _ in },
-        error: ErrorListener = { _ in },
-        foundPeer: FoundPeerListener = { _ in },
-        lostPeer: LostPeerListener = { _ in },
-        receivedInvitation: ReceivedInvitationListener = { _ in },
-        performListenerInBackground: Bool = false,
-        withKey key: String) -> PeerConnectionManager
+listenOn(listener: PeerConnectionEventListener, withKey key: String)
         
 removeListenerForKey(key: String)
 
 removeAllListeners()
-```
-
-###Listener Signatures
-
-```swift
-typealias ReadyListener = Void->Void
-typealias StartListener = Void->Void
-typealias SessionEndedListener = Void->Void
-typealias DevicesChangedListener = (peer: Peer, connectedPeers: [Peer])->Void
-typealias EventListener = (peer: Peer, eventInfo: [String:AnyObject])->Void
-typealias DataListener = (peer: Peer, data: NSData)->Void
-typealias StreamListener = (peer: Peer, stream: NSStream, name: String)->Void
-typealias StartedReceivingResourceListener = (peer: Peer, name: String, progress: NSProgress)->Void
-typealias FinishedReceivingResourceListener = (peer: Peer, name: String, url: NSURL, error: NSError?)->Void
-typealias CertificateReceivedListener = (peer: Peer, certificate: [AnyObject]?, handler: (Bool) -> Void)->Void
-typealias ErrorListener = (error: PeerConnectionError)->Void
-typealias FoundPeerListener = (peer: Peer)->Void
-typealias LostPeerListener = (peer: Peer)->Void
-typealias ReceivedInvitationListener = (peer: Peer, withContext: NSData?, invitationHandler: (Bool) -> Void)->Void
 ```
