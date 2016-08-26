@@ -50,9 +50,9 @@ pcm.start() {
 // MARK: - Inviting peers/ Handling invitations
 
 pcm.listenOn({ (event: PeerConnectionEvent) in
+    
     switch event {
     case .FoundPeer(let peer):
-        
         print("Found peer \(peer.displayName)")
     
         // This is already handled if you initialize the PeerConnectionManager
@@ -66,11 +66,11 @@ pcm.listenOn({ (event: PeerConnectionEvent) in
             "ThisSession" : "IsCool"
         ]
         let sessionContextData = NSKeyedArchiver.archivedDataWithRootObject(someInfoAboutSession)
-        
         pcm.invitePeer(peer, withContext: sessionContextData, timeout: 10)
         
     case .LostPeer(let peer):
         print("Lost peer \(peer.displayName)")
+        
     case .ReceivedInvitation(let peer, let context, let invitationHandler):
         print("\(peer.displayName) invited you to join their session")
         
@@ -89,7 +89,7 @@ pcm.listenOn({ (event: PeerConnectionEvent) in
         
     default: break
     }
-    }, withKey: "ConnectAutomaticallyIfItsCool")
+}, withKey: "ConnectAutomaticallyIfItsCool")
 
 // Refresh an active session. This will cause you to lose connection to your current session.
 // Use after changing information affecting how you want to connect to peers.
@@ -148,18 +148,26 @@ if let somePeerThatIAmConnectedTo = connectedPeers.first {
 }
 
 
+
 // MARK: - Handling incoming events/notifications
 
 // It is generally a good idea to configure your peer session before calling .start()
 
 // Create an event listener
 let eventListener: PeerConnectionEventListener = { event in
+    
     switch event {
+    case .ReceivedEvent(let peer, let eventInfo):
+        print("Received some event \(eventInfo) from \(peer.displayName)")
+        guard let date = eventInfo["EventKey"] as? NSDate else { return }
+        print(date)
+        
     case .ReceivedData(let peer, let data):
         let eventInfo = NSKeyedUnarchiver.unarchiveObjectWithData(data) as? [String:AnyObject]
         print("Received some event \(eventInfo) from \(peer.displayName)")
         guard let date = eventInfo?["EventKey"] as? NSDate else { return }
         print(date)
+        
     default: break
     }
 }
@@ -169,9 +177,8 @@ pcm.listenOn(eventListener, withKey: "SomeEvent")
 
 // Add and remove listeners at any time
 pcm.removeListenerForKey("SomeEvent")
-
-// String adding multiple listeners together
 pcm.listenOn(eventListener, withKey: "SomeEvent")
+
 pcm.listenOn({ (event) in
     
     switch event {
@@ -192,9 +199,9 @@ pcm.listenOn({ (event) in
     
 }, withKey: "ConnectedDevicesChanged")
 
-
 // Listen to streams
 pcm.listenOn({ event in
+    
     switch event {
     case .ReceivedStream(let peer, let stream, let name):
         print("Recieved stream with name: \(name) from peer: \(peer.displayName)")
@@ -216,6 +223,7 @@ pcm.listenOn({ event in
     case .FinishedReceivingResource(let peer, let name, let url, let error):
         // Finished receiving resource from peer
         print("Finished receiving resource with name: \(name) from peer: \(peer.displayName) at url: \(url.path) with error: \(error)")
+        
     default: break
     }
     
