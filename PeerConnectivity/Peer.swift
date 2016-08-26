@@ -66,19 +66,13 @@ public struct Peer {
     }
 }
 
-extension Peer : Equatable {}
-/**
- Equatable conformance for Peer. 
- */
-public func ==(lhs: Peer, rhs: Peer) -> Bool {
-    return lhs.peerID == rhs.peerID
-}
-
-extension Peer : Hashable {
-    /**
-     A hashvalue representing the peer. 
-     */
+extension Peer : Hashable, Equatable {
+    /// :nodoc:
     public var hashValue : Int {
         return peerID.hashValue
     }
+}
+/// :nodoc:
+public func ==(lhs: Peer, rhs: Peer) -> Bool {
+    return lhs.peerID == rhs.peerID
 }

@@ -14,15 +14,15 @@ import Foundation
 public enum PeerConnectionEvent {
     /// Event sent when the `PeerConnectionManager` is ready to start.
     case Ready
-    /// Signals the `PeerConnectionManger` was started succesfully.
+    /// Signals the `PeerConnectionManager` was started succesfully.
     case Started
-    /// Devices changed event which returns the `Peer` that changes along with the connected `Peer`s. Check the passed `Peer`'s `Status` to see what changed.
+    /// Devices changed event which returns the `Peer` that changed along with the connected `Peer`s. Check the passed `Peer`'s `Status` to see what changed.
     case DevicesChanged(peer: Peer, connectedPeers: [Peer])
     /// Data received from `Peer`.
     case ReceivedData(peer: Peer, data: NSData)
     /// Event received from `Peer`.
     case ReceivedEvent(peer: Peer, event: [String:AnyObject])
-    /// Data stream received from 'Peer'.
+    /// Data stream received from `Peer`.
     case ReceivedStream(peer: Peer, stream: NSStream, name: String)
     /// Started receiving a resource from `Peer` with name and `NSProgress`.
     case StartedReceivingResource(peer: Peer, name: String, progress: NSProgress)

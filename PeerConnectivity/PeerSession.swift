@@ -68,6 +68,8 @@ internal struct PeerSession {
             withCompletionHandler: completion)
     }
     
+    // TODO: - Alternative methods of finding peers not yet supported.
+    
     internal func nearbyConnectionDataForPeer(peer: Peer, withCompletionHandler completion: (NSData, NSError?)->Void) {
         session.nearbyConnectionDataForPeer(peer.peerID, withCompletionHandler: completion)
     }
