@@ -20,7 +20,7 @@
 		3086CD6D1D09FC3A00E269A3 /* PeerBrowserAssisstant.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3086CD601D09FC3A00E269A3 /* PeerBrowserAssisstant.swift */; };
 		3086CD6E1D09FC3A00E269A3 /* PeerBrowserEventProducer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3086CD611D09FC3A00E269A3 /* PeerBrowserEventProducer.swift */; };
 		3086CD6F1D09FC3A00E269A3 /* PeerBrowserViewControllerEventProducer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3086CD621D09FC3A00E269A3 /* PeerBrowserViewControllerEventProducer.swift */; };
-		3086CD701D09FC3A00E269A3 /* PeerConnectionListener.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3086CD631D09FC3A00E269A3 /* PeerConnectionListener.swift */; };
+		3086CD701D09FC3A00E269A3 /* PeerConnectionResponder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3086CD631D09FC3A00E269A3 /* PeerConnectionResponder.swift */; };
 		3086CD711D09FC3A00E269A3 /* PeerConnectionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3086CD641D09FC3A00E269A3 /* PeerConnectionManager.swift */; };
 		3086CD721D09FC3A00E269A3 /* PeerSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3086CD651D09FC3A00E269A3 /* PeerSession.swift */; };
 		3086CD731D09FC3A00E269A3 /* PeerSessionEventProducer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3086CD661D09FC3A00E269A3 /* PeerSessionEventProducer.swift */; };
@@ -54,7 +54,7 @@
 		3086CD601D09FC3A00E269A3 /* PeerBrowserAssisstant.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PeerBrowserAssisstant.swift; sourceTree = "<group>"; };
 		3086CD611D09FC3A00E269A3 /* PeerBrowserEventProducer.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PeerBrowserEventProducer.swift; sourceTree = "<group>"; };
 		3086CD621D09FC3A00E269A3 /* PeerBrowserViewControllerEventProducer.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PeerBrowserViewControllerEventProducer.swift; sourceTree = "<group>"; };
-		3086CD631D09FC3A00E269A3 /* PeerConnectionListener.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PeerConnectionListener.swift; sourceTree = "<group>"; };
+		3086CD631D09FC3A00E269A3 /* PeerConnectionResponder.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PeerConnectionResponder.swift; sourceTree = "<group>"; };
 		3086CD641D09FC3A00E269A3 /* PeerConnectionManager.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PeerConnectionManager.swift; sourceTree = "<group>"; };
 		3086CD651D09FC3A00E269A3 /* PeerSession.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PeerSession.swift; sourceTree = "<group>"; };
 		3086CD661D09FC3A00E269A3 /* PeerSessionEventProducer.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = PeerSessionEventProducer.swift; sourceTree = "<group>"; };
@@ -111,7 +111,7 @@
 				3086CD601D09FC3A00E269A3 /* PeerBrowserAssisstant.swift */,
 				3086CD611D09FC3A00E269A3 /* PeerBrowserEventProducer.swift */,
 				3086CD621D09FC3A00E269A3 /* PeerBrowserViewControllerEventProducer.swift */,
-				3086CD631D09FC3A00E269A3 /* PeerConnectionListener.swift */,
+				3086CD631D09FC3A00E269A3 /* PeerConnectionResponder.swift */,
 				3086CD641D09FC3A00E269A3 /* PeerConnectionManager.swift */,
 				3086CD651D09FC3A00E269A3 /* PeerSession.swift */,
 				3086CD661D09FC3A00E269A3 /* PeerSessionEventProducer.swift */,
@@ -243,7 +243,7 @@
 				3086CD711D09FC3A00E269A3 /* PeerConnectionManager.swift in Sources */,
 				3086CD671D09FC3A00E269A3 /* Peer.swift in Sources */,
 				3086CD731D09FC3A00E269A3 /* PeerSessionEventProducer.swift in Sources */,
-				3086CD701D09FC3A00E269A3 /* PeerConnectionListener.swift in Sources */,
+				3086CD701D09FC3A00E269A3 /* PeerConnectionResponder.swift in Sources */,
 				3086CD721D09FC3A00E269A3 /* PeerSession.swift in Sources */,
 				3086CD681D09FC3A00E269A3 /* PeerAdvertiser.swift in Sources */,
 				3086CD6D1D09FC3A00E269A3 /* PeerBrowserAssisstant.swift in Sources */,

@@ -43,15 +43,33 @@ public enum PeerConnectionType : Int {
  */
 public class PeerConnectionManager {
     
+    // MARK: Static
     /**
      Access to shared connection managers by their service type
      */
     public private(set) static var shared : [ServiceType:PeerConnectionManager] = [:]
     
+    // MARK: Properties
     /**
      The connection type for the connection manager. (ex. .Automatic, .InviteOnly, .Custom)
      */
     public let connectionType : PeerConnectionType
+    public let peer : Peer
+    
+    /**
+     Returns the peers that are connected on the current session
+     */
+    public var connectedPeers : [Peer] {
+        return session.connectedPeers
+    }
+    
+    /**
+     Returns the peers that can be reached locally registered on the current service type
+     */
+    public private(set) var foundPeers: [Peer] = []
+    
+    
+    // Private
     private let serviceType : ServiceType
     
     private let observer = MultiObservable<PeerConnectionEvent>(.Ready)
@@ -71,7 +89,6 @@ public class PeerConnectionManager {
     /**
      Access to the local peer representing the user
      */
-    public let peer : Peer
     private let session : PeerSession
     private let browser : PeerBrowser
     private let browserAssisstant : PeerBrowserAssisstant
@@ -80,19 +97,8 @@ public class PeerConnectionManager {
     
     private let listener : PeerConnectionResponder
     
-    /**
-     Returns the peers that are connected on the current session
-     */
-    public var connectedPeers : [Peer] {
-        return session.connectedPeers
-    }
     
-    /**
-     Returns the peers that can be reached locally registered on the current service type
-     */
-    public private(set) var foundPeers: [Peer] = []
-    
-    
+    // MARK: Initializer
     /**
      Initializer for a connection manager. Requires the requested service type. If the connectionType and displayName are not specified the connection manager defaults to .Automatic and using the local device name.
      
@@ -100,6 +106,8 @@ public class PeerConnectionManager {
         - serviceType: The requested service type describing the channel on which peers are able to connect.
         - connectionType: Takes a PeerConnectionType case determining the default behavior of the framework.
         - displayName: The local user's display name to other peers.
+     
+     - Returns: A fully initialized `PeerConnectionManager`.
      */
     public init(serviceType: ServiceType,
                 connectionType: PeerConnectionType = .Automatic,
@@ -148,7 +156,7 @@ public class PeerConnectionManager {
 }
 
 extension PeerConnectionManager {
-    // MARK: Start/Stop
+    // MARK: Using the PeerConnectionManager
     
     /**
      Start the connection manager with optional completion. Calling this initiates browsing and advertising using the specified connection type.
@@ -270,11 +278,11 @@ extension PeerConnectionManager {
     }
     
     /**
-     Returns a browser view controller if the connectionType was set to .InviteOnly or returns nil if not.
+     Returns a browser view controller if the connectionType was set to `.InviteOnly` or returns `nil` if not.
      
-     - Paramter callback: Events sent back with cases `.DidFinish` and `.DidCancel`.
+     - Parameter callback: Events sent back with cases `.DidFinish` and `.DidCancel`.
      
-     - Returns a browser view controller for inviting available peers nearby if connection type is `.InviteOnly` or `nil`.
+     - Returns a browser view controller for inviting available peers nearby if connection type is `.InviteOnly` or `nil` otherwise.
      */
     public func browserViewController(callback: PeerBrowserViewControllerEvent->Void) -> UIViewController? {
         browserViewControllerObserver.addObserver { callback($0) }
@@ -310,7 +318,7 @@ extension PeerConnectionManager {
     /**
      Send events to connected users. Encoded as NSData using the NSKeyedArchiver. If no peer is specified it broadcasts to all users on a current session.
      
-     -Parameters:
+     - Parameters:
         - eventInfo: Dictionary of AnyObject data which is encoded with the NSKeyedArchiver and passed to the specified peers.
         - toPeers: Specified `Peer` objects to send event.
      */
@@ -333,7 +341,6 @@ extension PeerConnectionManager {
         catch let error { throw error }
     }
     
-    // TODO: Sending resources is untested
     /**
      Send a resource with a specified url for retrieval on a connected device. This method can send a resource to multiple peers and returns an NSProgress associated with each Peer. This method takes an error completion handler if the resource fails to send.
      
@@ -408,13 +415,13 @@ extension PeerConnectionManager {
 }
 
 extension PeerConnectionManager {
-    // MARK: Add listener
+    // MARK: Listening to PeerConnectivity generated events
     
     /**
-     Takes a `PeerEventListener` to respond to events.
+     Takes a `PeerConnectionEventListener` to respond to events.
      
      - Parameters:
-        - listener: Takes a `PeerConnectionEventListener` which responds to a specific event.
+        - listener: Takes a `PeerConnectionEventListener`.
         - withKey: The key with which to associate the listener.
      */
     public func listenOn(listener: PeerConnectionEventListener, withKey key: String) {
