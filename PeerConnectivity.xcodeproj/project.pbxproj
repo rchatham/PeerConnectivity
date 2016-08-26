@@ -83,7 +83,7 @@
 		3086CD181D09FB9800E269A3 = {
 			isa = PBXGroup;
 			children = (
-				3086CD241D09FB9800E269A3 /* PeerConnectivity */,
+				3086CD241D09FB9800E269A3 /* Sources */,
 				3086CD301D09FB9900E269A3 /* PeerConnectivityTests */,
 				3086CD231D09FB9800E269A3 /* Products */,
 			);
@@ -98,7 +98,7 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		3086CD241D09FB9800E269A3 /* PeerConnectivity */ = {
+		3086CD241D09FB9800E269A3 /* Sources */ = {
 			isa = PBXGroup;
 			children = (
 				3086CD251D09FB9800E269A3 /* PeerConnectivity.h */,
@@ -119,6 +119,7 @@
 				3086CD581D09FC2200E269A3 /* Observable.swift */,
 				3086CD271D09FB9800E269A3 /* Info.plist */,
 			);
+			name = Sources;
 			path = PeerConnectivity;
 			sourceTree = "<group>";
 		};
