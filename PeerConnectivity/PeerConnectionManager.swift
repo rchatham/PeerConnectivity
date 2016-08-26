@@ -54,6 +54,10 @@ public class PeerConnectionManager {
      The connection type for the connection manager. (ex. .Automatic, .InviteOnly, .Custom)
      */
     public let connectionType : PeerConnectionType
+    
+    /**
+     Access to the local peer representing the user
+     */
     public let peer : Peer
     
     /**
@@ -86,9 +90,6 @@ public class PeerConnectionManager {
     private let advertiserEventProducer : PeerAdvertiserEventProducer
     private let advertiserAssisstantEventProducer : PeerAdvertiserAssisstantEventProducer
     
-    /**
-     Access to the local peer representing the user
-     */
     private let session : PeerSession
     private let browser : PeerBrowser
     private let browserAssisstant : PeerBrowserAssisstant
@@ -102,12 +103,11 @@ public class PeerConnectionManager {
     /**
      Initializer for a connection manager. Requires the requested service type. If the connectionType and displayName are not specified the connection manager defaults to .Automatic and using the local device name.
      
-     - Parameters:
-        - serviceType: The requested service type describing the channel on which peers are able to connect.
-        - connectionType: Takes a PeerConnectionType case determining the default behavior of the framework.
-        - displayName: The local user's display name to other peers.
+     @param serviceType: The requested service type describing the channel on which peers are able to connect.
+     @param connectionType: Takes a PeerConnectionType case determining the default behavior of the framework.
+     @param displayName: The local user's display name to other peers.
      
-     - Returns: A fully initialized `PeerConnectionManager`.
+     @return A fully initialized `PeerConnectionManager`.
      */
     public init(serviceType: ServiceType,
                 connectionType: PeerConnectionType = .Automatic,
@@ -161,7 +161,7 @@ extension PeerConnectionManager {
     /**
      Start the connection manager with optional completion. Calling this initiates browsing and advertising using the specified connection type.
      
-     - Parameter completion: Called once session is initialized. Default is `nil`.
+     @param completion: Called once session is initialized. Default is `nil`.
      */
     public func start(completion: (Void->Void)? = nil) {
         
@@ -280,9 +280,9 @@ extension PeerConnectionManager {
     /**
      Returns a browser view controller if the connectionType was set to `.InviteOnly` or returns `nil` if not.
      
-     - Parameter callback: Events sent back with cases `.DidFinish` and `.DidCancel`.
+     @param callback: Events sent back with cases `.DidFinish` and `.DidCancel`.
      
-     - Returns a browser view controller for inviting available peers nearby if connection type is `.InviteOnly` or `nil` otherwise.
+     @return A browser view controller for inviting available peers nearby if connection type is `.InviteOnly` or `nil` otherwise.
      */
     public func browserViewController(callback: PeerBrowserViewControllerEvent->Void) -> UIViewController? {
         browserViewControllerObserver.addObserver { callback($0) }
@@ -295,10 +295,9 @@ extension PeerConnectionManager {
     /**
      Use to invite peers that have been found locally to join a MultipeerConnectivity session.
      
-     - Parameters:
-        - peer: `Peer` object to invite to current session.
-        - withContext: `NSData` object associated with the invitation.
-        - timeout: Time interval until the invitation expires.
+     @param peer: `Peer` object to invite to current session.
+     @param withContext: `NSData` object associated with the invitation.
+     @param timeout: Time interval until the invitation expires.
      */
     public func invitePeer(peer: Peer, withContext context: NSData? = nil, timeout: NSTimeInterval = 30) {
         browser.invitePeer(peer, withContext: context, timeout: timeout)
@@ -307,9 +306,8 @@ extension PeerConnectionManager {
     /**
      Send data to connected users. If no peer is specified it broadcasts to all users on a current session.
      
-     - Parameters:
-        - data: Data to be sent to specified peers.
-        - toPeers: Specified `Peer` objects to send data.
+     @param data: Data to be sent to specified peers.
+     @param toPeers: Specified `Peer` objects to send data.
      */
     public func sendData(data: NSData, toPeers peers: [Peer] = []) {
         session.sendData(data, toPeers: peers)
@@ -318,9 +316,8 @@ extension PeerConnectionManager {
     /**
      Send events to connected users. Encoded as NSData using the NSKeyedArchiver. If no peer is specified it broadcasts to all users on a current session.
      
-     - Parameters:
-        - eventInfo: Dictionary of AnyObject data which is encoded with the NSKeyedArchiver and passed to the specified peers.
-        - toPeers: Specified `Peer` objects to send event.
+     @param eventInfo: Dictionary of AnyObject data which is encoded with the NSKeyedArchiver and passed to the specified peers.
+     @param toPeers: Specified `Peer` objects to send event.
      */
     public func sendEvent(eventInfo: [String:AnyObject], toPeers peers: [Peer] = []) {
         let eventData = NSKeyedArchiver.archivedDataWithRootObject(eventInfo)
@@ -330,9 +327,8 @@ extension PeerConnectionManager {
     /**
      Send a data stream to a connected user. This method throws an error if the stream cannot be established. This method returns the NSOutputStream with which you can send events to the connected users.
      
-     - Parameters:
-        - streamName: The name of the stream to be established between two users.
-        - toPeer: The peer with which to start a data stream
+     @param streamName: The name of the stream to be established between two users.
+     @param toPeer: The peer with which to start a data stream
      
      - Throws: Propagates errors thrown by Apple's MultipeerConnectivity framework.
      */
@@ -344,13 +340,12 @@ extension PeerConnectionManager {
     /**
      Send a resource with a specified url for retrieval on a connected device. This method can send a resource to multiple peers and returns an NSProgress associated with each Peer. This method takes an error completion handler if the resource fails to send.
      
-     - Parameters:
-        - resourceURL: The url that the resource will be passed with for retrieval.
-        - withName: The name with which the progress is associated with.
-        - toPeers: The specified peers for the resource to be sent to.
-        - withCompletionHandler: the completion handler called when an error is thrown sending a resource.
+     @param resourceURL: The url that the resource will be passed with for retrieval.
+     @param withName: The name with which the progress is associated with.
+     @param toPeers: The specified peers for the resource to be sent to.
+     @param withCompletionHandler: the completion handler called when an error is thrown sending a resource.
      
-     - Returns: A dictionary of optional NSProgress associated with each peer that the resource was sent to.
+     @return A dictionary of optional NSProgress associated with each peer that the resource was sent to.
      */
     public func sendResourceAtURL(resourceURL: NSURL, withName name: String, toPeers peers: [Peer] = [], withCompletionHandler completion: (NSError? -> Void)? ) -> [Peer:NSProgress?] {
         
@@ -365,7 +360,7 @@ extension PeerConnectionManager {
     /**
      Refresh the current session. This call disconnects the user from the current session and then restarts the session with completion maintaing the current sessions configuration.
      
-     - Parameter: completion: Completion handler called after the session has completed refreshing.
+     @param completion: Completion handler called after the session has completed refreshing.
      */
     public func refresh(completion: (Void->Void)? = nil) {
         stop()
@@ -420,9 +415,8 @@ extension PeerConnectionManager {
     /**
      Takes a `PeerConnectionEventListener` to respond to events.
      
-     - Parameters:
-        - listener: Takes a `PeerConnectionEventListener`.
-        - withKey: The key with which to associate the listener.
+     @param listener: Takes a `PeerConnectionEventListener`.
+     @param withKey: The key with which to associate the listener.
      */
     public func listenOn(listener: PeerConnectionEventListener, withKey key: String) {
         self.listener.addListener(listener, forKey: key)
@@ -431,7 +425,7 @@ extension PeerConnectionManager {
     /**
      Remove a listener associated with a specified key.
      
-     - Paramter key: The key with which to attempt to find and remove a listener with.
+     @param key: The key with which to attempt to find and remove a listener with.
      */
     public func removeListenerForKey(key: String) {
         listener.removeListenerForKey(key)
