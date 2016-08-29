@@ -14,12 +14,6 @@ PeerConnectivity
 
 ### Installation
 
-####Swift Package Manager
-
-```swift
-.Package(url: "https://github.com/rchatham/PeerConnectivity.git", majorVersion: 0)
-```
-
 ####Cocoapods
 
 ```ruby

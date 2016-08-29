@@ -4,7 +4,7 @@ import UIKit
 import PeerConnectivity
 
 
-/*
+/*:
  Welcome to the PeerPlayground!
  
  This playground shows the general workflow of using the PeerConnectivity framework.
