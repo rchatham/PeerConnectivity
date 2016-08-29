@@ -33,7 +33,7 @@ extension PeerAdvertiserEventProducer: MCNearbyServiceAdvertiserDelegate {
         self.observer.value = event
     }
     
-    internal func advertiser(advertiser: MCNearbyServiceAdvertiser, didReceiveInvitationFromPeer peerID: MCPeerID, withContext context: NSData?, invitationHandler: (Bool, MCSession) -> Void) {
+    internal func advertiser(advertiser: MCNearbyServiceAdvertiser, didReceiveInvitationFromPeer peerID: MCPeerID, withContext context: NSData?, invitationHandler: (Bool, MCSession?) -> Void) {
         NSLog("%@", "didReceiveInvitationFromPeer \(peerID)")
         
         let handler : ((Bool, PeerSession) -> Void) = { (accept, session) in

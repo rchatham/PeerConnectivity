@@ -81,8 +81,8 @@ pcm.listenOn({ (event: PeerConnectionEvent) in
         }
         
         guard let context = context,
-            invitationContext = NSKeyedUnarchiver.unarchiveObjectWithData(context) as? [String:String],
-            isItCool = invitationContext["ThisSession"]
+            let invitationContext = NSKeyedUnarchiver.unarchiveObjectWithData(context) as? [String:String],
+            let isItCool = invitationContext["ThisSession"]
             else { return }
         
         shouldJoin = (isItCool == "IsCool")
