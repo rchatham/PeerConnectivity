@@ -82,10 +82,9 @@ if let somePeerThatIAmConnectedTo = connectedPeers.first {
 // Listen to an event
 pcm.listenOn({ event in
     switch event {
-    case .ReceivedData(let peer, let data):
-        let eventInfo = NSKeyedUnarchiver.unarchiveObjectWithData(data) as? [String:AnyObject]
+    case .ReceivedEvent(let peer, let eventInfo):
         print("Received some event \(eventInfo) from \(peer.displayName)")
-        guard let date = eventInfo?["EventKey"] as? NSDate else { return }
+        guard let date = eventInfo["EventKey"] as? NSDate else { return }
         print(date)
     default: break
     }
