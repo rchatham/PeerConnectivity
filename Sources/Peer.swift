@@ -10,7 +10,7 @@ import Foundation
 import MultipeerConnectivity
 
 /**
- Enum representing peers by their connection status.
+ Struct reperesenting a user available for mesh-networking on the PeerConnectivity framework.
  */
 public struct Peer {
     

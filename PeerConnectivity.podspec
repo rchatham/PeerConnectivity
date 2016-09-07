@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name         = "PeerConnectivity"
-  s.version      = "0.3.9"
+  s.version      = "0.3.10"
   s.summary      = "Functional wrapper for Apple's MultipeerConnectivity framework."
   s.description  = <<-DESC
 				A functional wrapper around the MultipeerConnectivity framework that handles edge cases of
@@ -13,6 +13,6 @@ Pod::Spec.new do |s|
   s.author             = { "Reid Chatham" => "email@address.com" }
   s.platform     = :ios, "8.0"
   s.source       = { :git => "https://github.com/rchatham/PeerConnectivity.git", :tag => "#{s.version}" }
-  s.source_files  = "{PeerConnectivity, Sources}/*"
+  s.source_files  = "Sources/*"
   s.framework  = "MultipeerConnectivity"
 end

@@ -40,6 +40,8 @@ public enum PeerConnectionType : Int {
 
 /**
  Functional wrapper for Apple's MultipeerConnectivity framework.
+ 
+ Initialize a PeerConnectionManager to enable mesh-networking over bluetooth and wifi when available. Configure the networking protocol of the session and then start to begin connecting to nearby peers.
  */
 public class PeerConnectionManager {
     
