@@ -84,7 +84,7 @@ pcm.listenOn({ event in
     switch event {
     case .ReceivedEvent(let peer, let eventInfo):
         print("Received some event \(eventInfo) from \(peer.displayName)")
-        guard let date = eventInfo?["EventKey"] as? NSDate else { return }
+        guard let date = eventInfo["EventKey"] as? NSDate else { return }
         print(date)
     default: break
     }
