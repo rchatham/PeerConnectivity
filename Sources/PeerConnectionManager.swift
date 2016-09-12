@@ -146,6 +146,7 @@ public class PeerConnectionManager {
         // Prevent mingling signals from the same device
         if let existing = PeerConnectionManager.shared[serviceType] {
             existing.stop()
+            existing.removeAllListeners()
             PeerConnectionManager.shared[serviceType] = self
         }
     }
@@ -153,7 +154,9 @@ public class PeerConnectionManager {
     deinit {
         stop()
         removeAllListeners()
-        PeerConnectionManager.shared.removeValueForKey(serviceType)
+        if let existing = PeerConnectionManager.shared[serviceType] where existing === self {
+            PeerConnectionManager.shared.removeValueForKey(serviceType)
+        }
     }
 }
 
@@ -197,8 +200,8 @@ extension PeerConnectionManager {
                 self?.observer.value = .DevicesChanged(peer: peer, connectedPeers: connectedPeers)
             case .DidReceiveData(peer: let peer, data: let data):
                 self?.observer.value = .ReceivedData(peer: peer, data: data)
-                guard let event = NSKeyedUnarchiver.unarchiveObjectWithData(data) as? [String:AnyObject] else { return }
-                self?.observer.value = .ReceivedEvent(peer: peer, event: event)
+                guard let eventInfo = NSKeyedUnarchiver.unarchiveObjectWithData(data) as? [String:AnyObject] else { return }
+                self?.observer.value = .ReceivedEvent(peer: peer, eventInfo: eventInfo)
             case .DidReceiveCertificate(peer: let peer, certificate: let certificate, handler: let handler):
                 self?.observer.value = .ReceivedCertificate(peer: peer, certificate: certificate, handler: handler)
             case .DidReceiveStream(peer: let peer, stream: let stream, name: let name):
@@ -418,12 +421,21 @@ extension PeerConnectionManager {
      Takes a `PeerConnectionEventListener` to respond to events.
      
      - parameter listener: Takes a `PeerConnectionEventListener`.
+     - parameter performListenerInBackground: Default is `false`. Set to `true` to perform the listener asyncronously.
      - parameter withKey: The key with which to associate the listener.
-     
-     - warning: All listeners are performed asyncronously. You must be sure to dispatch_async to the main queue if you intend to use these listeners from the main thread.
      */
-    public func listenOn(listener: PeerConnectionEventListener, withKey key: String) {
-        responder.addListener(listener, forKey: key)
+    public func listenOn(listener: PeerConnectionEventListener, performListenerInBackground background: Bool = false, withKey key: String) {
+        
+        switch background {
+        case true:
+            responder.addListener(listener, forKey: key)
+        case false:
+            responder.addListener({ (event) in
+                dispatch_async(dispatch_get_main_queue(), { 
+                    listener(event)
+                })
+            }, forKey: key)
+        }
     }
     
     /**

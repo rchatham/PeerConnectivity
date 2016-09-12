@@ -144,7 +144,7 @@ stop()
 #####In addition to these methods there is a full range of listeners that give you total control over the entire range of MultipeerConnectivity options.
 
 ```swift
-listenOn(listener: PeerConnectionEventListener, withKey key: String)
+listenOn(listener: PeerConnectionEventListener, performListenerInBackground background: Bool = false, withKey key: String)
         
 removeListenerForKey(key: String)
 

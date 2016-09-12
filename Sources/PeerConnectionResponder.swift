@@ -31,7 +31,7 @@ public enum PeerConnectionEvent {
     /**
      Event received from `Peer`.
      */
-    case ReceivedEvent(peer: Peer, event: [String:AnyObject])
+    case ReceivedEvent(peer: Peer, eventInfo: [String:AnyObject])
     /**
      Data stream received from `Peer`.
      */
@@ -104,7 +104,7 @@ internal class PeerConnectionResponder {
         peerEventObserver = observer
     }
     
-    internal func addListener(listener: PeerConnectionEventListener, performListenerInBackground background: Bool = false, forKey key: String) -> PeerConnectionResponder {
+    internal func addListener(listener: PeerConnectionEventListener, forKey key: String) -> PeerConnectionResponder {
         listeners[key] = listener
         peerEventObserver.addObserver(listener, key: key)
         return self
