@@ -21,7 +21,7 @@ public struct PeerConnectivityKeys {
 }
 
 /**
- Enum represeting available connection types. `.Automatic`, `.InviteOnly`, `.Custom`.
+ Enum represeting available connection types. `.automatic`, `.inviteOnly`, `.custom`.
  */
 public enum PeerConnectionType : Int {
     /**
@@ -43,36 +43,36 @@ public enum PeerConnectionType : Int {
  
  Initialize a PeerConnectionManager to enable mesh-networking over bluetooth and wifi when available. Configure the networking protocol of the session and then start to begin connecting to nearby peers.
  */
-open class PeerConnectionManager {
+public class PeerConnectionManager {
     
     // MARK: Static
     /**
      Access to shared connection managers by their service type.
      */
-    open fileprivate(set) static var shared : [ServiceType:PeerConnectionManager] = [:]
+    public fileprivate(set) static var shared : [ServiceType:PeerConnectionManager] = [:]
     
     // MARK: Properties
     /**
-     The connection type for the connection manager. (ex. .Automatic, .InviteOnly, .Custom)
+     The connection type for the connection manager. (ex. `.automatic`, `.inviteOnly`, `.custom`)
      */
-    open let connectionType : PeerConnectionType
+    public let connectionType : PeerConnectionType
     
     /**
      Access to the local peer representing the user.
      */
-    open let peer : Peer
+    public let peer : Peer
     
     /**
      Returns the peers that are connected on the current session.
      */
-    open var connectedPeers : [Peer] {
+    public var connectedPeers : [Peer] {
         return session.connectedPeers
     }
     
     /**
      Nearby peers available for connecting.
      */
-    open fileprivate(set) var foundPeers: [Peer] = []
+    public fileprivate(set) var foundPeers: [Peer] = []
     
     
     // Private
@@ -301,7 +301,7 @@ extension PeerConnectionManager {
      Use to invite peers that have been found locally to join a MultipeerConnectivity session.
      
      - parameter peer: `Peer` object to invite to current session.
-     - parameter withContext: `NSData` object associated with the invitation.
+     - parameter withContext: `Data` object associated with the invitation.
      - parameter timeout: Time interval until the invitation expires.
      */
     public func invitePeer(_ peer: Peer, withContext context: Data? = nil, timeout: TimeInterval = 30) {
@@ -336,6 +336,8 @@ extension PeerConnectionManager {
      - parameter toPeer: The peer with which to start a data stream
      
      - Throws: Propagates errors thrown by Apple's MultipeerConnectivity framework.
+     
+     - Returns: The OutputStream for sending information to the specified `Peer` object.
      */
     public func sendDataStream(streamName name: String, toPeer peer: Peer) throws -> OutputStream {
         do { return try session.sendDataStream(name, toPeer: peer) }
@@ -350,9 +352,9 @@ extension PeerConnectionManager {
      - parameter toPeers: The specified peers for the resource to be sent to.
      - parameter withCompletionHandler: the completion handler called when an error is thrown sending a resource.
      
-     - Returns: A dictionary of optional NSProgress associated with each peer that the resource was sent to.
+     - Returns: A dictionary of optional Progress associated with each peer that the resource was sent to.
      */
-    public func sendResourceAtURL(_ resourceURL: URL, withName name: String, toPeers peers: [Peer] = [], withCompletionHandler completion: ((NSError?) -> Void)? ) -> [Peer:Progress?] {
+    public func sendResourceAtURL(_ resourceURL: URL, withName name: String, toPeers peers: [Peer] = [], withCompletionHandler completion: ((Error?) -> Void)? ) -> [Peer:Progress?] {
         
         var progress : [Peer:Progress?] = [:]
         let peers = (peers.isEmpty) ? self.connectedPeers : peers

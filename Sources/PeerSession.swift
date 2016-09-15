@@ -60,18 +60,18 @@ internal struct PeerSession {
     internal func sendResourceAtURL(_ resourceURL: URL,
         withName name: String,
         toPeer peer: Peer,
-        withCompletionHandler completion: ((NSError?)->Void)?) -> Progress? {
+        withCompletionHandler completion: ((Error?)->Void)?) -> Progress? {
         
         return session.sendResource(at: resourceURL,
             withName: name,
             toPeer: peer.peerID,
-            withCompletionHandler: completion as! ((Error?) -> Void)?)
+            withCompletionHandler: completion)
     }
     
     // TODO: - Alternative methods of finding peers not yet supported.
     
-    internal func nearbyConnectionDataForPeer(_ peer: Peer, withCompletionHandler completion: @escaping (Data, NSError?)->Void) {
-        session.nearbyConnectionData(forPeer: peer.peerID, withCompletionHandler: completion as! (Data, Error?) -> Void)
+    internal func nearbyConnectionDataForPeer(_ peer: Peer, withCompletionHandler completion: @escaping (Data, Error?)->Void) {
+        session.nearbyConnectionData(forPeer: peer.peerID, withCompletionHandler: completion)
     }
     
     internal func connectPeer(_ peer: Peer, withNearbyConnectionData data: Data) {

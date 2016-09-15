@@ -1,5 +1,5 @@
 //
-//  PeerConnectionListener.swift
+//  PeerConnectionResponder.swift
 //  PeerConnectivity
 //
 //  Created by Reid Chatham on 12/25/15.
