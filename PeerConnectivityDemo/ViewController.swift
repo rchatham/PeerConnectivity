@@ -18,15 +18,27 @@ class ViewController: UIViewController {
             switch event {
             case .devicesChanged(let peer, let connectedPeers):
                 
-                self?.userStatusLabel?.text = connectedPeers.map { $0.displayName }.reduce("Connected to:\n") { $0 + "\n" + $1 }
+                _ = connectedPeers.map { print($0.displayName) }
                 
-                self?.userStatusLabel?.sizeToFit()
+                defer {
+                    if let origin = self?.userStatusLabel?.frame.origin,
+                        let size = self?.userStatusLabel?.intrinsicContentSize {
+                        self?.userStatusLabel?.frame = CGRect(origin: origin, size: size)
+                    }
+                }
                 
-                guard let origin = self?.userStatusLabel?.frame.origin,
-                    let size = self?.userStatusLabel?.frame.size
-                    else { return }
+                guard !connectedPeers.isEmpty else {
+                    self?.userStatusLabel?.text = "Not Connected!"
+                    return
+                }
                 
-                self?.userStatusLabel?.frame = CGRect(origin: origin, size: size)
+                switch peer.status {
+                case .connected:
+                    
+                    self?.userStatusLabel?.text = connectedPeers.map { $0.displayName }.reduce("Connected to:") { $0 + "\n" + $1 }
+                    
+                default: break
+                }
                 
             default: break
             }
@@ -53,7 +65,8 @@ class ViewController: UIViewController {
         view.addSubview(connectionButton)
         
         userStatusLabel = UILabel()
-        userStatusLabel.text = "Not Connected"
+        userStatusLabel.numberOfLines = 0
+        userStatusLabel.text = "Not Connected!"
         userStatusLabel.sizeToFit()
         userStatusLabel.center = view.center
         let frame = userStatusLabel.frame
@@ -82,6 +95,7 @@ class ViewController: UIViewController {
             connectionButton.setTitle("Start networking!", for: .normal)
             connectionButton.setTitleColor(.blue, for: .normal)
             
+            userStatusLabel.text = "Not Connected!"
         }
     }
 }
