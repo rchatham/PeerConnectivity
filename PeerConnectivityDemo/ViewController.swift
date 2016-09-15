@@ -20,6 +20,14 @@ class ViewController: UIViewController {
                 
                 self?.userStatusLabel?.text = connectedPeers.map { $0.displayName }.reduce("Connected to:\n") { $0 + "\n" + $1 }
                 
+                self?.userStatusLabel?.sizeToFit()
+                
+                guard let origin = self?.userStatusLabel?.frame.origin,
+                    let size = self?.userStatusLabel?.frame.size
+                    else { return }
+                
+                self?.userStatusLabel?.frame = CGRect(origin: origin, size: size)
+                
             default: break
             }
             
