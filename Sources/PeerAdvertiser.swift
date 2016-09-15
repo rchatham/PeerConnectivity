@@ -11,9 +11,9 @@ import MultipeerConnectivity
 
 internal struct PeerAdvertiser {
     
-    private let session : PeerSession
-    private let advertiser : MCNearbyServiceAdvertiser
-    private let eventProducer : PeerAdvertiserEventProducer
+    fileprivate let session : PeerSession
+    fileprivate let advertiser : MCNearbyServiceAdvertiser
+    fileprivate let eventProducer : PeerAdvertiserEventProducer
     
     internal init(session: PeerSession, serviceType: ServiceType, eventProducer: PeerAdvertiserEventProducer) {
         self.session = session

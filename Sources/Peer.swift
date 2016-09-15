@@ -21,19 +21,19 @@ public struct Peer {
         /**
          Represents the current user.
          */
-        case CurrentUser
+        case currentUser
         /**
          Represents a connected user.
          */
-        case Connected
+        case connected
         /**
          Represents a connecting user.
          */
-        case Connecting
+        case connecting
         /**
          Represents a user not connected to the current session. Either someone that is available to be invited to the current session or someone that has lost connection to the current session.
          */
-        case NotConnected
+        case notConnected
     }
     
     /**
@@ -62,7 +62,7 @@ public struct Peer {
      */
     internal init(displayName: String) {
         peerID = MCPeerID(displayName: displayName)
-        status = .CurrentUser
+        status = .currentUser
     }
 }
 

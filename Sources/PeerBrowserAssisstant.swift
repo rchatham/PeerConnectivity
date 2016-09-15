@@ -11,9 +11,9 @@ import MultipeerConnectivity
 
 internal struct PeerBrowserAssisstant {
     
-    private let session : PeerSession
-    private let serviceType : ServiceType
-    private let eventProducer: PeerBrowserViewControllerEventProducer
+    fileprivate let session : PeerSession
+    fileprivate let serviceType : ServiceType
+    fileprivate let eventProducer: PeerBrowserViewControllerEventProducer
     
     internal init(session: PeerSession, serviceType: ServiceType, eventProducer: PeerBrowserViewControllerEventProducer) {
         self.session = session

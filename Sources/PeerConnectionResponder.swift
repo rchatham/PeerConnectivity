@@ -15,102 +15,102 @@ public enum PeerConnectionEvent {
     /** 
      Event sent when the `PeerConnectionManager` is ready to start.
      */
-    case Ready
+    case ready
     /**
      Signals the `PeerConnectionManager` was started succesfully.
      */
-    case Started
+    case started
     /**
      Devices changed event which returns the `Peer` that changed along with the connected `Peer`s. Check the passed `Peer`'s `Status` to see what changed.
      */
-    case DevicesChanged(peer: Peer, connectedPeers: [Peer])
+    case devicesChanged(peer: Peer, connectedPeers: [Peer])
     /**
      Data received from `Peer`.
      */
-    case ReceivedData(peer: Peer, data: NSData)
+    case receivedData(peer: Peer, data: Data)
     /**
      Event received from `Peer`.
      */
-    case ReceivedEvent(peer: Peer, eventInfo: [String:AnyObject])
+    case receivedEvent(peer: Peer, eventInfo: [String:AnyObject])
     /**
      Data stream received from `Peer`.
      */
-    case ReceivedStream(peer: Peer, stream: NSStream, name: String)
+    case receivedStream(peer: Peer, stream: Stream, name: String)
     /**
      Started receiving a resource from `Peer` with name and `NSProgress`.
      */
-    case StartedReceivingResource(peer: Peer, name: String, progress: NSProgress)
+    case startedReceivingResource(peer: Peer, name: String, progress: Progress)
     /**
      Finished receiving resource from `Peer` with name at url with optional error.
      */
-    case FinishedReceivingResource(peer: Peer, name: String, url: NSURL, error: NSError?)
+    case finishedReceivingResource(peer: Peer, name: String, url: URL, error: Error?)
     /**
      Received security certificate from `Peer` with handler.
      */
-    case ReceivedCertificate(peer: Peer, certificate: [AnyObject]?, handler: (Bool)->Void)
+    case receivedCertificate(peer: Peer, certificate: [Any]?, handler: (Bool)->Void)
     /**
      Received a `PeerConnectionError`.
      */
-    case Error(PeerConnectionError)
+    case error(PeerConnectionError)
     /**
      `PeerConnectionManager` was succesfully stopped.
      */
-    case Ended
+    case ended
     /**
      Found nearby `Peer`.
      */
-    case FoundPeer(peer: Peer)
+    case foundPeer(peer: Peer)
     /**
      Lost nearby `Peer`.
      */
-    case LostPeer(peer: Peer)
+    case lostPeer(peer: Peer)
     /**
      Received invitation from `Peer` with optional context data and invitation handler.
      */
-    case ReceivedInvitation(peer: Peer, withContext: NSData?, invitationHandler: (Bool)->Void)
+    case receivedInvitation(peer: Peer, withContext: Data?, invitationHandler: (Bool)->Void)
 }
 
 /**
  Error reporting for PeerConnectivity.
  */
-public enum PeerConnectionError : ErrorType {
+public enum PeerConnectionError : Error {
     /**
      Non-specific error passed down from Apple's MultipeerConnectivity framework.
      */
-    case Error(NSError)
+    case error(NSError)
     /**
      The connection manager failed to begin advertising the local user.
      */
-    case DidNotStartAdvertisingPeer(NSError)
+    case didNotStartAdvertisingPeer(NSError)
     /**
      The connection manager failed to start browsing for nearby users.
      */
-    case DidNotStartBrowsingForPeers(NSError)
+    case didNotStartBrowsingForPeers(NSError)
 }
 
 /**
  Listener for responding to `PeerConnectionEvent`s.
  */
-public typealias PeerConnectionEventListener = PeerConnectionEvent->Void
+public typealias PeerConnectionEventListener = (PeerConnectionEvent)->Void
 
 // TODO: Should this be a class or a struct?
 internal class PeerConnectionResponder {
     
-    private let peerEventObserver : MultiObservable<PeerConnectionEvent>
+    fileprivate let peerEventObserver : MultiObservable<PeerConnectionEvent>
     
-    internal private(set) var listeners : [String:PeerConnectionEventListener] = [:]
+    internal fileprivate(set) var listeners : [String:PeerConnectionEventListener] = [:]
     
     internal init(observer: MultiObservable<PeerConnectionEvent>) {
         peerEventObserver = observer
     }
     
-    internal func addListener(listener: PeerConnectionEventListener, forKey key: String) -> PeerConnectionResponder {
+    @discardableResult internal func addListener(_ listener: @escaping PeerConnectionEventListener, forKey key: String) -> PeerConnectionResponder {
         listeners[key] = listener
         peerEventObserver.addObserver(listener, key: key)
         return self
     }
     
-    internal func addListeners(listeners: [String:PeerConnectionEventListener]) -> PeerConnectionResponder {
+    @discardableResult internal func addListeners(_ listeners: [String:PeerConnectionEventListener]) -> PeerConnectionResponder {
         listeners.forEach { addListener($0.1, forKey: $0.0) }
         return self
     }
@@ -120,8 +120,8 @@ internal class PeerConnectionResponder {
         peerEventObserver.observers = [:]
     }
     
-    internal func removeListenerForKey(key: String) {
-        listeners.removeValueForKey(key)
-        peerEventObserver.observers.removeValueForKey(key)
+    internal func removeListenerForKey(_ key: String) {
+        listeners.removeValue(forKey: key)
+        peerEventObserver.observers.removeValue(forKey: key)
     }
 }

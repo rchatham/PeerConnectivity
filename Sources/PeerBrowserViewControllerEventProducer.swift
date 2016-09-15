@@ -18,18 +18,18 @@ import MultipeerConnectivity
  */
 public enum PeerBrowserViewControllerEvent {
     /// No event was passed.
-    case None
+    case none
     /// The user did finish picking peers in the browser view controller.
-    case DidFinish
+    case didFinish
     /// The user did cancel their interaction with the browser view controller.
-    case WasCancelled
+    case wasCancelled
     
 //    case ShouldPresentNearbyPeer
 }
 
 internal class PeerBrowserViewControllerEventProducer: NSObject {
     
-    private let observer: Observable<PeerBrowserViewControllerEvent>
+    fileprivate let observer: Observable<PeerBrowserViewControllerEvent>
 
     internal init(observer: Observable<PeerBrowserViewControllerEvent>) {
         self.observer = observer
@@ -42,19 +42,19 @@ extension PeerBrowserViewControllerEventProducer: MCBrowserViewControllerDelegat
 //        return true
 //    }
     
-    internal func browserViewControllerDidFinish(browserViewController: MCBrowserViewController) {
+    internal func browserViewControllerDidFinish(_ browserViewController: MCBrowserViewController) {
         
-        let event : PeerBrowserViewControllerEvent = .DidFinish
+        let event : PeerBrowserViewControllerEvent = .didFinish
         self.observer.value = event
         
-        browserViewController.dismissViewControllerAnimated(true, completion: nil)
+        browserViewController.dismiss(animated: true, completion: nil)
     }
     
-    internal func browserViewControllerWasCancelled(browserViewController: MCBrowserViewController) {
+    internal func browserViewControllerWasCancelled(_ browserViewController: MCBrowserViewController) {
         
-        let event : PeerBrowserViewControllerEvent = .WasCancelled
+        let event : PeerBrowserViewControllerEvent = .wasCancelled
         self.observer.value = event
         
-        browserViewController.dismissViewControllerAnimated(true, completion: nil)
+        browserViewController.dismiss(animated: true, completion: nil)
     }
 }

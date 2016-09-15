@@ -11,9 +11,9 @@ import MultipeerConnectivity
 
 internal struct PeerBrowser {
     
-    private let session : PeerSession
-    private let browser : MCNearbyServiceBrowser
-    private let eventProducer : PeerBrowserEventProducer
+    fileprivate let session : PeerSession
+    fileprivate let browser : MCNearbyServiceBrowser
+    fileprivate let eventProducer : PeerBrowserEventProducer
     
     internal init(session: PeerSession, serviceType: ServiceType, eventProducer: PeerBrowserEventProducer) {
         self.session = session
@@ -22,8 +22,8 @@ internal struct PeerBrowser {
         browser.delegate = eventProducer
     }
     
-    internal func invitePeer(peer: Peer, withContext context: NSData? = nil, timeout: NSTimeInterval = 30) {
-        browser.invitePeer(peer.peerID, toSession: session.session, withContext: context, timeout: timeout)
+    internal func invitePeer(_ peer: Peer, withContext context: Data? = nil, timeout: TimeInterval = 30) {
+        browser.invitePeer(peer.peerID, to: session.session, withContext: context, timeout: timeout)
     }
     
     internal func startBrowsing() {

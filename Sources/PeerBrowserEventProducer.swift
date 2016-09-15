@@ -10,15 +10,15 @@ import Foundation
 import MultipeerConnectivity
 
 internal enum PeerBrowserEvent {
-    case None
-    case DidNotStartBrowsingForPeers
-    case FoundPeer(Peer)
-    case LostPeer(Peer)
+    case none
+    case didNotStartBrowsingForPeers
+    case foundPeer(Peer)
+    case lostPeer(Peer)
 }
 
 internal class PeerBrowserEventProducer: NSObject {
     
-    private let observer : Observable<PeerBrowserEvent>
+    fileprivate let observer : Observable<PeerBrowserEvent>
     
     internal init(observer: Observable<PeerBrowserEvent>) {
         self.observer = observer
@@ -27,26 +27,26 @@ internal class PeerBrowserEventProducer: NSObject {
 
 extension PeerBrowserEventProducer: MCNearbyServiceBrowserDelegate {
 
-    internal func browser(browser: MCNearbyServiceBrowser, didNotStartBrowsingForPeers error: NSError) {
+    internal func browser(_ browser: MCNearbyServiceBrowser, didNotStartBrowsingForPeers error: Error) {
         NSLog("%@", "didNotStartBrowsingForPeers: \(error)")
         
-        let event : PeerBrowserEvent = .DidNotStartBrowsingForPeers
+        let event : PeerBrowserEvent = .didNotStartBrowsingForPeers
         self.observer.value = event
     }
     
-    internal func browser(browser: MCNearbyServiceBrowser, foundPeer peerID: MCPeerID, withDiscoveryInfo info: [String : String]?) {
+    internal func browser(_ browser: MCNearbyServiceBrowser, foundPeer peerID: MCPeerID, withDiscoveryInfo info: [String : String]?) {
         NSLog("%@", "foundPeer: \(peerID)")
         
-        let peer = Peer(peerID: peerID, status: .NotConnected)
-        let event : PeerBrowserEvent = .FoundPeer(peer)
+        let peer = Peer(peerID: peerID, status: .notConnected)
+        let event : PeerBrowserEvent = .foundPeer(peer)
         self.observer.value = event
     }
     
-    internal func browser(browser: MCNearbyServiceBrowser, lostPeer peerID: MCPeerID) {
+    internal func browser(_ browser: MCNearbyServiceBrowser, lostPeer peerID: MCPeerID) {
         NSLog("%@", "lostPeer: \(peerID)")
         
-        let peer = Peer(peerID: peerID, status: .NotConnected)
-        let event : PeerBrowserEvent = .LostPeer(peer)
+        let peer = Peer(peerID: peerID, status: .notConnected)
+        let event : PeerBrowserEvent = .lostPeer(peer)
         self.observer.value = event
     }
 

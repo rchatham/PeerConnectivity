@@ -5,6 +5,9 @@
       location = "group:PeerPlayground.playground">
    </FileRef>
    <FileRef
+      location = "group:PeerConnectivityDemo.xcodeproj">
+   </FileRef>
+   <FileRef
       location = "container:PeerConnectivity.xcodeproj">
    </FileRef>
 </Workspace>

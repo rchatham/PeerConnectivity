@@ -11,10 +11,10 @@
 import Foundation
 
 internal class Observable<T> {
-    internal typealias Observer = T -> Void
+    internal typealias Observer = (T) -> Void
     internal var observers: [Observer] = []
   
-    internal func addObserver(observer: Observer) {
+    internal func addObserver(_ observer: @escaping Observer) {
         observer(value)
         self.observers.append(observer)
     }

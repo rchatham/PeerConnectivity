@@ -13,16 +13,16 @@ internal struct PeerSession {
     
     internal let peer : Peer
     internal let session : MCSession
-    private let eventProducer: PeerSessionEventProducer
+    fileprivate let eventProducer: PeerSessionEventProducer
     
     internal var connectedPeers : [Peer] {
-        return session.connectedPeers.map { Peer(peerID: $0, status: .Connected) }
+        return session.connectedPeers.map { Peer(peerID: $0, status: .connected) }
     }
     
     internal init(peer: Peer, eventProducer: PeerSessionEventProducer) {
         self.peer = peer
         self.eventProducer = eventProducer
-        session = MCSession(peer: peer.peerID, securityIdentity: nil, encryptionPreference: .Optional)
+        session = MCSession(peer: peer.peerID, securityIdentity: nil, encryptionPreference: .optional)
         session.delegate = eventProducer
     }
     
@@ -35,21 +35,21 @@ internal struct PeerSession {
         session.delegate = nil
     }
     
-    internal func sendData(data: NSData, toPeers peers: [Peer] = []) {
+    internal func sendData(_ data: Data, toPeers peers: [Peer] = []) {
         do {
-            try session.sendData(data,
+            try session.send(data,
                 toPeers: peers.isEmpty
                     ? session.connectedPeers
                     : peers.map { $0.peerID },
-                withMode: MCSessionSendDataMode.Reliable)
+                with: MCSessionSendDataMode.reliable)
         } catch let error {
             NSLog("%@", "Error sending data: \(error)")
         }
     }
     
-    internal func sendDataStream(streamName: String, toPeer peer: Peer) throws -> NSOutputStream {
+    internal func sendDataStream(_ streamName: String, toPeer peer: Peer) throws -> OutputStream {
         do {
-            let stream = try session.startStreamWithName(streamName, toPeer: peer.peerID)
+            let stream = try session.startStream(withName: streamName, toPeer: peer.peerID)
             return stream
         } catch let error {
             NSLog("%@", "Error starting stream to \(peer.displayName): \(error)")
@@ -57,28 +57,28 @@ internal struct PeerSession {
         }
     }
     
-    internal func sendResourceAtURL(resourceURL: NSURL,
+    internal func sendResourceAtURL(_ resourceURL: URL,
         withName name: String,
         toPeer peer: Peer,
-        withCompletionHandler completion: ((NSError?)->Void)?) -> NSProgress? {
+        withCompletionHandler completion: ((NSError?)->Void)?) -> Progress? {
         
-        return session.sendResourceAtURL(resourceURL,
+        return session.sendResource(at: resourceURL,
             withName: name,
             toPeer: peer.peerID,
-            withCompletionHandler: completion)
+            withCompletionHandler: completion as! ((Error?) -> Void)?)
     }
     
     // TODO: - Alternative methods of finding peers not yet supported.
     
-    internal func nearbyConnectionDataForPeer(peer: Peer, withCompletionHandler completion: (NSData, NSError?)->Void) {
-        session.nearbyConnectionDataForPeer(peer.peerID, withCompletionHandler: completion)
+    internal func nearbyConnectionDataForPeer(_ peer: Peer, withCompletionHandler completion: @escaping (Data, NSError?)->Void) {
+        session.nearbyConnectionData(forPeer: peer.peerID, withCompletionHandler: completion as! (Data, Error?) -> Void)
     }
     
-    internal func connectPeer(peer: Peer, withNearbyConnectionData data: NSData) {
+    internal func connectPeer(_ peer: Peer, withNearbyConnectionData data: Data) {
         session.connectPeer(peer.peerID, withNearbyConnectionData: data)
     }
     
-    internal func cancelConnectPeer(peer: Peer) {
+    internal func cancelConnectPeer(_ peer: Peer) {
         session.cancelConnectPeer(peer.peerID)
     }
     

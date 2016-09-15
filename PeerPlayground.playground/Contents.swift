@@ -38,7 +38,7 @@ pcm.stop()
 // The manager can be initialized with a contructed peer representing the local user
 // with a custom displayName
 
-pcm = PeerConnectionManager(serviceType: "local", connectionType: .Custom, displayName: "I_AM_KING")
+pcm = PeerConnectionManager(serviceType: "local", connectionType: .custom, displayName: "I_AM_KING")
 
 // Start again at any time
 pcm.start() {
@@ -52,11 +52,11 @@ pcm.start() {
 pcm.listenOn({ (event: PeerConnectionEvent) in
     
     switch event {
-    case .FoundPeer(let peer):
+    case .foundPeer(let peer):
         print("Found peer \(peer.displayName)")
     
         // This is already handled if you initialize the PeerConnectionManager
-        // with PeerConnectionType.Automatic.
+        // with PeerConnectionType.automatic.
     
         // Invite peer to your session easily
         pcm.invitePeer(peer)
@@ -65,13 +65,13 @@ pcm.listenOn({ (event: PeerConnectionEvent) in
         let someInfoAboutSession = [
             "ThisSession" : "IsCool"
         ]
-        let sessionContextData = NSKeyedArchiver.archivedDataWithRootObject(someInfoAboutSession)
+        let sessionContextData = NSKeyedArchiver.archivedData(withRootObject: someInfoAboutSession)
         pcm.invitePeer(peer, withContext: sessionContextData, timeout: 10)
         
-    case .LostPeer(let peer):
+    case .lostPeer(let peer):
         print("Lost peer \(peer.displayName)")
         
-    case .ReceivedInvitation(let peer, let context, let invitationHandler):
+    case .receivedInvitation(let peer, let context, let invitationHandler):
         print("\(peer.displayName) invited you to join their session")
         
         var shouldJoin = false
@@ -81,8 +81,8 @@ pcm.listenOn({ (event: PeerConnectionEvent) in
         }
         
         guard let context = context,
-            invitationContext = NSKeyedUnarchiver.unarchiveObjectWithData(context) as? [String:String],
-            isItCool = invitationContext["ThisSession"]
+            let invitationContext = NSKeyedUnarchiver.unarchiveObject(with: context) as? [String:String],
+            let isItCool = invitationContext["ThisSession"]
             else { return }
         
         shouldJoin = (isItCool == "IsCool")
@@ -124,7 +124,7 @@ let connectedPeers: [Peer] = pcm.connectedPeers
 if let somePeerThatIAmConnectedTo = connectedPeers.first {
     
     switch somePeerThatIAmConnectedTo.status {
-    case .CurrentUser:
+    case .currentUser:
         print("Was created by current user")
     default:
         print("Something else happened")
@@ -141,7 +141,7 @@ if let somePeerThatIAmConnectedTo = connectedPeers.first {
     }
     
     
-    let progress: [Peer:NSProgress?] = pcm.sendResourceAtURL(NSURL(string: "someurl")!, withName: "resource-name", toPeers: [somePeerThatIAmConnectedTo]) { (error: NSError?) in
+    let progress: [Peer:Progress?] = pcm.sendResourceAtURL(NSURL(string: "someurl")! as URL, withName: "resource-name", toPeers: [somePeerThatIAmConnectedTo]) { (error: NSError?) in
         // Handle potential error
         print("Error: \(error)")
     }
@@ -157,13 +157,13 @@ if let somePeerThatIAmConnectedTo = connectedPeers.first {
 let eventListener: PeerConnectionEventListener = { event in
     
     switch event {
-    case .ReceivedEvent(let peer, let eventInfo):
+    case .receivedEvent(let peer, let eventInfo):
         print("Received some event \(eventInfo) from \(peer.displayName)")
         guard let date = eventInfo["EventKey"] as? NSDate else { return }
         print(date)
         
-    case .ReceivedData(let peer, let data):
-        let eventInfo = NSKeyedUnarchiver.unarchiveObjectWithData(data) as? [String:AnyObject]
+    case .receivedData(let peer, let data):
+        let eventInfo = NSKeyedUnarchiver.unarchiveObject(with: data) as? [String:AnyObject]
         print("Received some event \(eventInfo) from \(peer.displayName)")
         guard let date = eventInfo?["EventKey"] as? NSDate else { return }
         print(date)
@@ -182,15 +182,15 @@ pcm.listenOn(eventListener, withKey: "SomeEvent")
 pcm.listenOn({ (event) in
     
     switch event {
-    case .DevicesChanged(let peer, let connectedPeers):
+    case .devicesChanged(let peer, let connectedPeers):
         
         // Get informed about changes in the peers connected to the current session
         switch peer.status {
-        case .Connected :
+        case .connected :
             print("\(peer.displayName) connected to session")
-        case .Connecting :
+        case .connecting :
             print("\(peer.displayName) is attempting to connect")
-        case .NotConnected :
+        case .notConnected :
             print("\(peer.displayName) disconnected or was unable to connect")
         default : break
         }
@@ -203,7 +203,7 @@ pcm.listenOn({ (event) in
 pcm.listenOn({ event in
     
     switch event {
-    case .ReceivedStream(let peer, let stream, let name):
+    case .receivedStream(let peer, let stream, let name):
         print("Recieved stream with name: \(name) from peer: \(peer.displayName)")
         // Do something with input stream
         
@@ -216,11 +216,11 @@ pcm.listenOn({ event in
 pcm.listenOn({ event in
     
     switch event {
-    case .StartedReceivingResource(let peer, let name, let progress):
+    case .startedReceivingResource(let peer, let name, let progress):
         // Started receivng resource from peer
         print("Receiving resource with name: \(name) from peer: \(peer.displayName) with progress: \(progress)")
         
-    case .FinishedReceivingResource(let peer, let name, let url, let error):
+    case .finishedReceivingResource(let peer, let name, let url, let error):
         // Finished receiving resource from peer
         print("Finished receiving resource with name: \(name) from peer: \(peer.displayName) at url: \(url.path) with error: \(error)")
         

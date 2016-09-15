@@ -9,16 +9,16 @@
 import Foundation
 
 internal class MultiObservable<T> {
-    internal typealias Observer = T -> Void
+    internal typealias Observer = (T) -> Void
     internal var observers: [String:Observer] = [:]
     
-    internal func addObserver(observer: Observer, key: String) {
+    internal func addObserver(_ observer: @escaping Observer, key: String) {
         observer(value)
         self.observers[key] = observer
     }
     
-    internal func removeObserverForkey(key: String) {
-        self.observers.removeValueForKey(key)
+    internal func removeObserverForkey(_ key: String) {
+        self.observers.removeValue(forKey: key)
     }
     
     internal var value: T {
