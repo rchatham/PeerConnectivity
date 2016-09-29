@@ -12,9 +12,9 @@ import MultipeerConnectivity
 /** 
  Event callbacks associated with user interaction with the browser view controller.
  
- - None: No event was passed.
- - DidFinish: The user did finish picking peers in the browser view controller.
- - WasCancelled: The user did cancel their interaction with the browser view controller.
+ - none: No event was passed.
+ - didFinish: The user did finish picking peers in the browser view controller.
+ - wasCancelled: The user did cancel their interaction with the browser view controller.
  */
 public enum PeerBrowserViewControllerEvent {
     /// No event was passed.
@@ -24,7 +24,7 @@ public enum PeerBrowserViewControllerEvent {
     /// The user did cancel their interaction with the browser view controller.
     case wasCancelled
     
-//    case ShouldPresentNearbyPeer
+//    case shouldPresentNearbyPeer
 }
 
 internal class PeerBrowserViewControllerEventProducer: NSObject {

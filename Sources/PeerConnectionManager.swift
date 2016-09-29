@@ -137,7 +137,7 @@ public class PeerConnectionManager {
         responder.addListener({ (event) in
             switch event {
             case .receivedCertificate(peer: _, certificate: _, handler: let handler):
-                print("PeerConnectionManager: listenOn: certificateReceived")
+                //print("PeerConnectionManager: listenOn: certificateReceived")
                 handler(true)
             default: break
             }
@@ -241,7 +241,6 @@ extension PeerConnectionManager {
                 case .devicesChanged(peer: let peer) where peerCount <= 0 :
                     switch peer.status {
                     case .notConnected:
-                        print("Lost Connection")
                         self?.refresh()
                     default: break
                     }
@@ -256,7 +255,6 @@ extension PeerConnectionManager {
                 DispatchQueue.main.async {
                     switch event {
                     case .foundPeer(let peer):
-                        print("Invite Peer: \(peer.displayName) to session")
                         self.browser.invitePeer(peer)
                     default: break
                     }
@@ -266,7 +264,6 @@ extension PeerConnectionManager {
                 DispatchQueue.main.async {
                     switch event {
                     case .didReceiveInvitationFromPeer(peer: _, withContext: _, invitationHandler: let handler):
-                        print("Responding to invitation")
                         handler(true, self.session)
                         self.advertiser.stopAdvertising()
                     default: break
@@ -323,9 +320,9 @@ extension PeerConnectionManager {
     }
     
     /**
-     Send events to connected users. Encoded as NSData using the NSKeyedArchiver. If no peer is specified it broadcasts to all users on a current session.
+     Send events to connected users. Encoded as Data using the NSKeyedArchiver. If no peer is specified it broadcasts to all users on a current session.
      
-     - parameter eventInfo: Dictionary of AnyObject data which is encoded with the NSKeyedArchiver and passed to the specified peers.
+     - parameter eventInfo: Dictionary of Any data which is encoded with the NSKeyedArchiver and passed to the specified peers.
      - parameter toPeers: Specified `Peer` objects to send event.
      */
     public func sendEvent(_ eventInfo: [String:Any], toPeers peers: [Peer] = []) {
@@ -349,7 +346,7 @@ extension PeerConnectionManager {
     }
     
     /**
-     Send a resource with a specified url for retrieval on a connected device. This method can send a resource to multiple peers and returns an NSProgress associated with each Peer. This method takes an error completion handler if the resource fails to send.
+     Send a resource with a specified url for retrieval on a connected device. This method can send a resource to multiple peers and returns an Progress associated with each Peer. This method takes an error completion handler if the resource fails to send.
      
      - parameter resourceURL: The url that the resource will be passed with for retrieval.
      - parameter withName: The name with which the progress is associated with.

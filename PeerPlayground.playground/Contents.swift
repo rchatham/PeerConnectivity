@@ -63,7 +63,7 @@ pcm.listenOn({ (event: PeerConnectionEvent) in
     
         // Invite peers with context data
         let someInfoAboutSession = [
-            "ThisSession" : "IsCool"
+            "thisSession" : "isCool"
         ]
         let sessionContextData = NSKeyedArchiver.archivedData(withRootObject: someInfoAboutSession)
         pcm.invitePeer(peer, withContext: sessionContextData, timeout: 10)
@@ -82,14 +82,14 @@ pcm.listenOn({ (event: PeerConnectionEvent) in
         
         guard let context = context,
             let invitationContext = NSKeyedUnarchiver.unarchiveObject(with: context) as? [String:String],
-            let isItCool = invitationContext["ThisSession"]
+            let isItCool = invitationContext["thisSession"]
             else { return }
         
-        shouldJoin = (isItCool == "IsCool")
+        shouldJoin = (isItCool == "isCool")
         
     default: break
     }
-}, withKey: "ConnectAutomaticallyIfItsCool")
+}, withKey: "connectAutomaticallyIfItsCool")
 
 // Refresh an active session. This will cause you to lose connection to your current session.
 // Use after changing information affecting how you want to connect to peers.
@@ -111,8 +111,8 @@ for peer in peersAvailableForInvite {
 // MARK: - Sending Events/Information
 
 // Create events as [String:AnyObject] Dictionaries
-let event: [String: AnyObject] = [
-    "EventKey" : NSDate()
+let event: [String: Any] = [
+    "eventKey" : Date()
 ]
 
 // Sends to all connected peers
@@ -141,7 +141,7 @@ if let somePeerThatIAmConnectedTo = connectedPeers.first {
     }
     
     
-    let progress: [Peer:Progress?] = pcm.sendResourceAtURL(NSURL(string: "someurl")! as URL, withName: "resource-name", toPeers: [somePeerThatIAmConnectedTo]) { (error: NSError?) in
+    let progress: [Peer:Progress?] = pcm.sendResourceAtURL(NSURL(string: "someurl")! as URL, withName: "resource-name", toPeers: [somePeerThatIAmConnectedTo]) { (error: Error?) in
         // Handle potential error
         print("Error: \(error)")
     }
@@ -159,13 +159,13 @@ let eventListener: PeerConnectionEventListener = { event in
     switch event {
     case .receivedEvent(let peer, let eventInfo):
         print("Received some event \(eventInfo) from \(peer.displayName)")
-        guard let date = eventInfo["EventKey"] as? NSDate else { return }
+        guard let date = eventInfo["eventKey"] as? Date else { return }
         print(date)
         
     case .receivedData(let peer, let data):
         let eventInfo = NSKeyedUnarchiver.unarchiveObject(with: data) as? [String:AnyObject]
         print("Received some event \(eventInfo) from \(peer.displayName)")
-        guard let date = eventInfo?["EventKey"] as? NSDate else { return }
+        guard let date = eventInfo?["eventKey"] as? Date else { return }
         print(date)
         
     default: break
@@ -173,11 +173,11 @@ let eventListener: PeerConnectionEventListener = { event in
 }
 
 // Set up listeners
-pcm.listenOn(eventListener, withKey: "SomeEvent")
+pcm.listenOn(eventListener, withKey: "someEvent")
 
 // Add and remove listeners at any time
-pcm.removeListenerForKey("SomeEvent")
-pcm.listenOn(eventListener, withKey: "SomeEvent")
+pcm.removeListenerForKey("someEvent")
+pcm.listenOn(eventListener, withKey: "someEvent")
 
 pcm.listenOn({ (event) in
     
@@ -197,7 +197,7 @@ pcm.listenOn({ (event) in
     default : break
     }
     
-}, withKey: "ConnectedDevicesChanged")
+}, withKey: "connectedDevicesChanged")
 
 // Listen to streams
 pcm.listenOn({ event in
@@ -210,7 +210,7 @@ pcm.listenOn({ event in
     default: break
     }
     
-}, withKey: "StreamListener")
+}, withKey: "streamListener")
 
 // Receiving resources
 pcm.listenOn({ event in
@@ -227,7 +227,7 @@ pcm.listenOn({ event in
     default: break
     }
     
-}, withKey: "ResourceListener")
+}, withKey: "resourceListener")
 
 
 

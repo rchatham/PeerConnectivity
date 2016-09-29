@@ -70,30 +70,11 @@ public enum PeerConnectionEvent {
     case receivedInvitation(peer: Peer, withContext: Data?, invitationHandler: (Bool)->Void)
 }
 
-///**
-// Error reporting for PeerConnectivity.
-// */
-//public enum PeerConnectionError : Error {
-//    /**
-//     Non-specific error passed down from Apple's MultipeerConnectivity framework.
-//     */
-//    case error(Error)
-//    /**
-//     The connection manager failed to begin advertising the local user.
-//     */
-//    case didNotStartAdvertisingPeer(Error)
-//    /**
-//     The connection manager failed to start browsing for nearby users.
-//     */
-//    case didNotStartBrowsingForPeers(Error)
-//}
-
 /**
  Listener for responding to `PeerConnectionEvent`s.
  */
 public typealias PeerConnectionEventListener = (PeerConnectionEvent)->Void
 
-// TODO: Should this be a class or a struct?
 internal class PeerConnectionResponder {
     
     fileprivate let peerEventObserver : MultiObservable<PeerConnectionEvent>
