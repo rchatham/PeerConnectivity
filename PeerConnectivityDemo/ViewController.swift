@@ -32,12 +32,8 @@ class ViewController: UIViewController {
                     return
                 }
                 
-                switch peer.status {
-                case .connected:
-                    
+                if peer.status == .connected, peer.status == .notConnected {
                     self?.userStatusLabel?.text = connectedPeers.map { $0.displayName }.reduce("Connected to:") { $0 + "\n" + $1 }
-                    
-                default: break
                 }
                 
             default: break

@@ -11,7 +11,7 @@ import MultipeerConnectivity
 
 internal enum PeerBrowserEvent {
     case none
-    case didNotStartBrowsingForPeers
+    case didNotStartBrowsingForPeers(Error)
     case foundPeer(Peer)
     case lostPeer(Peer)
 }
@@ -30,7 +30,7 @@ extension PeerBrowserEventProducer: MCNearbyServiceBrowserDelegate {
     internal func browser(_ browser: MCNearbyServiceBrowser, didNotStartBrowsingForPeers error: Error) {
         NSLog("%@", "didNotStartBrowsingForPeers: \(error)")
         
-        let event : PeerBrowserEvent = .didNotStartBrowsingForPeers
+        let event : PeerBrowserEvent = .didNotStartBrowsingForPeers(error)
         self.observer.value = event
     }
     

@@ -154,7 +154,7 @@ public class PeerConnectionManager {
     deinit {
         stop()
         removeAllListeners()
-        if let existing = PeerConnectionManager.shared[serviceType] , existing === self {
+        if let existing = PeerConnectionManager.shared[serviceType], existing === self {
             PeerConnectionManager.shared.removeValue(forKey: serviceType)
         }
     }
@@ -176,6 +176,8 @@ extension PeerConnectionManager {
                 self?.observer.value = .foundPeer(peer: peer)
             case .lostPeer(let peer):
                 self?.observer.value = .lostPeer(peer: peer)
+            case .didNotStartBrowsingForPeers(let error):
+                self?.observer.value = .error(error)
             default: break
             }
         }
@@ -189,6 +191,8 @@ extension PeerConnectionManager {
                     invite(accept, session)
                 }
                 self?.observer.value = .receivedInvitation(peer: peer, withContext: context, invitationHandler: invitationReceiver)
+            case .didNotStartAdvertisingPeer(let error):
+                self?.observer.value = .error(error)
             default: break
             }
         }
@@ -200,7 +204,7 @@ extension PeerConnectionManager {
                 self?.observer.value = .devicesChanged(peer: peer, connectedPeers: connectedPeers)
             case .didReceiveData(peer: let peer, data: let data):
                 self?.observer.value = .receivedData(peer: peer, data: data)
-                guard let eventInfo = NSKeyedUnarchiver.unarchiveObject(with: data) as? [String:AnyObject] else { return }
+                guard let eventInfo = NSKeyedUnarchiver.unarchiveObject(with: data) as? [String:Any] else { return }
                 self?.observer.value = .receivedEvent(peer: peer, eventInfo: eventInfo)
             case .didReceiveCertificate(peer: let peer, certificate: let certificate, handler: let handler):
                 self?.observer.value = .receivedCertificate(peer: peer, certificate: certificate, handler: handler)
@@ -324,7 +328,7 @@ extension PeerConnectionManager {
      - parameter eventInfo: Dictionary of AnyObject data which is encoded with the NSKeyedArchiver and passed to the specified peers.
      - parameter toPeers: Specified `Peer` objects to send event.
      */
-    public func sendEvent(_ eventInfo: [String:AnyObject], toPeers peers: [Peer] = []) {
+    public func sendEvent(_ eventInfo: [String:Any], toPeers peers: [Peer] = []) {
         let eventData = NSKeyedArchiver.archivedData(withRootObject: eventInfo)
         session.sendData(eventData, toPeers: peers)
     }

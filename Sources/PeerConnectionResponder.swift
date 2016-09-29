@@ -31,7 +31,7 @@ public enum PeerConnectionEvent {
     /**
      Event received from `Peer`.
      */
-    case receivedEvent(peer: Peer, eventInfo: [String:AnyObject])
+    case receivedEvent(peer: Peer, eventInfo: [String:Any])
     /**
      Data stream received from `Peer`.
      */
@@ -51,7 +51,7 @@ public enum PeerConnectionEvent {
     /**
      Received a `PeerConnectionError`.
      */
-    case error(PeerConnectionError)
+    case error(Error)
     /**
      `PeerConnectionManager` was succesfully stopped.
      */
@@ -70,23 +70,23 @@ public enum PeerConnectionEvent {
     case receivedInvitation(peer: Peer, withContext: Data?, invitationHandler: (Bool)->Void)
 }
 
-/**
- Error reporting for PeerConnectivity.
- */
-public enum PeerConnectionError : Error {
-    /**
-     Non-specific error passed down from Apple's MultipeerConnectivity framework.
-     */
-    case error(NSError)
-    /**
-     The connection manager failed to begin advertising the local user.
-     */
-    case didNotStartAdvertisingPeer(NSError)
-    /**
-     The connection manager failed to start browsing for nearby users.
-     */
-    case didNotStartBrowsingForPeers(NSError)
-}
+///**
+// Error reporting for PeerConnectivity.
+// */
+//public enum PeerConnectionError : Error {
+//    /**
+//     Non-specific error passed down from Apple's MultipeerConnectivity framework.
+//     */
+//    case error(Error)
+//    /**
+//     The connection manager failed to begin advertising the local user.
+//     */
+//    case didNotStartAdvertisingPeer(Error)
+//    /**
+//     The connection manager failed to start browsing for nearby users.
+//     */
+//    case didNotStartBrowsingForPeers(Error)
+//}
 
 /**
  Listener for responding to `PeerConnectionEvent`s.
