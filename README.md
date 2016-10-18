@@ -59,8 +59,8 @@ pcm.start() {
 ### Sending Events to Peers
 
 ```swift
-let event: [String: AnyObject] = [
-    "EventKey" : NSDate()
+let event: [String: Any] = [
+    "EventKey" : Date()
 ]
 
 // Sends to all connected peers
@@ -84,7 +84,7 @@ pcm.listenOn({ event in
     switch event {
     case .ReceivedEvent(let peer, let eventInfo):
         print("Received some event \(eventInfo) from \(peer.displayName)")
-        guard let date = eventInfo["EventKey"] as? NSDate else { return }
+        guard let date = eventInfo["EventKey"] as? Date else { return }
         print(date)
     default: break
     }
@@ -98,7 +98,7 @@ pcm.removeListenerForKey("SomeEvent")
 
 ```swift
 init(serviceType: ServiceType, 
-  connectionType: PeerConnectionType = .Automatic, 
+  connectionType: PeerConnectionType = .automatic, 
      displayName: String = UIDevice.currentDevice().name)
 ```
 
@@ -123,18 +123,18 @@ start(completion: (Void->Void)? = nil)
 
 browserViewController(callback: PeerBrowserViewControllerEvent->Void) -> UIViewController?
 
-invitePeer(peer: Peer, withContext context: NSData? = nil, timeout: NSTimeInterval = 30)
+invitePeer(peer: Peer, withContext context: Data? = nil, timeout: TimeInterval = 30)
 
-sendData(data: NSData, toPeers peers: [Peer] = [])
+sendData(data: Data, toPeers peers: [Peer] = [])
 
-sendEvent(eventInfo: [String:AnyObject], toPeers peers: [Peer] = [])
+sendEvent(eventInfo: [String:Any], toPeers peers: [Peer] = [])
 
-sendDataStream(streamName name: String, toPeer peer: Peer) throws -> NSOutputStream
+sendDataStream(streamName name: String, toPeer peer: Peer) throws -> OutputStream
 
-sendResourceAtURL(resourceURL: NSURL,
-                                withName name: String,
-                                toPeers peers: [Peer] = [],
-             withCompletionHandler completion: ((NSError?) -> Void)? ) -> [Peer:NSProgress?]
+sendResourceAtURL(resourceURL: URL,
+                        withName name: String,
+                        toPeers peers: [Peer] = [],
+     withCompletionHandler completion: ((Error?) -> Void)? ) -> [Peer:Progress?]
              
 refresh(completion: (Void->Void)? = nil)
 
