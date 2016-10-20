@@ -1,7 +1,12 @@
 PeerConnectivity
 ================
 
+[![Platform: iOS 8+](https://img.shields.io/badge/platform-iOS%208%2B-blue.svg?style=flat)]()
+[![Language: Swift 3](https://img.shields.io/badge/language-swift3-f48041.svg?style=flat)](https://developer.apple.com/swift)
 [![Carthage compatible](https://img.shields.io/badge/Carthage-compatible-4BC51D.svg?style=flat)](https://github.com/Carthage/Carthage)
+[![Cocoapods compatible](https://cocoapod-badges.herokuapp.com/v/PeerConnectivity/badge.png)](https://cocoapods.org/pods/PeerConnectivity)
+[![Docs](https://img.shields.io/cocoapods/metrics/doc-percent/PeerConnectivity.svg)](http://cocoadocs.org/docsets/PeerConnectivity)
+[![License: MIT](http://img.shields.io/badge/license-MIT-lightgrey.svg?style=flat)]()
 
 ####A functional wrapper for the MultipeerConnectivity framework. 
 
