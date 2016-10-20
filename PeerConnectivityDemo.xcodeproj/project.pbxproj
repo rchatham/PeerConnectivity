@@ -12,7 +12,6 @@
 		309837401D8A8D600002338A /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 3098373E1D8A8D600002338A /* Main.storyboard */; };
 		309837421D8A8D600002338A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 309837411D8A8D600002338A /* Assets.xcassets */; };
 		309837451D8A8D600002338A /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 309837431D8A8D600002338A /* LaunchScreen.storyboard */; };
-		309837631D8A8E6A0002338A /* PeerConnectivity.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 309837621D8A8E6A0002338A /* PeerConnectivity.framework */; };
 		309837641D8B4FAC0002338A /* PeerConnectivity.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 309837621D8A8E6A0002338A /* PeerConnectivity.framework */; };
 		309837651D8B4FAC0002338A /* PeerConnectivity.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = 309837621D8A8E6A0002338A /* PeerConnectivity.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
@@ -47,7 +46,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				309837631D8A8E6A0002338A /* PeerConnectivity.framework in Frameworks */,
 				309837641D8B4FAC0002338A /* PeerConnectivity.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -295,7 +293,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				DEVELOPMENT_TEAM = NT7FFBVKUP;
 				INFOPLIST_FILE = PeerConnectivityDemo/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 9.3;
+				IPHONEOS_DEPLOYMENT_TARGET = 8.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				PRODUCT_BUNDLE_IDENTIFIER = com.rchatham.PeerConnectivityDemo;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -309,7 +307,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				DEVELOPMENT_TEAM = NT7FFBVKUP;
 				INFOPLIST_FILE = PeerConnectivityDemo/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 9.3;
+				IPHONEOS_DEPLOYMENT_TARGET = 8.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				PRODUCT_BUNDLE_IDENTIFIER = com.rchatham.PeerConnectivityDemo;
 				PRODUCT_NAME = "$(TARGET_NAME)";

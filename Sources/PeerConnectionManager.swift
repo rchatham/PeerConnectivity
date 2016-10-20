@@ -109,7 +109,7 @@ public class PeerConnectionManager {
      - parameter connectionType: Takes a PeerConnectionType case determining the default behavior of the framework.
      - parameter displayName: The local user's display name to other peers.
      
-     - Returns A fully initialized `PeerConnectionManager`.
+     - Returns: A fully initialized `PeerConnectionManager`.
      */
     public init(serviceType: ServiceType,
                 connectionType: PeerConnectionType = .automatic,

@@ -40,6 +40,10 @@ pcm.stop()
 
 pcm = PeerConnectionManager(serviceType: "local", connectionType: .custom, displayName: "I_AM_KING")
 
+pcm.browserViewController { (event) in
+    
+}
+
 // Start again at any time
 pcm.start() {
     // Do something when finished starting the session
