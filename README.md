@@ -16,6 +16,8 @@ PeerConnectivity
 
 ##### Check out the Playground!
 
+#### Blog post [https://goo.gl/HJcMbE](https://goo.gl/HJcMbE)
+
 #### Read the [docs!](http://cocoadocs.org/docsets/PeerConnectivity)
 
 
