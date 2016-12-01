@@ -5,3 +5,5 @@
 * **0.5.0** Changed instances of AnyObject to Any
 
 * **0.5.1** Lowered iOS target to 8.0+
+
+* **0.5.2** Added shortcut method for listening to events
