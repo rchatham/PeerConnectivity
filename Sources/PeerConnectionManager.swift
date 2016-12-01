@@ -446,7 +446,7 @@ extension PeerConnectionManager {
      - parameter key: `String` key with which to keep track of the listener for later removal.
      - parameter listener: Callback that returns the event info and the `Peer` whenever an event is received.
      */
-    public func observeEventListenerFor(_ key: String, listener: @escaping ([String:Any], Peer)->Void) {
+    public func observeEventListenerForKey(_ key: String, listener: @escaping ([String:Any], Peer)->Void) {
         responder.addListener({ (event) in
             switch event {
             case .receivedEvent(let peer, let eventInfo):
