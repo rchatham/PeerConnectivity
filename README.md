@@ -26,10 +26,10 @@ PeerConnectivity
 
 ## Installation
 
-#### Cocoapods
+The easiest way to get started is to use [CocoaPods](http://cocoapods.org/). Just add the following line to your Podfile:
 
 ```ruby
-pod 'PeerConnectivity'
+pod 'PeerConnectivity', '~> 0.5.2'
 ```
 
 #### Carthage
@@ -92,7 +92,7 @@ if let somePeerThatIAmConnectedTo = connectedPeers.first {
 
 ```swift
 // Listen to an event
-pcm.observeEventListenerFor("someEvent") { (eventInfo, peer) in
+pcm.observeEventListenerForKey("someEvent") { (eventInfo, peer) in
     
     print("Received some event \(eventInfo) from \(peer.displayName)")
     guard let date = eventInfo["eventKey"] as? Date else { return }
