@@ -158,36 +158,43 @@ if let somePeerThatIAmConnectedTo = connectedPeers.first {
 // It is generally a good idea to configure your peer session before calling .start()
 
 // Create an event listener
+pcm.observeEventListenerFor("someEvent") { (eventInfo, peer) in
+    
+    print("Received some event \(eventInfo) from \(peer.displayName)")
+    guard let date = eventInfo["eventKey"] as? Date else { return }
+    print(date)
+    
+}
+// or...
 let eventListener: PeerConnectionEventListener = { event in
     
     switch event {
+        
+    case .ready: break
+    case .started: break
+    case .devicesChanged(let peer, let connectedPeers): break
+    case .receivedData(let peer, let data): break
     case .receivedEvent(let peer, let eventInfo):
+    
         print("Received some event \(eventInfo) from \(peer.displayName)")
         guard let date = eventInfo["eventKey"] as? Date else { return }
         print(date)
         
-    case .receivedData(let peer, let data):
-        let eventInfo = NSKeyedUnarchiver.unarchiveObject(with: data) as? [String:AnyObject]
-        print("Received some event \(eventInfo) from \(peer.displayName)")
-        guard let date = eventInfo?["eventKey"] as? Date else { return }
-        print(date)
-        
-    default: break
+    case .receivedStream(let peer, let stream, let name): break
+    case .startedReceivingResource(let peer, let name, let progress): break
+    case .finishedReceivingResource(let peer, let name, let url, let error): break
+    case .receivedCertificate(let peer, let certificate, let handler): break
+    case .error(let error): break
+    case .ended: break
+    case .foundPeer(let peer): break
+    case .lostPeer(let peer): break
+    case .receivedInvitation(let peer, let context, let invitationHandler): break
     }
 }
 
 // Set up listeners
 pcm.listenOn(eventListener, withKey: "someEvent")
 
-pcm.observeEventListenerFor("someEvent") { (eventInfo, peer) in
-    
-    print("Received some event \(eventInfo) from \(peer.displayName)")
-    
-    guard let date = eventInfo["eventKey"] as? Date else { return }
-    
-    print(date)
-    
-}
 
 // Add and remove listeners at any time
 pcm.removeListenerForKey("someEvent")
