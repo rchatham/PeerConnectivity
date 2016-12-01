@@ -1,8 +1,6 @@
 
-![Peers connecting](http://reidchatham.com/src/PeerConnectivity.png)
+![PeerConnectivity](http://reidchatham.com/src/PeerConnectivity.png)
 
-PeerConnectivity
-================
 
 [![Platform: iOS 8+](https://img.shields.io/badge/platform-iOS%208%2B-blue.svg?style=flat)]()
 [![Language: Swift 3](https://img.shields.io/badge/language-swift3-f48041.svg?style=flat)](https://developer.apple.com/swift)
