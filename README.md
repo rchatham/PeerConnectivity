@@ -1,5 +1,5 @@
 
-![Peers connecting](http://reidchatham.com/src/circle-peers.png)
+![Peers connecting](http://reidchatham.com/src/PeerConnectivity.png)
 
 PeerConnectivity
 ================
@@ -103,3 +103,7 @@ pcm.observeEventListenerForKey("someEvent") { (eventInfo, peer) in
 // Stop listening to an event
 pcm.removeListenerForKey("SomeEvent")
 ```
+
+## Acknowledgments
+
+Icon from the [Noun Project](https://thenounproject.com/search/?q=circle+people&i=125108).
