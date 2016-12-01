@@ -89,7 +89,7 @@ if let somePeerThatIAmConnectedTo = connectedPeers.first {
 
 ```swift
 // Listen to an event
-pcm.observeEventListenerFor("someEvent") { (eventInfo, peer) in
+pcm.observeEventListenerForKey("someEvent") { (eventInfo, peer) in
     
     print("Received some event \(eventInfo) from \(peer.displayName)")
     guard let date = eventInfo["eventKey"] as? Date else { return }
