@@ -89,15 +89,13 @@ if let somePeerThatIAmConnectedTo = connectedPeers.first {
 
 ```swift
 // Listen to an event
-pcm.listenOn({ event in
-    switch event {
-    case .ReceivedEvent(let peer, let eventInfo):
-        print("Received some event \(eventInfo) from \(peer.displayName)")
-        guard let date = eventInfo["EventKey"] as? Date else { return }
-        print(date)
-    default: break
-    }
-}, withKey: "SomeEvent")
+pcm.observeEventListenerFor("someEvent") { (eventInfo, peer) in
+    
+    print("Received some event \(eventInfo) from \(peer.displayName)")
+    guard let date = eventInfo["eventKey"] as? Date else { return }
+    print(date)
+    
+}
 
 // Stop listening to an event
 pcm.removeListenerForKey("SomeEvent")
