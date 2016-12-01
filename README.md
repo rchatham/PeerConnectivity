@@ -1,3 +1,6 @@
+
+![Peers connecting](http://reidchatham.com/src/circle-peers.png)
+
 PeerConnectivity
 ================
 
