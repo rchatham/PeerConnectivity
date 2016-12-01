@@ -229,7 +229,6 @@ extension PeerConnectionManager {
                     self?.foundPeers.remove(at: index)
                 default: break
                 }
-                print(self?.foundPeers)
             }
         }
         
@@ -439,6 +438,22 @@ extension PeerConnectionManager {
                 })
             }, forKey: key)
         }
+    }
+    
+    /**
+     Takes a key to register the callback and calls the listener when an event is recieved and also passes back the `Peer` that sent it.
+     
+     - parameter key: `String` key with which to keep track of the listener for later removal.
+     - parameter listener: Callback that returns the event info and the `Peer` whenever an event is received.
+     */
+    public func observeEventListenerFor(_ key: String, listener: @escaping ([String:Any], Peer)->Void) {
+        responder.addListener({ (event) in
+            switch event {
+            case .receivedEvent(let peer, let eventInfo):
+                listener(eventInfo, peer)
+            default: break
+            }
+        }, forKey: key)
     }
     
     /**

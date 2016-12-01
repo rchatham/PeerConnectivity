@@ -179,6 +179,16 @@ let eventListener: PeerConnectionEventListener = { event in
 // Set up listeners
 pcm.listenOn(eventListener, withKey: "someEvent")
 
+pcm.observeEventListenerFor("someEvent") { (eventInfo, peer) in
+    
+    print("Received some event \(eventInfo) from \(peer.displayName)")
+    
+    guard let date = eventInfo["eventKey"] as? Date else { return }
+    
+    print(date)
+    
+}
+
 // Add and remove listeners at any time
 pcm.removeListenerForKey("someEvent")
 pcm.listenOn(eventListener, withKey: "someEvent")
