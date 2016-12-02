@@ -19,7 +19,7 @@
 
 #### Blog post [https://goo.gl/HJcMbE](https://goo.gl/HJcMbE)
 
-#### Read the [docs!](http://reidchatham.com/docs/PeerConnectivity/Classes/PeerConnectionManager.html)
+#### Read the [docs!](http://reidchatham.com/docs/PeerConnectivity/index.html)
 
 
 ## Installation
