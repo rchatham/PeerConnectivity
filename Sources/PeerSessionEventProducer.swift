@@ -44,7 +44,6 @@ extension PeerSessionEventProducer: MCSessionDelegate {
     internal func session(_ session: MCSession, peer peerID: MCPeerID, didChange state: MCSessionState) {
         NSLog("%@", "peer \(peerID) didChangeState: \(state.stringValue())")
         
-        
         var peer : Peer
         
         switch state {

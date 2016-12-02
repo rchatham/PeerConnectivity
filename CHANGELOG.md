@@ -7,3 +7,5 @@
 * **0.5.1** Lowered iOS target to 8.0+
 
 * **0.5.2** Added shortcut method for listening to events
+
+* **0.5.3** Fixed documentation issue
