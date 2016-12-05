@@ -24,6 +24,8 @@
 
 ## Installation
 
+#### Cocoapods
+
 The easiest way to get started is to use [CocoaPods](http://cocoapods.org/). Just add the following line to your Podfile:
 
 ```ruby
