@@ -9,3 +9,5 @@
 * **0.5.2** Added shortcut method for listening to events
 
 * **0.5.3** Fixed documentation issue
+
+* **0.5.4** Added listening for nearby devices changed

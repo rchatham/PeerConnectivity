@@ -70,9 +70,15 @@ public class PeerConnectionManager {
     }
     
     /**
-     Nearby peers available for connecting.
+     Nearby peers available for connecting. 
+     
+     - Note: Can be observed by listening for PeerConnectivityEvent.nearbyPeersChanged(foundPeers:).
      */
-    public fileprivate(set) var foundPeers: [Peer] = []
+    public fileprivate(set) var foundPeers: [Peer] = [] {
+        didSet {
+            observer.value = .nearbyPeersChanged(foundPeers: foundPeers)
+        }
+    }
     
     
     // Private

@@ -65,6 +65,10 @@ public enum PeerConnectionEvent {
      */
     case lostPeer(peer: Peer)
     /**
+     Nearby peers changed.
+     */
+    case nearbyPeersChanged(foundPeers: [Peer])
+    /**
      Received invitation from `Peer` with optional context data and invitation handler.
      */
     case receivedInvitation(peer: Peer, withContext: Data?, invitationHandler: (Bool)->Void)
