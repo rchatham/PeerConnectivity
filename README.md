@@ -19,10 +19,12 @@
 
 #### Blog post [https://goo.gl/HJcMbE](https://goo.gl/HJcMbE)
 
-#### Read the [docs!](http://reidchatham.com/docs/PeerConnectivity/Classes/PeerConnectionManager.html)
+#### Read the [docs!](http://reidchatham.com/docs/PeerConnectivity/index.html)
 
 
 ## Installation
+
+#### Cocoapods
 
 The easiest way to get started is to use [CocoaPods](http://cocoapods.org/). Just add the following line to your Podfile:
 
