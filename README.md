@@ -106,7 +106,7 @@ Icon from the [Noun Project](https://thenounproject.com/search/?q=circle+people&
 
 ### Helpful links 
 
-- Check out the [Demo project](https://github.com/rchatham/PeerConnectivity/tree/master/PeerConnectivityDemo) and [Playground](https://github.com/rchatham/PeerConnectivity/blob/master/PeerPlayground.playground/Contents.swift) for examples on more complete intructions on how to take you're app to the next level!!!
+- Check out the [Demo project](https://github.com/rchatham/PeerConnectivity/tree/master/PeerConnectivityDemo) and [Playground](https://github.com/rchatham/PeerConnectivity/blob/master/PeerPlayground.playground/Contents.swift) for examples to help you take you're app to the next level!!!
 
 - Read the [docs!](http://reidchatham.com/docs/PeerConnectivity/index.html)
 
