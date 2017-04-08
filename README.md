@@ -13,14 +13,9 @@
 
 #### PeerConnectivity is meant to have a lightweight easy to use syntax, be extensible and flexible, and handle the heavy lifting and edge cases of the MultipeerConnectivity framework quietly in the background. 
 
-##### Please open an issue or submit a pull request if you have any suggestions!
+#### Please open an issue or submit a pull request if you have any suggestions!
 
-##### Check out the Playground!
-
-#### Blog post [https://goo.gl/HJcMbE](https://goo.gl/HJcMbE)
-
-#### Read the [docs!](http://reidchatham.com/docs/PeerConnectivity/index.html)
-
+#### 🔌 Blog post [https://goo.gl/HJcMbE](https://goo.gl/HJcMbE)
 
 ## Installation
 
@@ -107,3 +102,11 @@ pcm.removeListenerForKey("SomeEvent")
 ## Acknowledgments
 
 Icon from the [Noun Project](https://thenounproject.com/search/?q=circle+people&i=125108).
+
+
+### Helpful links 
+
+- Check out the [Demo project](https://github.com/rchatham/PeerConnectivity/tree/master/PeerConnectivityDemo) and [Playground](https://github.com/rchatham/PeerConnectivity/blob/master/PeerPlayground.playground/Contents.swift) for examples on more complete intructions on how to take you're app to the next level!!!
+
+- Read the [docs!](http://reidchatham.com/docs/PeerConnectivity/index.html)
+
