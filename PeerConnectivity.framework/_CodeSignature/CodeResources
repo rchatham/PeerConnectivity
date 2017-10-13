@@ -6,7 +6,7 @@
 	<dict>
 		<key>Headers/PeerConnectivity-Swift.h</key>
 		<data>
-		bunX9g5jlv9CigepViQRtb0S7Zw=
+		UFOXhXdtBxZ1SQLyTXe4npDOtNo=
 		</data>
 		<key>Headers/PeerConnectivity.h</key>
 		<data>
@@ -18,11 +18,11 @@
 		</data>
 		<key>Modules/PeerConnectivity.swiftmodule/x86_64.swiftdoc</key>
 		<data>
-		L9JYjtSX6/aVPn5bOaHmAA9K7xQ=
+		n4r+Bg2tKv9oDaOJ/+hbhgCqORw=
 		</data>
 		<key>Modules/PeerConnectivity.swiftmodule/x86_64.swiftmodule</key>
 		<data>
-		2piyxC8IkoA1QbLgVVNwDHG4FSk=
+		I2JiEaw9aDCYSBrD6MaD/KITyHo=
 		</data>
 		<key>Modules/module.modulemap</key>
 		<data>
@@ -35,11 +35,11 @@
 		<dict>
 			<key>hash</key>
 			<data>
-			bunX9g5jlv9CigepViQRtb0S7Zw=
+			UFOXhXdtBxZ1SQLyTXe4npDOtNo=
 			</data>
 			<key>hash2</key>
 			<data>
-			77EggagXxIFoKkUtPw3oHtE8b/YEo0A01v1xNw5WoxY=
+			YRDDFyCBr09pMti5dIZK+krS7LNIr+Moxxu3KX1cCfg=
 			</data>
 		</dict>
 		<key>Headers/PeerConnectivity.h</key>
@@ -57,22 +57,22 @@
 		<dict>
 			<key>hash</key>
 			<data>
-			L9JYjtSX6/aVPn5bOaHmAA9K7xQ=
+			n4r+Bg2tKv9oDaOJ/+hbhgCqORw=
 			</data>
 			<key>hash2</key>
 			<data>
-			3pVU52QuKpr4EwKqtjtcj40Wl0ssT0/+wB+5S3rITeM=
+			FnPNouTFrQWaDxVg2u2fGD7brHhkPf0tFgKITumvgkA=
 			</data>
 		</dict>
 		<key>Modules/PeerConnectivity.swiftmodule/x86_64.swiftmodule</key>
 		<dict>
 			<key>hash</key>
 			<data>
-			2piyxC8IkoA1QbLgVVNwDHG4FSk=
+			I2JiEaw9aDCYSBrD6MaD/KITyHo=
 			</data>
 			<key>hash2</key>
 			<data>
-			nthzZCQKAQ/336nmp2Nti1l1tjPzt2FrsAAVn+AeXUM=
+			W6ghQPdP9AyUn3+RZMzDynqu3eoRH0jhnP0cMYb/rnw=
 			</data>
 		</dict>
 		<key>Modules/module.modulemap</key>

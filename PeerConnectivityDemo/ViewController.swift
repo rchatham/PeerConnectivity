@@ -18,7 +18,7 @@ class ViewController: UIViewController {
             switch event {
             case .devicesChanged(let peer, let connectedPeers):
                 
-                _ = connectedPeers.map { print($0.displayName) }
+                connectedPeers.forEach { print($0.displayName) }
                 
                 defer {
                     if let origin = self?.userStatusLabel?.frame.origin,

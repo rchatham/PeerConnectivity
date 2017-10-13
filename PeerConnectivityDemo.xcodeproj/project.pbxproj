@@ -35,7 +35,7 @@
 		309837411D8A8D600002338A /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		309837441D8A8D600002338A /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		309837461D8A8D600002338A /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		30EF1C0B1F7CC3670029AD3D /* PeerConnectivity.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = PeerConnectivity.framework; sourceTree = "<group>"; };
+		30CAB6141F809D400041FABB /* PeerConnectivity.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = PeerConnectivity.framework; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -82,7 +82,7 @@
 		309837611D8A8E6A0002338A /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
-				30EF1C0B1F7CC3670029AD3D /* PeerConnectivity.framework */,
+				30CAB6141F809D400041FABB /* PeerConnectivity.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
