@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name         = "PeerConnectivity"
-  s.version      = "0.5.5"
+  s.version      = "0.5.6"
 
   s.summary      = "Functional wrapper for Apple's MultipeerConnectivity framework."
   s.description  = <<-DESC

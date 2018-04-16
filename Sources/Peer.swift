@@ -43,9 +43,7 @@ public struct Peer {
         return peerID.displayName
     }
     
-    
-    
-    internal let peerID : MCPeerID
+    public let peerID : MCPeerID
     
     /**
      The connection status to a particular user.
