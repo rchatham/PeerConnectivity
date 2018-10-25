@@ -8,88 +8,84 @@
 
 import Foundation
 
-/**
- Network events that can be responded to via PeerConnectivity.
- */
+/// Network events that can be responded to via PeerConnectivity.
 public enum PeerConnectionEvent {
-    /** 
-     Event sent when the `PeerConnectionManager` is ready to start.
-     */
+
+    /// Event sent when the `PeerConnectionManager` is ready to start.
     case ready
-    /**
-     Signals the `PeerConnectionManager` was started succesfully.
-     */
+
+    /// Signals the `PeerConnectionManager` was started succesfully.
     case started
-    /**
-     Devices changed event which returns the `Peer` that changed along with the connected `Peer`s. Check the passed `Peer`'s `Status` to see what changed.
-     */
-    case devicesChanged(peer: Peer, connectedPeers: [Peer])
-    /**
-     Data received from `Peer`.
-     */
-    case receivedData(peer: Peer, data: Data)
-    /**
-     Event received from `Peer`.
-     */
-    case receivedEvent(peer: Peer, eventInfo: [String:Any])
-    /**
-     Data stream received from `Peer`.
-     */
-    case receivedStream(peer: Peer, stream: Stream, name: String)
-    /**
-     Started receiving a resource from `Peer` with name and `NSProgress`.
-     */
-    case startedReceivingResource(peer: Peer, name: String, progress: Progress)
-    /**
-     Finished receiving resource from `Peer` with name at url with optional error.
-     */
-    case finishedReceivingResource(peer: Peer, name: String, url: URL?, error: Error?)
-    /**
-     Received security certificate from `Peer` with handler.
-     */
-    case receivedCertificate(peer: Peer, certificate: [Any]?, handler: (Bool)->Void)
-    /**
-     Received a `PeerConnectionError`.
-     */
-    case error(Error)
-    /**
-     `PeerConnectionManager` was succesfully stopped.
-     */
+
+    /// `PeerConnectionManager` was succesfully stopped.
     case ended
-    /**
-     Found nearby `Peer`.
-     */
-    case foundPeer(peer: Peer)
-    /**
-     Lost nearby `Peer`.
-     */
+
+    /// Received a `PeerConnectionError`.
+    case error(Error)
+
+    // - Session peer updates
+
+    /// Devices changed event which returns the `Peer` that changed along with the connected `Peer`s. Check the passed `Peer`'s `Status` to see what changed.
+    case devicesChanged(session: PeerSession, peer: Peer, connectedPeers: [Peer])
+
+    // - Advertiser
+
+    /// Received invitation from `Peer` with optional context data and invitation handler.
+    case receivedInvitation(peer: Peer, withContext: Data?, invitationHandler: (Bool) -> Void)
+
+    // - Browser Peer/Advertiser discovery
+
+    /// Found nearby `Peer`.
+    case foundPeer(peer: Peer, info: DiscoveryInfo?)
+
+    /// Lost nearby `Peer`.
     case lostPeer(peer: Peer)
-    /**
-     Nearby peers changed.
-     */
+
+    /// Nearby peers changed.
     case nearbyPeersChanged(foundPeers: [Peer])
-    /**
-     Received invitation from `Peer` with optional context data and invitation handler.
-     */
-    case receivedInvitation(peer: Peer, withContext: Data?, invitationHandler: (Bool)->Void)
+
+    // - Data Reception
+
+    /// Data received from `Peer`.
+    case receivedData(session: PeerSession, peer: Peer, data: Data)
+
+    /// Event received from `Peer`.
+    case receivedEvent(session: PeerSession, peer: Peer, eventInfo: [String: Any])
+
+    /// Data stream received from `Peer`.
+    case receivedStream(session: PeerSession, peer: Peer, stream: Stream, name: String)
+
+    /// Started receiving a resource from `Peer` with name and `NSProgress`.
+    case startedReceivingResource(session: PeerSession, peer: Peer, name: String, progress: Progress)
+
+    /// Finished receiving resource from `Peer` with name at url with optional error.
+    case finishedReceivingResource(session: PeerSession, peer: Peer, name: String, url: URL?, error: Error?)
+
+    /// Received security certificate from `Peer` with handler.
+    case receivedCertificate(session: PeerSession, peer: Peer, certificate: [Any]?, handler: (Bool) -> Void)
+
 }
 
-/**
- Listener for responding to `PeerConnectionEvent`s.
- */
-public typealias PeerConnectionEventListener = (PeerConnectionEvent)->Void
+/// Listener for responding to `PeerConnectionEvent`s.
+public typealias PeerConnectionEventListener = (PeerConnectionEvent) -> Void
 
 internal class PeerConnectionResponder {
-    
-    fileprivate let peerEventObserver : MultiObservable<PeerConnectionEvent>
-    
-    internal fileprivate(set) var listeners : [String:PeerConnectionEventListener] = [:]
-    
+
+    // MARK: - Private Properties -
+
+    fileprivate let peerEventObserver: MultiObservable<PeerConnectionEvent>
+    internal fileprivate(set) var listeners: [String: PeerConnectionEventListener] = [:]
+
+    // MARK: - Initializers -
+
     internal init(observer: MultiObservable<PeerConnectionEvent>) {
         peerEventObserver = observer
     }
+
+    // MARK: - Listener Manipulation Add/Remove -
     
-    @discardableResult internal func addListener(_ listener: @escaping PeerConnectionEventListener, forKey key: String) -> PeerConnectionResponder {
+    @discardableResult internal func addListener(_ listener: @escaping PeerConnectionEventListener,
+                                                 forKey key: String) -> PeerConnectionResponder {
         listeners[key] = listener
         peerEventObserver.addObserver(listener, key: key)
         return self
