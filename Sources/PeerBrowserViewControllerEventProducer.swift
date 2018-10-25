@@ -38,13 +38,13 @@ internal class PeerBrowserViewControllerEventProducer: NSObject {
 
 extension PeerBrowserViewControllerEventProducer: MCBrowserViewControllerDelegate {
 
-//    func browserViewController(browserViewController: MCBrowserViewController, shouldPresentNearbyPeer peerID: MCPeerID, withDiscoveryInfo info: [String : String]?) -> Bool {
+//    func browserViewController(browserViewController: MCBrowserViewController, shouldPresentNearbyPeer peerID: MCPeerID, withDiscoveryInfo info: [String: String]?) -> Bool {
 //        return true
 //    }
     
     internal func browserViewControllerDidFinish(_ browserViewController: MCBrowserViewController) {
         
-        let event : PeerBrowserViewControllerEvent = .didFinish
+        let event: PeerBrowserViewControllerEvent = .didFinish
         self.observer.value = event
         
         browserViewController.dismiss(animated: true, completion: nil)
@@ -52,7 +52,7 @@ extension PeerBrowserViewControllerEventProducer: MCBrowserViewControllerDelegat
     
     internal func browserViewControllerWasCancelled(_ browserViewController: MCBrowserViewController) {
         
-        let event : PeerBrowserViewControllerEvent = .wasCancelled
+        let event: PeerBrowserViewControllerEvent = .wasCancelled
         self.observer.value = event
         
         browserViewController.dismiss(animated: true, completion: nil)
