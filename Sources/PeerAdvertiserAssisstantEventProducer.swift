@@ -17,7 +17,7 @@ internal enum PeerAdvertiserAssisstantEvent {
 
 internal class PeerAdvertiserAssisstantEventProducer: NSObject {
     
-    fileprivate let observer : Observable<PeerAdvertiserAssisstantEvent>
+    fileprivate let observer: Observable<PeerAdvertiserAssisstantEvent>
     
     internal init(observer: Observable<PeerAdvertiserAssisstantEvent>) {
         self.observer = observer
