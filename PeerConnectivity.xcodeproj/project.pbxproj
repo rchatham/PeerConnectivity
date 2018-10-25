@@ -25,6 +25,8 @@
 		3080C7FC1D80A1D700AF9EA3 /* PeerSessionEventProducer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3080C7EB1D80A1D600AF9EA3 /* PeerSessionEventProducer.swift */; };
 		3086CD2D1D09FB9900E269A3 /* PeerConnectivity.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3086CD221D09FB9800E269A3 /* PeerConnectivity.framework */; };
 		3086CD321D09FB9900E269A3 /* PeerConnectivityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3086CD311D09FB9900E269A3 /* PeerConnectivityTests.swift */; };
+		9C8518E42182172D000C5C3F /* PeerConnectionManager+Peer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C8518E32182172D000C5C3F /* PeerConnectionManager+Peer.swift */; };
+		9C8518E621821763000C5C3F /* PeerConnectionManager+Listener.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C8518E521821763000C5C3F /* PeerConnectionManager+Listener.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -59,6 +61,8 @@
 		3086CD2C1D09FB9900E269A3 /* PeerConnectivityTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PeerConnectivityTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		3086CD311D09FB9900E269A3 /* PeerConnectivityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeerConnectivityTests.swift; sourceTree = "<group>"; };
 		3086CD331D09FB9900E269A3 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		9C8518E32182172D000C5C3F /* PeerConnectionManager+Peer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "PeerConnectionManager+Peer.swift"; path = "Sources/PeerConnectionManager+Peer.swift"; sourceTree = "<group>"; };
+		9C8518E521821763000C5C3F /* PeerConnectionManager+Listener.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = "PeerConnectionManager+Listener.swift"; path = "Sources/PeerConnectionManager+Listener.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -89,6 +93,8 @@
 				9C805C8F2162847B006FA28D /* ObserverResponder */,
 				3080C7DE1D80A1D600AF9EA3 /* Peer.swift */,
 				3080C7E71D80A1D600AF9EA3 /* PeerConnectionManager.swift */,
+				9C8518E32182172D000C5C3F /* PeerConnectionManager+Peer.swift */,
+				9C8518E521821763000C5C3F /* PeerConnectionManager+Listener.swift */,
 				9C805C91216284B5006FA28D /* supporting-files */,
 			);
 			name = Sources;
@@ -299,6 +305,7 @@
 				3080C7F91D80A1D700AF9EA3 /* PeerConnectionResponder.swift in Sources */,
 				3080C7F71D80A1D700AF9EA3 /* PeerBrowserViewControllerEventProducer.swift in Sources */,
 				3080C7F41D80A1D700AF9EA3 /* PeerBrowser.swift in Sources */,
+				9C8518E621821763000C5C3F /* PeerConnectionManager+Listener.swift in Sources */,
 				3080C7F31D80A1D700AF9EA3 /* PeerAdvertiserEventProducer.swift in Sources */,
 				3080C7FC1D80A1D700AF9EA3 /* PeerSessionEventProducer.swift in Sources */,
 				3080C7F51D80A1D700AF9EA3 /* PeerBrowserAssisstant.swift in Sources */,
@@ -306,6 +313,7 @@
 				3080C7EE1D80A1D700AF9EA3 /* Observable.swift in Sources */,
 				3080C7ED1D80A1D700AF9EA3 /* MultiObservable.swift in Sources */,
 				3080C7F61D80A1D700AF9EA3 /* PeerBrowserEventProducer.swift in Sources */,
+				9C8518E42182172D000C5C3F /* PeerConnectionManager+Peer.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
