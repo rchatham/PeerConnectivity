@@ -17,7 +17,7 @@ internal enum PeerAdvertiserEvent {
 
 internal class PeerAdvertiserEventProducer: NSObject {
     
-    fileprivate let observer : Observable<PeerAdvertiserEvent>
+    fileprivate let observer: Observable<PeerAdvertiserEvent>
     
     internal init(observer: Observable<PeerAdvertiserEvent>) {
         self.observer = observer
@@ -33,10 +33,11 @@ extension PeerAdvertiserEventProducer: MCNearbyServiceAdvertiserDelegate {
         self.observer.value = event
     }
     
-    internal func advertiser(_ advertiser: MCNearbyServiceAdvertiser, didReceiveInvitationFromPeer peerID: MCPeerID, withContext context: Data?, invitationHandler: @escaping (Bool, MCSession?) -> Void) {
+    internal func advertiser(_ advertiser: MCNearbyServiceAdvertiser, didReceiveInvitationFromPeer peerID: MCPeerID,
+                             withContext context: Data?, invitationHandler: @escaping (Bool, MCSession?) -> Void) {
         NSLog("%@", "didReceiveInvitationFromPeer \(peerID)")
         
-        let handler : ((Bool, PeerSession) -> Void) = { (accept, session) in
+        let handler: ((Bool, PeerSession) -> Void) = { (accept, session) in
             invitationHandler(accept, session.session)
         }
         

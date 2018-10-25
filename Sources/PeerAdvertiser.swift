@@ -11,14 +11,15 @@ import MultipeerConnectivity
 
 internal struct PeerAdvertiser {
     
-    fileprivate let session : PeerSession
-    fileprivate let advertiser : MCNearbyServiceAdvertiser
-    fileprivate let eventProducer : PeerAdvertiserEventProducer
+    fileprivate let session: PeerSession
+    fileprivate let advertiser: MCNearbyServiceAdvertiser
+    fileprivate let eventProducer: PeerAdvertiserEventProducer
     
-    internal init(session: PeerSession, serviceType: ServiceType, eventProducer: PeerAdvertiserEventProducer) {
+    internal init(session: PeerSession, serviceType: ServiceType,
+                  discoveryInfo info: [String : String]?, eventProducer: PeerAdvertiserEventProducer) {
         self.session = session
         self.eventProducer = eventProducer
-        advertiser = MCNearbyServiceAdvertiser(peer: session.peer.peerID, discoveryInfo: nil, serviceType: serviceType)
+        advertiser = MCNearbyServiceAdvertiser(peer: session.peer.peerID, discoveryInfo: info, serviceType: serviceType)
         advertiser.delegate = eventProducer
     }
     
