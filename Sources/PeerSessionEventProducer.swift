@@ -9,6 +9,8 @@
 import Foundation
 import MultipeerConnectivity
 
+// MARK: = PeerSession EventProducer Constants && Types -
+
 internal enum PeerSessionEvent {
     case none
     case devicesChanged(peer: Peer)
@@ -19,11 +21,13 @@ internal enum PeerSessionEvent {
     case didReceiveCertificate(peer: Peer, certificate: [Any]?, handler: (Bool) -> Void)
 }
 
+typealias SessionEventContainer = (session: PeerSession?, event: PeerSessionEvent)
+
 internal class PeerSessionEventProducer: NSObject {
     
-    fileprivate let observer : Observable<PeerSessionEvent>
+    fileprivate let observer : Observable<SessionEventContainer>
     
-    internal init(observer: Observable<PeerSessionEvent>) {
+    internal init(observer: Observable<SessionEventContainer>) {
         self.observer = observer
     }
 }
@@ -39,24 +43,18 @@ extension MCSessionState {
     }
 }
 
+// MAKRK: - PeerSession EventProducer -
+
 extension PeerSessionEventProducer: MCSessionDelegate {
 
     internal func session(_ session: MCSession, peer peerID: MCPeerID, didChange state: MCSessionState) {
         NSLog("%@", "peer \(peerID) didChangeState: \(state.stringValue())")
         
-        var peer : Peer
-        
-        switch state {
-        case .connected:
-            peer = Peer(peerID: peerID, status: .connected)
-        case .connecting:
-            peer = Peer(peerID: peerID, status: .connecting)
-        case .notConnected:
-            peer = Peer(peerID: peerID, status: .notConnected)
-        }
-        
+        let peer: Peer = Peer(peerID: peerID, status: Peer.Status(state: state))
         let event: PeerSessionEvent = .devicesChanged(peer: peer)
-        self.observer.value = event
+        let peerSession: PeerSession = PeerSession(session: session, sessionPeerStatus: .connected)
+
+        self.observer.value = (peerSession, event)
     }
     
     internal func session(_ session: MCSession, didReceive data: Data, fromPeer peerID: MCPeerID) {
@@ -64,23 +62,31 @@ extension PeerSessionEventProducer: MCSessionDelegate {
         
         let peer = Peer(peerID: peerID, status: .connected)
         let event: PeerSessionEvent = .didReceiveData(peer: peer, data: data)
-        self.observer.value = event
+        let peerSession: PeerSession = PeerSession(session: session, sessionPeerStatus: .connected)
+
+        self.observer.value = (peerSession, event)
     }
     
-    internal func session(_ session: MCSession, didReceive stream: InputStream, withName streamName: String, fromPeer peerID: MCPeerID) {
+    internal func session(_ session: MCSession, didReceive stream: InputStream,
+                          withName streamName: String, fromPeer peerID: MCPeerID) {
         NSLog("%@", "didReceiveStream")
         
         let peer = Peer(peerID: peerID, status: .connected)
         let event: PeerSessionEvent = .didReceiveStream(peer: peer, stream: stream, name: streamName)
-        self.observer.value = event
+        let peerSession: PeerSession = PeerSession(session: session, sessionPeerStatus: .connected)
+
+        self.observer.value = (peerSession, event)
     }
     
-    internal func session(_ session: MCSession, didStartReceivingResourceWithName resourceName: String, fromPeer peerID: MCPeerID, with progress: Progress) {
+    internal func session(_ session: MCSession, didStartReceivingResourceWithName resourceName: String,
+                          fromPeer peerID: MCPeerID, with progress: Progress) {
         NSLog("%@", "didStartReceivingResourceWithName")
         
         let peer = Peer(peerID: peerID, status: .connected)
         let event: PeerSessionEvent = .startedReceivingResource(peer: peer, name: resourceName, progress: progress)
-        self.observer.value = event
+        let peerSession: PeerSession = PeerSession(session: session, sessionPeerStatus: .connected)
+
+        self.observer.value = (peerSession, event)
     }
     
     internal func session(_ session: MCSession, didFinishReceivingResourceWithName resourceName: String,
@@ -88,15 +94,22 @@ extension PeerSessionEventProducer: MCSessionDelegate {
         NSLog("%@", "didFinishReceivingResourceWithName")
         
         let peer = Peer(peerID: peerID, status: .connected)
-        let event: PeerSessionEvent = .finishedReceivingResource(peer: peer, name: resourceName, url: localURL, error: error)
-        self.observer.value = event
+        let event: PeerSessionEvent = .finishedReceivingResource(peer: peer, name: resourceName,
+                                                                 url: localURL, error: error)
+        let peerSession: PeerSession = PeerSession(session: session, sessionPeerStatus: .connected)
+
+        self.observer.value = (peerSession, event)
     }
     
-    internal func session(_ session: MCSession, didReceiveCertificate certificate: [Any]?, fromPeer peerID: MCPeerID, certificateHandler: @escaping (Bool) -> Void) {
+    internal func session(_ session: MCSession, didReceiveCertificate certificate: [Any]?,
+                          fromPeer peerID: MCPeerID, certificateHandler: @escaping (Bool) -> Void) {
         NSLog("%@", "didReceiveCertificate")
         
         let peer = Peer(peerID: peerID, status: .connected)
         let event: PeerSessionEvent = .didReceiveCertificate(peer: peer, certificate: certificate, handler: certificateHandler)
-        self.observer.value = event
+        let peerSession: PeerSession = PeerSession(session: session, sessionPeerStatus: .connected)
+
+        self.observer.value = (peerSession, event)
     }
+
 }
