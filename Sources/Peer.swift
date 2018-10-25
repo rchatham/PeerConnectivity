@@ -9,68 +9,102 @@
 import Foundation
 import MultipeerConnectivity
 
-/**
- Struct reperesenting a user available for mesh-networking on the PeerConnectivity framework.
- */
+/// Struct reperesenting a user available for mesh-networking on the PeerConnectivity framework.
 public struct Peer {
-    
-    /**
-     Peer connection status.
-     */
+
+    // MARK: - Nested Types -
+
+    /// Peer connection status.
     public enum Status {
-        /**
-         Represents the current user.
-         */
+
+        /// Represents the current user.
         case currentUser
-        /**
-         Represents a connected user.
-         */
+
+        /// Represent a service peer (found through browser)
+        case available
+
+        /// Represent a unavailable peer (lostPeer not received from browser)
+        case unavailable
+
+        // -
+
+        /// Represents a connected user.
         case connected
-        /**
-         Represents a connecting user.
-         */
+
+        /// Represents a connecting user.
         case connecting
-        /**
-         Represents a user not connected to the current session. Either someone that is available to be invited to the current session or someone that has lost connection to the current session.
-         */
+
+        /// Represents a user not connected to the current session.
+        /// Either someone that is available to be invited to the current session or
+        ///     someone that has lost connection to the current session.
         case notConnected
+
+        // MARK: - Initializers
+
+        init(state: MCSessionState) {
+            switch state {
+            case .notConnected: self = .notConnected
+            case .connecting: self = .connecting
+            case .connected: self = .connected
+            }
+        }
+
     }
+
+    // MARK: - Properties -
+
+    public let peerID: MCPeerID
     
-    /**
-     The peer's display name
-     */
-    public var displayName : String {
+    /// The connection status to a particular user.
+    public let status: Status
+
+    /// Service discovery informations, if peers represent service from NearbyServiceBrowser
+    public let serviceDiscoveryInfo: DiscoveryInfo?
+
+    // MARK: - Computed Properties -
+
+    /// The peer's display name
+    public var displayName: String {
         return peerID.displayName
     }
-    
-    public let peerID : MCPeerID
-    
-    /**
-     The connection status to a particular user.
-     */
-    public let status : Status
-    
-    internal init(peerID: MCPeerID, status: Status) {
+
+    // MARK: - Initializers -
+
+    internal init(peerID: MCPeerID, status: Status, info: DiscoveryInfo? = nil) {
         self.peerID = peerID
         self.status = status
+        self.serviceDiscoveryInfo = info
     }
-    
-    /**
-     Initializer for the local peer. DisplayName Must not be longer than 63 bytes in UTF8 Encoding according to the Apple documentation. ( xcdoc://?url=developer.apple.com/library/ios/documentation/MultipeerConnectivity/Reference/MCPeerID_class/index.html#//apple_ref/swift/cl/c:objc(cs)MCPeerID )
-     */
+
+    internal init(peer: Peer, status: Status) {
+        self.status = status
+        self.peerID = peer.peerID
+        self.serviceDiscoveryInfo = peer.serviceDiscoveryInfo
+    }
+
+    /// Initializer for the local peer.
+    /// DisplayName Must not be longer than 63 bytes in UTF8 Encoding according to the Apple documentation.
+    /// [MCPeerID reference](xcdoc://?url=developer.apple.com/library/ios/documentation/MultipeerConnectivity/Reference/MCPeerID_class/index.html#//apple_ref/swift/cl/c:objc(cs)MCPeerID)
     internal init(displayName: String) {
-        peerID = MCPeerID(displayName: displayName)
-        status = .currentUser
+        self.status = .currentUser
+        self.serviceDiscoveryInfo = nil
+        self.peerID = MCPeerID(displayName: displayName)
     }
 }
 
-extension Peer : Hashable, Equatable {
+// MARK: - Protocols
+// MARK: - Hashable, Equatable
+
+extension Peer: Hashable, Equatable {
+
     /// :nodoc:
-    public var hashValue : Int {
+    public var hashValue: Int {
         return peerID.hashValue
     }
-}
-/// :nodoc:
-public func ==(lhs: Peer, rhs: Peer) -> Bool {
-    return lhs.peerID == rhs.peerID
+
+    /// :nodoc:
+    public static func ==(lhs: Peer, rhs: Peer) -> Bool {
+        return lhs.peerID == rhs.peerID
+    }
+
 }
