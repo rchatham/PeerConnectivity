@@ -83,23 +83,13 @@
 		301475781D7112A500F43337 /* Sources */ = {
 			isa = PBXGroup;
 			children = (
-				3080C7DB1D80A1D600AF9EA3 /* Info.plist */,
-				3080C7DC1D80A1D600AF9EA3 /* MultiObservable.swift */,
-				3080C7DD1D80A1D600AF9EA3 /* Observable.swift */,
+				9C805C8C2162842C006FA28D /* Session */,
+				9C805C8D21628443006FA28D /* Adviser */,
+				9C805C8E21628457006FA28D /* Browser */,
+				9C805C8F2162847B006FA28D /* ObserverResponder */,
 				3080C7DE1D80A1D600AF9EA3 /* Peer.swift */,
-				3080C7DF1D80A1D600AF9EA3 /* PeerAdvertiser.swift */,
-				3080C7E01D80A1D600AF9EA3 /* PeerAdvertiserAssisstant.swift */,
-				3080C7E11D80A1D600AF9EA3 /* PeerAdvertiserAssisstantEventProducer.swift */,
-				3080C7E21D80A1D600AF9EA3 /* PeerAdvertiserEventProducer.swift */,
-				3080C7E31D80A1D600AF9EA3 /* PeerBrowser.swift */,
-				3080C7E41D80A1D600AF9EA3 /* PeerBrowserAssisstant.swift */,
-				3080C7E51D80A1D600AF9EA3 /* PeerBrowserEventProducer.swift */,
-				3080C7E61D80A1D600AF9EA3 /* PeerBrowserViewControllerEventProducer.swift */,
 				3080C7E71D80A1D600AF9EA3 /* PeerConnectionManager.swift */,
-				3080C7E81D80A1D600AF9EA3 /* PeerConnectionResponder.swift */,
-				3080C7E91D80A1D600AF9EA3 /* PeerConnectivity.h */,
-				3080C7EA1D80A1D600AF9EA3 /* PeerSession.swift */,
-				3080C7EB1D80A1D600AF9EA3 /* PeerSessionEventProducer.swift */,
+				9C805C91216284B5006FA28D /* supporting-files */,
 			);
 			name = Sources;
 			sourceTree = "<group>";
@@ -129,6 +119,64 @@
 				3086CD331D09FB9900E269A3 /* Info.plist */,
 			);
 			path = PeerConnectivityTests;
+			sourceTree = "<group>";
+		};
+		9C805C8C2162842C006FA28D /* Session */ = {
+			isa = PBXGroup;
+			children = (
+				3080C7EA1D80A1D600AF9EA3 /* PeerSession.swift */,
+				3080C7EB1D80A1D600AF9EA3 /* PeerSessionEventProducer.swift */,
+			);
+			name = Session;
+			sourceTree = "<group>";
+		};
+		9C805C8D21628443006FA28D /* Adviser */ = {
+			isa = PBXGroup;
+			children = (
+				9C805C902162849A006FA28D /* Assistant */,
+				3080C7DF1D80A1D600AF9EA3 /* PeerAdvertiser.swift */,
+				3080C7E21D80A1D600AF9EA3 /* PeerAdvertiserEventProducer.swift */,
+			);
+			name = Adviser;
+			sourceTree = "<group>";
+		};
+		9C805C8E21628457006FA28D /* Browser */ = {
+			isa = PBXGroup;
+			children = (
+				3080C7E31D80A1D600AF9EA3 /* PeerBrowser.swift */,
+				3080C7E41D80A1D600AF9EA3 /* PeerBrowserAssisstant.swift */,
+				3080C7E51D80A1D600AF9EA3 /* PeerBrowserEventProducer.swift */,
+				3080C7E61D80A1D600AF9EA3 /* PeerBrowserViewControllerEventProducer.swift */,
+			);
+			name = Browser;
+			sourceTree = "<group>";
+		};
+		9C805C8F2162847B006FA28D /* ObserverResponder */ = {
+			isa = PBXGroup;
+			children = (
+				3080C7DC1D80A1D600AF9EA3 /* MultiObservable.swift */,
+				3080C7DD1D80A1D600AF9EA3 /* Observable.swift */,
+				3080C7E81D80A1D600AF9EA3 /* PeerConnectionResponder.swift */,
+			);
+			name = ObserverResponder;
+			sourceTree = "<group>";
+		};
+		9C805C902162849A006FA28D /* Assistant */ = {
+			isa = PBXGroup;
+			children = (
+				3080C7E01D80A1D600AF9EA3 /* PeerAdvertiserAssisstant.swift */,
+				3080C7E11D80A1D600AF9EA3 /* PeerAdvertiserAssisstantEventProducer.swift */,
+			);
+			name = Assistant;
+			sourceTree = "<group>";
+		};
+		9C805C91216284B5006FA28D /* supporting-files */ = {
+			isa = PBXGroup;
+			children = (
+				3080C7DB1D80A1D600AF9EA3 /* Info.plist */,
+				3080C7E91D80A1D600AF9EA3 /* PeerConnectivity.h */,
+			);
+			name = "supporting-files";
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -412,7 +460,7 @@
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
-				SWIFT_SWIFT3_OBJC_INFERENCE = On;
+				SWIFT_SWIFT3_OBJC_INFERENCE = Default;
 				SWIFT_VERSION = 4.2;
 				TARGETED_DEVICE_FAMILY = 1;
 			};
@@ -435,7 +483,7 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.rchatham.PeerConnectivity;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
-				SWIFT_SWIFT3_OBJC_INFERENCE = On;
+				SWIFT_SWIFT3_OBJC_INFERENCE = Default;
 				SWIFT_VERSION = 4.2;
 				TARGETED_DEVICE_FAMILY = 1;
 			};
