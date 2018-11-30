@@ -107,4 +107,9 @@ extension Peer: Hashable, Equatable {
         return lhs.peerID == rhs.peerID
     }
 
+    /// :nodoc:
+    public static func ===(lhs: Peer, rhs: Peer) -> Bool {
+        return lhs.peerID === rhs.peerID
+    }
+
 }
