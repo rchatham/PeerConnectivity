@@ -38,6 +38,7 @@ extension PeerAdvertiserEventProducer: MCNearbyServiceAdvertiserDelegate {
         NSLog("%@", "didReceiveInvitationFromPeer \(peerID)")
         
         let handler: ((Bool, PeerSession) -> Void) = { (accept, session) in
+            NSLog("%@", "invitationHandler \(peerID), accept \(accept), session \(session)")
             invitationHandler(accept, session.session)
         }
         
