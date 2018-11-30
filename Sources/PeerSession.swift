@@ -52,6 +52,14 @@ public struct PeerSession {
         self.eventProducer = session.delegate as? PeerSessionEventProducer
     }
 
+    internal init(session: PeerSession, peer: Peer, servicePeer: Peer? = nil) {
+        self.peer = peer
+        self.servicePeer = servicePeer ?? peer
+
+        self.session = session.session
+        self.eventProducer = session.eventProducer
+    }
+
     init(session: MCSession, sessionPeerStatus: Peer.Status = .connected) {
         let sessionPeer = Peer(peerID: session.myPeerID, status: sessionPeerStatus)
         self.init(peer: sessionPeer, session: session)
@@ -73,6 +81,11 @@ public struct PeerSession {
     internal func sendData(_ data: Data, toPeers peers: [Peer] = []) {
         do {
             let peers = peers.isEmpty ? session.connectedPeers : peers.map { $0.peerID }
+
+            guard peers.isEmpty == false else {
+                return
+            }
+
             try session.send(data, toPeers: peers, with: MCSessionSendDataMode.reliable)
         } catch let error {
             NSLog("%@", "Error sending data: \(error)")
