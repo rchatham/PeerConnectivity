@@ -11,6 +11,27 @@ import Foundation
 // MARK: - Peer Manipulation (invitation / transmission) -
 
 public extension PeerConnectionManager {
+
+    public func peerServiceAvailable(_ peer: Peer) throws -> Bool  {
+        /// ^ is equal check internal 'MCPeer', here we need to compare instance too
+        /// similar to generation trick ^^
+        guard foundPeers.contains(where: { $0 == peer && $0 === peer }) else {
+            NSLog("invite peer, unavailable")
+            throw Error.peerUnavailable
+        }
+
+        let matchingConnectedServicePeers = connectedServicePeers.filter {
+            return ($0 == peer || $0 === peer || $0.displayName == peer.displayName) && $0.status == .connected
+        }
+
+        guard matchingConnectedServicePeers.count <= 0 else {
+            NSLog("- service already connected, ignoring \(peer) advertisement")
+            throw Error.serviceAlreadyConnected
+        }
+
+        return true
+    }
+
     // Use to invite peers that have been found locally to join a MultipeerConnectivity session.
     //
     // - parameter peer: `Peer` object to invite to current session.
@@ -18,7 +39,47 @@ public extension PeerConnectionManager {
     // - parameter timeout: Time interval until the invitation expires.
 
     public func invitePeer(_ peer: Peer, withContext context: Data? = nil, timeout: TimeInterval = 30) throws {
+        mutex.lock()
+        defer { mutex.unlock() }
+
+        try peerServiceAvailable(peer)
         try browser?.invitePeer(peer, withContext: context, timeout: timeout)
+    }
+
+    internal func invitePeer(invitation: Invitation, context: Data? = nil, timeout: TimeInterval = 30) throws {
+        mutex.lock()
+        defer { mutex.unlock() }
+
+        try peerServiceAvailable(invitation.peer)
+        try browser?.invitePeer(invitation: invitation, context: context, timeout: timeout)
+    }
+
+    public func attemptReconnect(_ peer: Peer, context: Data? = nil, timeout: TimeInterval = 30,
+                                 delay: DispatchTimeInterval = .seconds(5)) throws {
+        var reconnectWorkItem: DispatchWorkItem? = nil
+
+        mutex.lock()
+        defer { mutex.unlock() }
+
+        guard foundPeers.contains(peer) else {
+            throw Error.peerUnavailable
+        }
+
+        print("AttemptReconnect - \(peer)")
+        reconnectWorkItem = DispatchWorkItem { [weak self] in
+            guard var strongSelf = self, reconnectWorkItem?.isCancelled == false else {
+                return
+            }
+
+            try? strongSelf.invitePeer(peer, withContext: context, timeout: timeout)
+        }
+
+        let deadline: DispatchTime = .now() + delay
+        guard let connectionWorkItem = reconnectWorkItem else {
+            return
+        }
+
+        retyAttemptQueue?.asyncAfter(deadline: deadline, execute: connectionWorkItem)
     }
 
     // Send data to connected users. If no peer is specified it broadcasts to all users on a current session.
