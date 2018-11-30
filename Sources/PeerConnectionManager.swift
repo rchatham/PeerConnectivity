@@ -63,6 +63,10 @@ public class PeerConnectionManager {
 
     enum Error: Swift.Error {
         case unsupportedModeUsage
+        case peerUnavailable
+        case serviceAlreadyConnected
+        case unknownInvitation
+        case maxConnectionRetriesExceeded
     }
 
     // MARK: - Properties -
@@ -89,7 +93,7 @@ public class PeerConnectionManager {
 
     public var connectedServicePeers: [Peer] {
         return servicesSessions.reduce([], { (peers, serviceSession) -> [Peer] in
-            return Array(Set(peers + serviceSession.connectedPeers))
+            return Array(Set(peers + [serviceSession.servicePeer]))
         })
     }
 
@@ -125,6 +129,9 @@ public class PeerConnectionManager {
     }()
 
     // MARK: - Event Observable Properties
+
+    internal let mutex: Mutex
+    internal var retyAttemptQueue: DispatchQueue? = nil
 
     internal let responder: PeerConnectionResponder
     fileprivate let observer = MultiObservable<PeerConnectionEvent>(.ready)
@@ -174,6 +181,14 @@ public class PeerConnectionManager {
         self.sessionEncryptionPreference = encryptionPreference
 
         self.peer = Peer(displayName: displayName)
+
+        // - Lock
+
+        do {
+            self.mutex = try Mutex()
+        } catch {
+            fatalError("Mutex initialization failed for PeerConnectivity")
+        }
 
         // - Producers, Observers && Responders
 
@@ -244,9 +259,17 @@ extension PeerConnectionManager {
     ///
     /// - parameter completion: Called once session is initialized. Default is `nil`.
     public func start(_ completion: (() -> Void)? = nil) throws {
-        configureObserverResponseEventDispatch()
+        self.mutex.lock()
+        defer { self.mutex.unlock() }
+
         configureManagerPeerObservers()
+        configureObserverResponseEventDispatch()
         try configureDefaultConnectionTypeBehavior()
+
+        retyAttemptQueue = DispatchQueue(label: "com.peerconnetion.retry-attempt-queue",
+                                         qos: .userInitiated, autoreleaseFrequency: .workItem)
+
+        NSLog("%@", "peer start session, advertiser and browsing")
 
         session.startSession()
         browser?.startBrowsing()
@@ -270,6 +293,13 @@ extension PeerConnectionManager {
 
     /// Stop the current connection manager from listening to delegate callbacks and disconnects from the current session.
     public func stop() {
+        self.mutex.lock()
+        defer { self.mutex.unlock() }
+
+        retyAttemptQueue?.sync { self.retyAttemptQueue = nil }
+
+        NSLog("%@", "peer stop session, advertiser and browsing")
+
         session.stopSession()
         servicesSessions.forEach { $0.stopSession() }
         servicesSessions = []
@@ -298,21 +328,61 @@ extension PeerConnectionManager {
 
     // MARK: - Private Configurations
 
+    private func updatePeersStatus(_ peer: Peer, session: PeerSession? = nil, status: Peer.Status) {
+        let updatedPeer = Peer(peer: peer, status: status)
+
+        foundPeers = foundPeers.map { return $0 === peer ? updatedPeer : $0 }
+        servicesSessions = servicesSessions.map({ (serviceSession) in
+            guard serviceSession.peer === peer || serviceSession.servicePeer === peer else {
+                return serviceSession
+            }
+
+            let peer = serviceSession.peer === peer ? updatedPeer : serviceSession.peer
+            let servicePeer = serviceSession.servicePeer === peer ? updatedPeer : serviceSession.servicePeer
+
+            return PeerSession(session: serviceSession, peer: peer, servicePeer: servicePeer)
+        })
+    }
+
+    private func disconnectServiceSession(for peer: Peer) {
+        guard let serviceSession = servicesSessions.first(where: { $0.peer == peer || $0.peer === peer }) else {
+            return
+        }
+
+        disconnectServiceSession(serviceSession)
+    }
+
+    private func disconnectServiceSession(_ session: PeerSession) {
+        let lostServicesSessions = servicesSessions.filter({ $0 == session })
+
+        lostServicesSessions.forEach({ $0.stopSession() })
+        servicesSessions = Array(Set(servicesSessions).subtracting(lostServicesSessions))
+    }
+
     private func devicesConnectionChange(peer: Peer, session: PeerSession) {
-        if session != self.session && peer == session.servicePeer && peer.status == .notConnected {
-            let lostServicesSessions = servicesSessions.filter({ $0 == session })
+        updatePeersStatus(peer, status: peer.status)
 
-            lostServicesSessions.forEach({ $0.stopSession() })
-            servicesSessions = Array(Set(servicesSessions).subtracting(lostServicesSessions))
+        switch peer.status {
+        case .connecting: break
+        case .notConnected where foundPeers.firstIndex(of: peer) != nil && session.isDistantServiceSession == true:
+            if let (_, invitation) = browser?.invitation(for: peer) {
+                try? invitePeer(invitation: invitation)
+                return
+            }
 
-            if let servicePeerIndex = foundPeers.firstIndex(of: peer) {
-                let servicePeer = foundPeers[servicePeerIndex]
-                foundPeers[servicePeerIndex] = Peer(peer: servicePeer, status: .unavailable)
+        default:
+            if let (index, _) = browser?.invitation(for: peer) {
+                browser?.invitations.remove(at: index)
             }
         }
 
+        if session != self.session && peer == session.servicePeer && peer.status == .notConnected {
+            disconnectServiceSession(session)
+            updatePeersStatus(peer, status: .unavailable)
+        }
+
         guard session.isDistantServiceSession == false || peer == session.servicePeer else {
-            print("MultipeerConnectivity: distant service slave, other device connection: \(peer)")
+            NSLog("MultipeerConnectivity: distant service slave, other device connection: \(peer)")
             return
         }
 
@@ -321,7 +391,7 @@ extension PeerConnectionManager {
         observer.value = .devicesChanged(session: session, peer: peer, connectedPeers: connectedPeers)
     }
 
-    /// observe evevents from multiple observer and dispatch them to a single `observer`
+    /// observe events from multiple observer and dispatch them to a single `observer`
     ///    `browserObserver`, `advertiserObserver`, `sessionObserver` -> `observer` -> `responder`
     private func configureObserverResponseEventDispatch() {
         browserObserver.addObserver { [weak self] event in
@@ -381,13 +451,20 @@ extension PeerConnectionManager {
     private func configureManagerPeerObservers() {
         browserObserver.addObserver { [weak self] event in
             DispatchQueue.main.async {
+                self?.mutex.lock()
+                defer { self?.mutex.unlock() }
+
                 switch event {
                 case .foundPeer(let peer, _):
                     guard let peers = self?.foundPeers, !peers.contains(peer) else { break }
                     self?.foundPeers.append(peer)
                 case .lostPeer(let peer):
+                    self?.updatePeersStatus(peer, status: .unavailable)
                     guard let index = self?.foundPeers.index(of: peer) else { break }
+
                     self?.foundPeers.remove(at: index)
+                    self?.disconnectServiceSession(for: peer)
+
                 default: break
                 }
             }
@@ -417,12 +494,12 @@ extension PeerConnectionManager {
 
     private func configureDefaultConnectionTypeBehavior() throws {
         switch connectionType {
-        case .automatic:
+        case .automatic: // TODO use internal observer instead of individuals producders
             browserObserver.addObserver { [unowned self] event in
                 DispatchQueue.main.async {
                     switch event {
                     case .foundPeer(let peer, _):
-                        try? self.browser?.invitePeer(peer)
+                        try? self.invitePeer(peer)
                     default: break
                     }
                 }
