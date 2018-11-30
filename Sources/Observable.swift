@@ -12,22 +12,36 @@ import Foundation
 
 internal class Observable<T> {
     internal typealias Observer = (T) -> Void
+
+    // MARK: - Properties -
+
+    private let _value: Atomic<T>
+    internal var value: T {
+        set {
+            _value.set(newValue)
+
+            observers.forEach { observer in
+                observer(newValue)
+            }
+        }
+        get {
+            return _value.value
+        }
+    }
+
     internal var observers: [Observer] = []
-  
+
+    // MARK: - Initializers
+
+    internal init(_ value: T) {
+        _value = Atomic<T>(value: value)
+    }
+
+    // MARK: - Observers
+
     internal func addObserver(_ observer: @escaping Observer) {
         observer(value)
         self.observers.append(observer)
     }
-  
-    internal var value: T {
-        didSet {
-            observers.forEach { observer in
-                observer(value)
-            }
-        }
-    }
-  
-    internal init(_ v: T) {
-        value = v
-    }
+
 }
