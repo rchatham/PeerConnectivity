@@ -13,10 +13,15 @@ Pod::Spec.new do |s|
   s.homepage     = "https://github.com/tillersystems/PeerConnectivity"
 
   s.swift_version = '4.2'
-  s.ios.deployment_target = '10.1'
+  s.ios.deployment_target = '11.0'
 
   s.source       = { :git => "https://github.com/tillersystems/PeerConnectivity.git", :tag => "#{s.version}" }
   s.source_files = "Sources/**/*.swift"
+
+  ## Dependencies
   s.framework    = "MultipeerConnectivity"
+
+  ## Required Tiller Dependencies
+  s.dependency 'Logger'
 
 end

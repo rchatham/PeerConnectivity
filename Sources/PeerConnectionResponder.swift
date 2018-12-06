@@ -9,7 +9,7 @@
 import Foundation
 
 /// Network events that can be responded to via PeerConnectivity.
-public enum PeerConnectionEvent {
+public enum PeerConnectionEvent: CustomDebugStringConvertible {
 
     /// Event sent when the `PeerConnectionManager` is ready to start.
     case ready
@@ -63,6 +63,17 @@ public enum PeerConnectionEvent {
 
     /// Received security certificate from `Peer` with handler.
     case receivedCertificate(session: PeerSession, peer: Peer, certificate: [Any]?, handler: (Bool) -> Void)
+
+    // MARK: - CustomStringConvertible, CustomDebugStringConvertible
+
+    public var debugDescription: String {
+        switch self {
+        case .ready: return "ready"
+        case .started: return "started - start session, advertiser and browsing"
+        case .ended: return "ended - stop session, advertiser and browsing"
+        default: return Mirror(reflecting: self).children.first?.label ?? ""
+        }
+    }
 
 }
 

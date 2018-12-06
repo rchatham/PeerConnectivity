@@ -133,12 +133,15 @@ internal struct PeerBrowser {
         browser.invitePeer(invitationPeer.peerID, to: invitationSession.session,
                            withContext: invitationContext, timeout: timeout)
 
-        var contextValue: [String: Any]? = nil
-        if let context = context {
-            contextValue = (try? JSONSerialization.jsonObject(with: context, options: .allowFragments)) as? [String: Any]
+        logger.info {
+            var contextValue: [String: Any]? = nil
+            if let context = context {
+                contextValue = (try? JSONSerialization.jsonObject(with: context, options: .allowFragments)) as? [String: Any]
+            }
+
+            return "peer invited (invitation) \(invitationPeer.peerID), retry: \(invitation.retryCount)" +
+            "\n\tsession: \(invitationSession)\n\tcontext: \(contextValue ?? [:])"
         }
-        NSLog("%@", "peer invited \(invitationPeer.peerID), retry: \(invitation.retryCount), " +
-                    "session: \(invitationSession), context: \(contextValue ?? [:])")
     }
 
     internal mutating func invitePeer(_ peer: Peer, session: PeerSession? = nil,
@@ -156,11 +159,14 @@ internal struct PeerBrowser {
         invitations.append(invitation)
         browser.invitePeer(peer.peerID, to: session.session, withContext: context, timeout: timeout)
 
-        var contextValue: [String: Any]? = nil
-        if let context = context {
-            contextValue = (try? JSONSerialization.jsonObject(with: context, options: .allowFragments)) as? [String: Any]
+        logger.info {
+            var contextValue: [String: Any]? = nil
+            if let context = context {
+                contextValue = (try? JSONSerialization.jsonObject(with: context, options: .allowFragments)) as? [String: Any]
+            }
+
+            return "peer invited \(peer.peerID)\n\tsession: \(session)\n\tcontext: \(contextValue ?? [:])"
         }
-        NSLog("%@", "peer invited \(peer.peerID) session: \(session), context: \(contextValue ?? [:])")
     }
 
 }

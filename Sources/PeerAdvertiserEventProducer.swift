@@ -9,10 +9,35 @@
 import Foundation
 import MultipeerConnectivity
 
-internal enum PeerAdvertiserEvent {
+internal enum PeerAdvertiserEvent: CustomStringConvertible, CustomDebugStringConvertible {
     case none
     case didNotStartAdvertisingPeer(Error)
     case didReceiveInvitationFromPeer(peer: Peer, withContext: Data?, invitationHandler: (Bool, PeerSession) -> Void)
+
+    // MARK: - CustomStringConvertible, CustomDebugStringConvertible
+
+    var description: String {
+        switch self {
+        case .none: return "none"
+        case .didNotStartAdvertisingPeer(let error):
+            return "didNotStartAdvertisingPeer(error: \(error))"
+
+        case .didReceiveInvitationFromPeer(let peer, let context, _):
+            var contextDictionary: [String: Any]? = nil
+            if let context = context {
+                contextDictionary = (try? JSONSerialization.jsonObject(with: context, options: .allowFragments)) as? [String: Any]
+            }
+
+            return "didReceiveInvitationFromPeer(peer: \(peer.peerID))\n\tcontext: \(contextDictionary ?? [:])"
+
+        default: return Mirror(reflecting: self).children.first?.label ?? ""
+        }
+    }
+
+    var debugDescription: String {
+        return description
+    }
+
 }
 
 internal class PeerAdvertiserEventProducer: NSObject {
@@ -27,23 +52,25 @@ internal class PeerAdvertiserEventProducer: NSObject {
 extension PeerAdvertiserEventProducer: MCNearbyServiceAdvertiserDelegate {
 
     internal func advertiser(_ advertiser: MCNearbyServiceAdvertiser, didNotStartAdvertisingPeer error: Error) {
-        NSLog("%@", "didNotStartAdvertisingPeer: \(error)")
-        
         let event: PeerAdvertiserEvent = .didNotStartAdvertisingPeer(error)
+        logger.error("PeerAdvertiserEventProducer - \(event)")
+
         self.observer.value = event
     }
     
     internal func advertiser(_ advertiser: MCNearbyServiceAdvertiser, didReceiveInvitationFromPeer peerID: MCPeerID,
                              withContext context: Data?, invitationHandler: @escaping (Bool, MCSession?) -> Void) {
-        NSLog("%@", "didReceiveInvitationFromPeer \(peerID)")
-        
         let handler: ((Bool, PeerSession) -> Void) = { (accept, session) in
-            NSLog("%@", "invitationHandler \(peerID), accept \(accept), session \(session)")
+            logger.info("\tPeerAdvertiserEventProducer - invitationHandler - accept: \(accept); peer: \(session.peer.peerID)\n\tsession: \(session)")
             invitationHandler(accept, session.session)
         }
         
         let peer = Peer(peerID: peerID, status: .notConnected)
-        let event: PeerAdvertiserEvent = .didReceiveInvitationFromPeer(peer: peer, withContext: context, invitationHandler: handler)
+        let event: PeerAdvertiserEvent = .didReceiveInvitationFromPeer(peer: peer, withContext: context,
+                                                                       invitationHandler: handler)
+
+        logger.info("PeerAdvertiserEventProducer - \(event)")
         self.observer.value = event
     }
+
 }
