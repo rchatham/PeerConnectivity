@@ -269,8 +269,6 @@ extension PeerConnectionManager {
         retyAttemptQueue = DispatchQueue(label: "com.peerconnetion.retry-attempt-queue",
                                          qos: .userInitiated, autoreleaseFrequency: .workItem)
 
-        NSLog("%@", "peer start session, advertiser and browsing")
-
         session.startSession()
         browser?.startBrowsing()
 
@@ -297,8 +295,6 @@ extension PeerConnectionManager {
         defer { self.mutex.unlock() }
 
         retyAttemptQueue?.sync { self.retyAttemptQueue = nil }
-
-        NSLog("%@", "peer stop session, advertiser and browsing")
 
         session.stopSession()
         servicesSessions.forEach { $0.stopSession() }
@@ -382,7 +378,7 @@ extension PeerConnectionManager {
         }
 
         guard session.isDistantServiceSession == false || peer == session.servicePeer else {
-            NSLog("MultipeerConnectivity: distant service slave, other device connection: \(peer)")
+            logger.info("\t - distant service slave, other device connection: \(peer)")
             return
         }
 

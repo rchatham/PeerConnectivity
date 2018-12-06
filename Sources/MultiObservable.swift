@@ -19,6 +19,7 @@ internal class MultiObservable<T> {
     internal var value: T {
         set {
             _value.set(newValue)
+            logger.info("Manager PeerConnectionEvent - \(newValue)")
 
             for (_, observer) in observers {
                 observer(newValue)

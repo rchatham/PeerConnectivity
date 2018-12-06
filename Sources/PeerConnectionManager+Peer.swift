@@ -16,7 +16,7 @@ public extension PeerConnectionManager {
         /// ^ is equal check internal 'MCPeer', here we need to compare instance too
         /// similar to generation trick ^^
         guard foundPeers.contains(where: { $0 == peer && $0 === peer }) else {
-            NSLog("invite peer, unavailable")
+            logger.error("peer invitation canceled, peer: \(peer.peerID), error: \(Error.peerUnavailable)")
             throw Error.peerUnavailable
         }
 
@@ -25,7 +25,7 @@ public extension PeerConnectionManager {
         }
 
         guard matchingConnectedServicePeers.count <= 0 else {
-            NSLog("- service already connected, ignoring \(peer) advertisement")
+            logger.error("peer invitation canceled, peer: \(peer.peerID), error: \(Error.serviceAlreadyConnected)")
             throw Error.serviceAlreadyConnected
         }
 
@@ -65,7 +65,7 @@ public extension PeerConnectionManager {
             throw Error.peerUnavailable
         }
 
-        print("AttemptReconnect - \(peer)")
+        logger.info("AttemptReconnect - peer: \(peer)")
         reconnectWorkItem = DispatchWorkItem { [weak self] in
             guard var strongSelf = self, reconnectWorkItem?.isCancelled == false else {
                 return
