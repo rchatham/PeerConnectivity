@@ -41,7 +41,7 @@ public let logger: Logger = {
     let logger = Logger(identifier: LoggerDomain.peerConnectivity.rawValue, container: nil)
 
     logger.add(destination: LoggerDomain.peerConnectivity.fileDestination)
-    logger.add(destination: LoggerDomain.peerConnectivity.consoleDestination)
+    logger.add(destination: LoggerDomain.peerConnectivity.oslogDestination)
 
     return logger
 }()
