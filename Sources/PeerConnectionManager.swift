@@ -211,6 +211,7 @@ public class PeerConnectionManager {
         switch managerMode {
         case .node:
             browser = PeerBrowser(peer: peer, serviceType: serviceType, factory: { (browserPeer, _) -> PeerSession in
+                self.disconnectServiceSession(for: browserPeer)
                 let nodeServiceSession = PeerSession(peer: self.peer, servicePeer: browserPeer,
                                                      eventProducer: self.sessionEventProducer,
                                                      securityIdentity: self.sessionSecurityIdentity,
@@ -296,6 +297,8 @@ extension PeerConnectionManager {
 
         retyAttemptQueue?.sync { self.retyAttemptQueue = nil }
 
+        browser?.invitations = []
+
         session.stopSession()
         servicesSessions.forEach { $0.stopSession() }
         servicesSessions = []
@@ -359,22 +362,22 @@ extension PeerConnectionManager {
         updatePeersStatus(peer, status: peer.status)
 
         switch peer.status {
-        case .connecting: break
-        case .notConnected where foundPeers.firstIndex(of: peer) != nil && session.isDistantServiceSession == true:
-            if let (_, invitation) = browser?.invitation(for: peer) {
-                try? invitePeer(invitation: invitation)
-                return
+        case .connecting where session.isDistantServiceSession == true:
+            browser?.updateInvitation(for: peer, status: .connecting)
+
+        case .notConnected where self.session != session && session.isDistantServiceSession == true:
+            if foundPeers.firstIndex(of: peer) != nil &&
+                browser?.updateInvitation(for: peer, status: .notConnected) == true {
+                /// ^ If service still available and we're in the invitation cycle (invitation exist)
+                return /// does not propage '.deviceChanged' event while attempting re-connect, only in invitation cycle
             }
 
-        default:
-            if let (index, _) = browser?.invitation(for: peer) {
-                browser?.invitations.remove(at: index)
-            }
-        }
-
-        if session != self.session && peer == session.servicePeer && peer.status == .notConnected {
             disconnectServiceSession(session)
             updatePeersStatus(peer, status: .unavailable)
+            browser?.updateInvitation(for: peer, status: .unavailable)
+
+        default:
+            browser?.updateInvitation(for: peer, status: .connected)
         }
 
         guard session.isDistantServiceSession == false || peer == session.servicePeer else {
@@ -385,6 +388,26 @@ extension PeerConnectionManager {
         // ignore this because user wants to knows services connecti on events (knows when he's connected to a distant service
         //guard let connectedPeers = self?.connectedPeers else { break }
         observer.value = .devicesChanged(session: session, peer: peer, connectedPeers: connectedPeers)
+    }
+
+    private func receivedInvitation(peer: Peer, context: Data?,
+                                    invitationHandler: @escaping (Bool, PeerSession) -> Void) {
+        let invitationReceiver = { [weak self] (accept: Bool) -> Void in
+            guard let session = self?.session else { return }
+            invitationHandler(accept, session)
+        }
+
+        observer.value = .receivedInvitation(peer: peer, withContext: context, invitationHandler: invitationReceiver)
+
+        /// Inspect if automatic-reconnection to '.unavailable' services works and we don't need to do it manually
+        /// see commit #a6ff1cfc511ed94ee2c808bf339cdbf163cc0f0c if needed
+
+        let matchingServicePeer = foundPeers.first(where: { $0.displayName == peer.displayName })
+        if let servicePeer = matchingServicePeer, matchingServicePeer?.status == .unavailable {
+            /// this resolve services session being reused and thus not rediscovered after small disconnections
+            logger.debug("force discovery of matching inviting peer service for distant-service")
+            observer.value = .foundPeer(peer: servicePeer, info: servicePeer.serviceDiscoveryInfo)
+        }
     }
 
     /// observe events from multiple observer and dispatch them to a single `observer`
@@ -405,11 +428,7 @@ extension PeerConnectionManager {
         advertiserObserver.addObserver { [weak self] event in
             switch event {
             case.didReceiveInvitationFromPeer(peer: let peer, withContext: let context, invitationHandler: let invite):
-                let invitationReceiver = { [weak self] (accept: Bool) -> Void in
-                    guard let session = self?.session else { return }
-                    invite(accept, session)
-                }
-                self?.observer.value = .receivedInvitation(peer: peer, withContext: context, invitationHandler: invitationReceiver)
+                self?.receivedInvitation(peer: peer, context: context, invitationHandler: invite)
             case .didNotStartAdvertisingPeer(let error):
                 self?.observer.value = .error(error)
             default: break

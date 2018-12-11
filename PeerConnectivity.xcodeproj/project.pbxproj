@@ -33,6 +33,7 @@
 		9C0B1A9B21A84049001AB7BB /* ThreadSafeValueWrapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C0B1A9A21A84049001AB7BB /* ThreadSafeValueWrapper.swift */; };
 		9C8518E42182172D000C5C3F /* PeerConnectionManager+Peer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C8518E32182172D000C5C3F /* PeerConnectionManager+Peer.swift */; };
 		9C8518E621821763000C5C3F /* PeerConnectionManager+Listener.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C8518E521821763000C5C3F /* PeerConnectionManager+Listener.swift */; };
+		9CEEDB2F21BECDBD00AF0505 /* Invitation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CEEDB2E21BECDBD00AF0505 /* Invitation.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -75,6 +76,7 @@
 		9C0B1A9A21A84049001AB7BB /* ThreadSafeValueWrapper.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ThreadSafeValueWrapper.swift; sourceTree = "<group>"; };
 		9C8518E32182172D000C5C3F /* PeerConnectionManager+Peer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "PeerConnectionManager+Peer.swift"; path = "Sources/PeerConnectionManager+Peer.swift"; sourceTree = "<group>"; };
 		9C8518E521821763000C5C3F /* PeerConnectionManager+Listener.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = "PeerConnectionManager+Listener.swift"; path = "Sources/PeerConnectionManager+Listener.swift"; sourceTree = "<group>"; };
+		9CEEDB2E21BECDBD00AF0505 /* Invitation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Invitation.swift; path = Sources/Invitation.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -104,7 +106,6 @@
 				9C805C8D21628443006FA28D /* Adviser */,
 				9C805C8E21628457006FA28D /* Browser */,
 				9C805C8F2162847B006FA28D /* ObserverResponder */,
-				3080C7DE1D80A1D600AF9EA3 /* Peer.swift */,
 				3080C7E71D80A1D600AF9EA3 /* PeerConnectionManager.swift */,
 				9C8518E32182172D000C5C3F /* PeerConnectionManager+Peer.swift */,
 				9C8518E521821763000C5C3F /* PeerConnectionManager+Listener.swift */,
@@ -144,6 +145,8 @@
 			isa = PBXGroup;
 			children = (
 				9C0B1A8F21A83FFD001AB7BB /* AtomicKit */,
+				3080C7DE1D80A1D600AF9EA3 /* Peer.swift */,
+				9CEEDB2E21BECDBD00AF0505 /* Invitation.swift */,
 			);
 			name = Commons;
 			sourceTree = "<group>";
@@ -340,6 +343,7 @@
 				9C0B1A9621A83FFD001AB7BB /* Mutex.swift in Sources */,
 				3080C7EF1D80A1D700AF9EA3 /* Peer.swift in Sources */,
 				9C0B1A9921A84025001AB7BB /* UnfairLock.swift in Sources */,
+				9CEEDB2F21BECDBD00AF0505 /* Invitation.swift in Sources */,
 				3080C7F91D80A1D700AF9EA3 /* PeerConnectionResponder.swift in Sources */,
 				3080C7F71D80A1D700AF9EA3 /* PeerBrowserViewControllerEventProducer.swift in Sources */,
 				3080C7F41D80A1D700AF9EA3 /* PeerBrowser.swift in Sources */,
