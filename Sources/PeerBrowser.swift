@@ -11,45 +11,6 @@ import MultipeerConnectivity
 
 typealias SessionFactory = (Peer, Data?) -> PeerSession
 
-internal struct Invitation {
-
-    // MARK: - Constants && Types
-
-    static let maxConnectionRetries = 3
-
-    // MARK: - Properties
-
-    internal let peer: Peer
-    internal let session: PeerSession
-
-    internal var context: Data?
-    internal var retryCount: Int = 0
-
-    // MARK: - Initializers
-
-    init(peer: Peer, session: PeerSession, context: Data? = nil, retryCount: Int = 0) {
-        self.peer = peer
-        self.session = session
-
-        self.context = context
-        self.retryCount = retryCount
-    }
-
-}
-
-extension Invitation: Equatable {
-
-    public static func == (lhs: Invitation, rhs: Invitation) -> Bool {
-        return lhs.peer == rhs.peer
-    }
-
-    public static func == (lhs: Invitation, rhs: Peer) -> Bool {
-        return lhs.peer == rhs
-    }
-
-}
-
-
 internal struct PeerBrowser {
 
     // MARK: - Properties -
@@ -100,6 +61,33 @@ internal struct PeerBrowser {
         browser.delegate = nil
     }
 
+    // MARK: - Browser Invitation Management -
+
+    internal mutating func updateInvitation(for peer: Peer, status: Peer.Status) -> Bool {
+        guard let (index, invitation) = invitation(for: peer), invitation.peer === peer else {
+            return false
+        }
+
+        switch status {
+        case .connecting:
+            guard let updatedInvitation = try? Invitation(invitation, status: .pending) else {
+                return false
+            }
+
+            invitations[index] = updatedInvitation
+            logger.info("PeerBrowser Manager - invitation updated - \(updatedInvitation)")
+
+        case .notConnected:
+            try? invitePeer(invitation: invitation)
+
+        default:
+            invitations.remove(at: index)
+            logger.info("PeerBrowser Manager - invitation removed - \(invitation)")
+        }
+
+        return true
+    }
+
     // MARK: - Browser peer management -
 
     internal func invitation(for peer: Peer) -> (Int, Invitation)? {
@@ -117,36 +105,55 @@ internal struct PeerBrowser {
             throw PeerConnectionManager.Error.unknownInvitation
         }
 
-        guard invitation.retryCount < Invitation.maxConnectionRetries else {
-            invitations.remove(at: index)
-            throw PeerConnectionManager.Error.maxConnectionRetriesExceeded
-        }
+        do {
+            let invitation = try Invitation(invitation, status: .failed, context: context)
+            invitations[index] = invitation
+            logger.info("PeerBrowser Manager - invitation updated - \(invitation)")
 
-        invitation.retryCount += 1
-        invitation.context = context ?? invitation.context
-        invitations[index] = invitation
-
-        let invitationPeer = invitation.peer
-        let invitationSession = invitation.session
-        let invitationContext = invitation.context
-
-        browser.invitePeer(invitationPeer.peerID, to: invitationSession.session,
-                           withContext: invitationContext, timeout: timeout)
-
-        logger.info {
-            var contextValue: [String: Any]? = nil
-            if let context = context {
-                contextValue = (try? JSONSerialization.jsonObject(with: context, options: .allowFragments)) as? [String: Any]
+            browser.invitePeer(invitation: invitation, timeout: timeout)
+            logger.info {
+                var contextValue: [String: Any]? = context?.jsonDictionary
+                return "peer invited (invitation) \(invitation.peer.peerID), retry: \(invitation.retryCount)" +
+                "\n\tsession: \(invitation.session)\n\tcontext: \(contextValue ?? [:])"
             }
 
-            return "peer invited (invitation) \(invitationPeer.peerID), retry: \(invitation.retryCount)" +
-            "\n\tsession: \(invitationSession)\n\tcontext: \(contextValue ?? [:])"
+        } catch {
+            switch error {
+            case InvitationError.connectionInconsistency:
+                let context = context ?? invitation.context
+                guard let session = session ?? sessionFactory?(invitation.peer, context) else {
+                    throw PeerConnectionManager.Error.unsupportedModeUsage
+                } /// TODO: make sure this session is cleared correctly
+
+                let invitation = try Invitation(invitation, status: .inconsistent, session: session, context: context)
+                invitations[index] = invitation
+                logger.info("PeerBrowser Manager - invitation changed - \(invitation)")
+
+                browser.invitePeer(invitation: invitation, timeout: timeout)
+                logger.info {
+                    var contextValue: [String: Any]? = context?.jsonDictionary
+                    return "peer invited (new session) \(invitation.peer.peerID), retry: \(invitation.retryCount)" +
+                    "\n\tsession: \(invitation.session)\n\tcontext: \(contextValue ?? [:])"
+                }
+
+            case InvitationError.maxConnectionRetriesExceeded:
+                invitations.remove(at: index)
+                logger.info("PeerBrowser Manager - invitation removed - \(invitation)")
+                throw PeerConnectionManager.Error.maxConnectionRetriesExceeded
+
+            default: InvitationError.invitationPending
+            }
         }
     }
 
     internal mutating func invitePeer(_ peer: Peer, session: PeerSession? = nil,
                                       withContext context: Data? = nil, timeout: TimeInterval = 30) throws {
-        if var invitation = invitations.first(where: { $0 == peer && $0.peer === peer }) {
+        if let invitation = invitations.first(where: { $0 == peer && $0.peer === peer }) {
+            guard invitation.status != .pending else {
+                throw InvitationError.invitationPending
+            }
+
+            /// todo, not sure we need to invite here
             try invitePeer(invitation: invitation, context: context, timeout: timeout)
             return
         }
@@ -157,16 +164,25 @@ internal struct PeerBrowser {
 
         let invitation = Invitation(peer: peer, session: session, context: context)
         invitations.append(invitation)
+        logger.info("PeerBrowser Manager - invitation added - \(invitation)")
+
         browser.invitePeer(peer.peerID, to: session.session, withContext: context, timeout: timeout)
 
         logger.info {
-            var contextValue: [String: Any]? = nil
-            if let context = context {
-                contextValue = (try? JSONSerialization.jsonObject(with: context, options: .allowFragments)) as? [String: Any]
-            }
-
+            var contextValue: [String: Any]? = context?.jsonDictionary
             return "peer invited \(peer.peerID)\n\tsession: \(session)\n\tcontext: \(contextValue ?? [:])"
         }
+    }
+
+}
+
+// MARK: - Multipeer Internals extensions -
+
+extension MCNearbyServiceBrowser {
+
+    func invitePeer(invitation: Invitation, timeout: TimeInterval = 30) {
+        invitePeer(invitation.peer.peerID, to: invitation.session.session,
+                   withContext: invitation.context, timeout: timeout)
     }
 
 }
