@@ -148,7 +148,7 @@ extension PeerSession: Hashable, Equatable {
 
 }
 
-func addressHeap<T: AnyObject>(_ o: T) -> Int {
+internal func addressHeap<T: AnyObject>(_ o: T) -> Int {
     return unsafeBitCast(o, to: Int.self)
 }
 

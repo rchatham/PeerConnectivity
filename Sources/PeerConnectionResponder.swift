@@ -71,6 +71,7 @@ public enum PeerConnectionEvent: CustomDebugStringConvertible {
         case .ready: return "ready"
         case .started: return "started - start session, advertiser and browsing"
         case .ended: return "ended - stop session, advertiser and browsing"
+        case .nearbyPeersChanged(let peers): return "nearbyPeersChanged(peers: \(peers.count))"
         default: return Mirror(reflecting: self).children.first?.label ?? ""
         }
     }
