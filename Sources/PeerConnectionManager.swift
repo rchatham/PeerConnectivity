@@ -267,8 +267,8 @@ extension PeerConnectionManager {
         configureObserverResponseEventDispatch()
         try configureDefaultConnectionTypeBehavior()
 
-        retyAttemptQueue = DispatchQueue(label: "com.peerconnetion.retry-attempt-queue",
-                                         qos: .userInitiated, autoreleaseFrequency: .workItem)
+        retyAttemptQueue = DispatchQueue(label: "com.peerconnetion.retry-attempt-queue",  qos: .userInitiated,
+                                         attributes: .concurrent, autoreleaseFrequency: .workItem)
 
         session.startSession()
         browser?.startBrowsing()
@@ -465,7 +465,7 @@ extension PeerConnectionManager {
 
     private func configureManagerPeerObservers() {
         browserObserver.addObserver { [weak self] event in
-            DispatchQueue.main.async {
+            DispatchQueue.global().async {
                 self?.mutex.lock()
                 defer { self?.mutex.unlock() }
 
