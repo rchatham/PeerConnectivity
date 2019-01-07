@@ -63,6 +63,7 @@ internal struct PeerBrowser {
 
     // MARK: - Browser Invitation Management -
 
+    @discardableResult
     internal mutating func updateInvitation(for peer: Peer, status: Peer.Status) -> Bool {
         guard let (index, invitation) = invitation(for: peer), invitation.peer === peer else {
             return false
@@ -141,7 +142,7 @@ internal struct PeerBrowser {
                 logger.info("PeerBrowser Manager - invitation removed - \(invitation)")
                 throw PeerConnectionManager.Error.maxConnectionRetriesExceeded
 
-            default: InvitationError.invitationPending
+            default: throw InvitationError.invitationPending
             }
         }
     }
