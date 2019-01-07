@@ -12,6 +12,7 @@ import Foundation
 
 public extension PeerConnectionManager {
 
+    @discardableResult
     public func peerServiceAvailable(_ peer: Peer) throws -> Bool  {
         /// ^ is equal check internal 'MCPeer', here we need to compare instance too
         /// similar to generation trick ^^
@@ -72,13 +73,14 @@ public extension PeerConnectionManager {
             }
 
             try? strongSelf.invitePeer(peer, withContext: context, timeout: timeout)
+            reconnectWorkItem = nil
         }
 
-        let deadline: DispatchTime = .now() + delay
         guard let connectionWorkItem = reconnectWorkItem else {
             return
         }
 
+        let deadline: DispatchTime = .now() + delay
         retyAttemptQueue?.asyncAfter(deadline: deadline, execute: connectionWorkItem)
     }
 
