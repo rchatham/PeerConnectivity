@@ -68,7 +68,7 @@ public extension PeerConnectionManager {
 
         logger.info("AttemptReconnect - peer: \(peer)")
         reconnectWorkItem = DispatchWorkItem { [weak self] in
-            guard var strongSelf = self, reconnectWorkItem?.isCancelled == false else {
+            guard let strongSelf = self, reconnectWorkItem?.isCancelled == false else {
                 return
             }
 

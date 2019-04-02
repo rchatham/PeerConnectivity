@@ -101,7 +101,7 @@ internal struct PeerBrowser {
     }
 
     internal mutating func invitePeer(invitation: Invitation, context: Data? = nil, timeout: TimeInterval = 30) throws {
-        var invitation = invitation // TODO: Check that connection of peer entered 'connecting' before retry connection
+        let invitation = invitation // TODO: Check that connection of peer entered 'connecting' before retry connection
         guard let index = invitations.firstIndex(of: invitation) else {
             throw PeerConnectionManager.Error.unknownInvitation
         }
@@ -113,7 +113,7 @@ internal struct PeerBrowser {
 
             browser.invitePeer(invitation: invitation, timeout: timeout)
             logger.info {
-                var contextValue: [String: Any]? = context?.jsonDictionary
+                let contextValue: [String: Any]? = context?.jsonDictionary
                 return "peer invited (invitation) \(invitation.peer.peerID), retry: \(invitation.retryCount)" +
                 "\n\tsession: \(invitation.session)\n\tcontext: \(contextValue ?? [:])"
             }
@@ -132,7 +132,7 @@ internal struct PeerBrowser {
 
                 browser.invitePeer(invitation: invitation, timeout: timeout)
                 logger.info {
-                    var contextValue: [String: Any]? = context?.jsonDictionary
+                    let contextValue: [String: Any]? = context?.jsonDictionary
                     return "peer invited (new session) \(invitation.peer.peerID), retry: \(invitation.retryCount)" +
                     "\n\tsession: \(invitation.session)\n\tcontext: \(contextValue ?? [:])"
                 }
@@ -170,7 +170,7 @@ internal struct PeerBrowser {
         browser.invitePeer(peer.peerID, to: session.session, withContext: context, timeout: timeout)
 
         logger.info {
-            var contextValue: [String: Any]? = context?.jsonDictionary
+            let contextValue: [String: Any]? = context?.jsonDictionary
             return "peer invited \(peer.peerID)\n\tsession: \(session)\n\tcontext: \(contextValue ?? [:])"
         }
     }

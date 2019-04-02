@@ -29,8 +29,6 @@ internal enum PeerBrowserEvent: CustomStringConvertible, CustomDebugStringConver
             return "foundPeer(peer: \(peer.peerID))\n\tdiscovery: \(info ?? [:])"
         case .lostPeer(let peer):
             return "lostPeer(peer: \(peer.peerID))"
-
-        default: return Mirror(reflecting: self).children.first?.label ?? ""
         }
     }
 
