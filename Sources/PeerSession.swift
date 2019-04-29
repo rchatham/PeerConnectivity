@@ -133,7 +133,14 @@ extension PeerSession: Hashable, Equatable {
 
     /// :nodoc:
     public var hashValue: Int {
-        return session.hashValue
+        var hasher = Hasher()
+        hash(into: &hasher)
+
+        return hasher.finalize()
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(session)
     }
 
     /// :nodoc:

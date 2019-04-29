@@ -99,7 +99,14 @@ extension Peer: Hashable, Equatable {
 
     /// :nodoc:
     public var hashValue: Int {
-        return peerID.hashValue
+        var hasher = Hasher()
+        hash(into: &hasher)
+
+        return hasher.finalize()
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(peerID)
     }
 
     /// :nodoc:

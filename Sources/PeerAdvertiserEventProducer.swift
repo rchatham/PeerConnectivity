@@ -30,7 +30,7 @@ internal enum PeerAdvertiserEvent: CustomStringConvertible, CustomDebugStringCon
 
             return "didReceiveInvitationFromPeer(peer: \(peer.peerID))\n\tcontext: \(contextDictionary ?? [:])"
 
-        default: return Mirror(reflecting: self).children.first?.label ?? ""
+        //default: return Mirror(reflecting: self).children.first?.label ?? ""
         }
     }
 

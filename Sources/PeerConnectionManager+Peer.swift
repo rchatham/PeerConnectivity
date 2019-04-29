@@ -13,7 +13,7 @@ import Foundation
 public extension PeerConnectionManager {
 
     @discardableResult
-    public func peerServiceAvailable(_ peer: Peer) throws -> Bool  {
+    func peerServiceAvailable(_ peer: Peer) throws -> Bool  {
         /// ^ is equal check internal 'MCPeer', here we need to compare instance too
         /// similar to generation trick ^^
         guard foundPeers.contains(where: { $0 == peer && $0 === peer }) else {
@@ -39,7 +39,7 @@ public extension PeerConnectionManager {
     // - parameter withContext: `Data` object associated with the invitation.
     // - parameter timeout: Time interval until the invitation expires.
 
-    public func invitePeer(_ peer: Peer, withContext context: Data? = nil, timeout: TimeInterval = 30) throws {
+    func invitePeer(_ peer: Peer, withContext context: Data? = nil, timeout: TimeInterval = 30) throws {
         mutex.lock()
         defer { mutex.unlock() }
 
@@ -55,7 +55,7 @@ public extension PeerConnectionManager {
         try browser?.invitePeer(invitation: invitation, context: context, timeout: timeout)
     }
 
-    public func attemptReconnect(_ peer: Peer, context: Data? = nil, timeout: TimeInterval = 30,
+    func attemptReconnect(_ peer: Peer, context: Data? = nil, timeout: TimeInterval = 30,
                                  delay: DispatchTimeInterval = .seconds(5)) throws {
         var reconnectWorkItem: DispatchWorkItem? = nil
 
@@ -68,7 +68,7 @@ public extension PeerConnectionManager {
 
         logger.info("AttemptReconnect - peer: \(peer)")
         reconnectWorkItem = DispatchWorkItem { [weak self] in
-            guard var strongSelf = self, reconnectWorkItem?.isCancelled == false else {
+            guard let strongSelf = self, reconnectWorkItem?.isCancelled == false else {
                 return
             }
 
@@ -89,7 +89,7 @@ public extension PeerConnectionManager {
     // - parameter data: Data to be sent to specified peers.
     // - parameter toPeers: Specified `Peer` objects to send data.
 
-    public func sendData(_ data: Data, toPeers peers: [Peer] = []) {
+    func sendData(_ data: Data, toPeers peers: [Peer] = []) {
         session.sendData(data, toPeers: peers)
     }
 
@@ -100,7 +100,7 @@ public extension PeerConnectionManager {
     //    the NSKeyedArchiver and passed to the specified peers.
     // - parameter toPeers: Specified `Peer` objects to send event.
 
-    public func sendEvent(_ eventInfo: [String:Any], toPeers peers: [Peer] = []) {
+    func sendEvent(_ eventInfo: [String:Any], toPeers peers: [Peer] = []) {
         let eventData = NSKeyedArchiver.archivedData(withRootObject: eventInfo)
         session.sendData(eventData, toPeers: peers)
     }
@@ -115,7 +115,7 @@ public extension PeerConnectionManager {
     //
     // - Returns: The OutputStream for sending information to the specified `Peer` object.
 
-    public func sendDataStream(streamName name: String, toPeer peer: Peer) throws -> OutputStream {
+    func sendDataStream(streamName name: String, toPeer peer: Peer) throws -> OutputStream {
         do { return try session.sendDataStream(name, toPeer: peer) }
         catch let error { throw error }
     }
@@ -131,7 +131,7 @@ public extension PeerConnectionManager {
     //
     // - Returns: A dictionary of optional Progress associated with each peer that the resource was sent to.
 
-    public func sendResourceAtURL(_ resourceURL: URL, withName name: String, toPeers peers: [Peer] = [],
+    func sendResourceAtURL(_ resourceURL: URL, withName name: String, toPeers peers: [Peer] = [],
                                   withCompletionHandler completion: ((Swift.Error?) -> Void)? ) -> [Peer:Progress?] {
 
         var progress: [Peer: Progress?] = [:]

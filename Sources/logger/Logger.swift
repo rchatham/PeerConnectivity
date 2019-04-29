@@ -16,11 +16,11 @@ public extension LoggerDomain {
 
     // MARK: - Domains
 
-    public static let peerConnectivity = LoggerDomain(identifier: "com.peer-connectivity")
+    static let peerConnectivity = LoggerDomain(identifier: "com.peer-connectivity")
 
     // MARK: - Destinations
 
-    public var consoleDestination: DestinationProtocol? {
+    var consoleDestination: DestinationProtocol? {
         let destinationIdentifier = [rawValue, "consoleDestination"].joined(separator: ".")
         let consoleDestination = ConsoleDestination(identifier: destinationIdentifier)
 

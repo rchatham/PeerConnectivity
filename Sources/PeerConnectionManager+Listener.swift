@@ -18,7 +18,7 @@ public extension PeerConnectionManager {
     /// - parameter performListenerInBackground: Default is `false`. Set to `true` to perform the listener asyncronously.
     /// - parameter withKey: The key with which to associate the listener.
 
-    public func listenOn(_ listener: @escaping PeerConnectionEventListener,
+    func listenOn(_ listener: @escaping PeerConnectionEventListener,
                          performListenerInBackground background: Bool = false, withKey key: String) {
 
         switch background {
@@ -38,7 +38,7 @@ public extension PeerConnectionManager {
     /// - parameter key: `String` key with which to keep track of the listener for later removal.
     /// - parameter listener: Callback that returns the event info and the `Peer` whenever an event is received.
 
-    public func observeEventListenerForKey(_ key: String, listener: @escaping ([String: Any], PeerSession, Peer) -> Void) {
+    func observeEventListenerForKey(_ key: String, listener: @escaping ([String: Any], PeerSession, Peer) -> Void) {
         responder.addListener({ (event) in
             switch event {
             case .receivedEvent(let session, let peer, let eventInfo):
@@ -53,12 +53,12 @@ public extension PeerConnectionManager {
     ///
     /// - parameter key: The key with which to attempt to find and remove a listener with.
 
-    public func removeListenerForKey(_ key: String) {
+    func removeListenerForKey(_ key: String) {
         responder.removeListenerForKey(key)
     }
 
     /// Remove all listeners.
-    public func removeAllListeners() {
+    func removeAllListeners() {
         responder.removeAllListeners()
     }
 
