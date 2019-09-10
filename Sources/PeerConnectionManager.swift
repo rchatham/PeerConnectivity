@@ -445,7 +445,12 @@ extension PeerConnectionManager {
 
             switch event {
             case .devicesChanged(peer: let peer):
-                self?.devicesConnectionChange(peer: peer, session: session)
+                DispatchQueue.global().async {
+                    self?.mutex.lock()
+                    defer { self?.mutex.unlock() }
+
+                    self?.devicesConnectionChange(peer: peer, session: session)
+                }
             case .didReceiveData(peer: let peer, data: let data):
                 self?.observer.value = .receivedData(session: session, peer: peer, data: data)
                 guard let eventInfo = NSKeyedUnarchiver.unarchiveObject(with: data) as? [String:Any] else { return }
