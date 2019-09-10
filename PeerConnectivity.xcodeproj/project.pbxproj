@@ -25,12 +25,14 @@
 		3080C7FC1D80A1D700AF9EA3 /* PeerSessionEventProducer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3080C7EB1D80A1D600AF9EA3 /* PeerSessionEventProducer.swift */; };
 		3086CD2D1D09FB9900E269A3 /* PeerConnectivity.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3086CD221D09FB9800E269A3 /* PeerConnectivity.framework */; };
 		3086CD321D09FB9900E269A3 /* PeerConnectivityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3086CD311D09FB9900E269A3 /* PeerConnectivityTests.swift */; };
+		33494572B33BD6EAF7C74BA4 /* Pods_PeerConnectivity.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4162A636307354FD6A2DDD04 /* Pods_PeerConnectivity.framework */; };
 		9C0B1A9421A83FFD001AB7BB /* Lockable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C0B1A9021A83FFD001AB7BB /* Lockable.swift */; };
 		9C0B1A9521A83FFD001AB7BB /* LockingValue.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C0B1A9121A83FFD001AB7BB /* LockingValue.swift */; };
 		9C0B1A9621A83FFD001AB7BB /* Mutex.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C0B1A9221A83FFD001AB7BB /* Mutex.swift */; };
 		9C0B1A9721A83FFD001AB7BB /* Atomic.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C0B1A9321A83FFD001AB7BB /* Atomic.swift */; };
 		9C0B1A9921A84025001AB7BB /* UnfairLock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C0B1A9821A84024001AB7BB /* UnfairLock.swift */; };
 		9C0B1A9B21A84049001AB7BB /* ThreadSafeValueWrapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C0B1A9A21A84049001AB7BB /* ThreadSafeValueWrapper.swift */; };
+		9C758B3D23269EE30074D029 /* Logger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C1CDF452253BF0B00D8DB5F /* Logger.swift */; };
 		9C8518E42182172D000C5C3F /* PeerConnectionManager+Peer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C8518E32182172D000C5C3F /* PeerConnectionManager+Peer.swift */; };
 		9C8518E621821763000C5C3F /* PeerConnectionManager+Listener.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C8518E521821763000C5C3F /* PeerConnectionManager+Listener.swift */; };
 		9CEEDB2F21BECDBD00AF0505 /* Invitation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CEEDB2E21BECDBD00AF0505 /* Invitation.swift */; };
@@ -68,6 +70,8 @@
 		3086CD2C1D09FB9900E269A3 /* PeerConnectivityTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PeerConnectivityTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		3086CD311D09FB9900E269A3 /* PeerConnectivityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeerConnectivityTests.swift; sourceTree = "<group>"; };
 		3086CD331D09FB9900E269A3 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		4162A636307354FD6A2DDD04 /* Pods_PeerConnectivity.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_PeerConnectivity.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		8CA0CE5BF88E33B3AC8826E5 /* Pods-PeerConnectivity.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-PeerConnectivity.debug.xcconfig"; path = "Target Support Files/Pods-PeerConnectivity/Pods-PeerConnectivity.debug.xcconfig"; sourceTree = "<group>"; };
 		9C0B1A9021A83FFD001AB7BB /* Lockable.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Lockable.swift; sourceTree = "<group>"; };
 		9C0B1A9121A83FFD001AB7BB /* LockingValue.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = LockingValue.swift; sourceTree = "<group>"; };
 		9C0B1A9221A83FFD001AB7BB /* Mutex.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Mutex.swift; sourceTree = "<group>"; };
@@ -78,6 +82,7 @@
 		9C8518E32182172D000C5C3F /* PeerConnectionManager+Peer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "PeerConnectionManager+Peer.swift"; path = "Sources/PeerConnectionManager+Peer.swift"; sourceTree = "<group>"; };
 		9C8518E521821763000C5C3F /* PeerConnectionManager+Listener.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = "PeerConnectionManager+Listener.swift"; path = "Sources/PeerConnectionManager+Listener.swift"; sourceTree = "<group>"; };
 		9CEEDB2E21BECDBD00AF0505 /* Invitation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Invitation.swift; path = Sources/Invitation.swift; sourceTree = "<group>"; };
+		D189C30EDFF044AFA8A66FFC /* Pods-PeerConnectivity.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-PeerConnectivity.release.xcconfig"; path = "Target Support Files/Pods-PeerConnectivity/Pods-PeerConnectivity.release.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -85,6 +90,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				33494572B33BD6EAF7C74BA4 /* Pods_PeerConnectivity.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -120,7 +126,9 @@
 			children = (
 				301475781D7112A500F43337 /* Sources */,
 				3086CD301D09FB9900E269A3 /* PeerConnectivityTests */,
+				EDEFFD57B5C6CDBBCF178991 /* Pods */,
 				3086CD231D09FB9800E269A3 /* Products */,
+				748D4686F6900B4181F65B93 /* Frameworks */,
 			);
 			sourceTree = "<group>";
 		};
@@ -140,6 +148,14 @@
 				3086CD331D09FB9900E269A3 /* Info.plist */,
 			);
 			path = PeerConnectivityTests;
+			sourceTree = "<group>";
+		};
+		748D4686F6900B4181F65B93 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				4162A636307354FD6A2DDD04 /* Pods_PeerConnectivity.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 		9C0B1A8E21A83F6F001AB7BB /* Commons */ = {
@@ -225,6 +241,15 @@
 			name = "supporting-files";
 			sourceTree = "<group>";
 		};
+		EDEFFD57B5C6CDBBCF178991 /* Pods */ = {
+			isa = PBXGroup;
+			children = (
+				8CA0CE5BF88E33B3AC8826E5 /* Pods-PeerConnectivity.debug.xcconfig */,
+				D189C30EDFF044AFA8A66FFC /* Pods-PeerConnectivity.release.xcconfig */,
+			);
+			path = Pods;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
@@ -243,6 +268,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 3086CD361D09FB9900E269A3 /* Build configuration list for PBXNativeTarget "PeerConnectivity" */;
 			buildPhases = (
+				7E119B027A7E6C1A51D7FAFE /* [CP] Check Pods Manifest.lock */,
 				3086CD1D1D09FB9800E269A3 /* Sources */,
 				3086CD1E1D09FB9800E269A3 /* Frameworks */,
 				3086CD1F1D09FB9800E269A3 /* Headers */,
@@ -282,7 +308,7 @@
 			isa = PBXProject;
 			attributes = {
 				LastSwiftUpdateCheck = 0730;
-				LastUpgradeCheck = 0930;
+				LastUpgradeCheck = 1020;
 				ORGANIZATIONNAME = "Reid Chatham";
 				TargetAttributes = {
 					3086CD211D09FB9800E269A3 = {
@@ -298,10 +324,9 @@
 			};
 			buildConfigurationList = 3086CD1C1D09FB9800E269A3 /* Build configuration list for PBXProject "PeerConnectivity" */;
 			compatibilityVersion = "Xcode 3.2";
-			developmentRegion = English;
+			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
-				English,
 				en,
 				Base,
 			);
@@ -333,6 +358,31 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		7E119B027A7E6C1A51D7FAFE /* [CP] Check Pods Manifest.lock */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
+				"${PODS_ROOT}/Manifest.lock",
+			);
+			name = "[CP] Check Pods Manifest.lock";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/Pods-PeerConnectivity-checkManifestLockResult.txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		3086CD1D1D09FB9800E269A3 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -358,6 +408,7 @@
 				3080C7F51D80A1D700AF9EA3 /* PeerBrowserAssisstant.swift in Sources */,
 				3080C7FB1D80A1D700AF9EA3 /* PeerSession.swift in Sources */,
 				3080C7EE1D80A1D700AF9EA3 /* Observable.swift in Sources */,
+				9C758B3D23269EE30074D029 /* Logger.swift in Sources */,
 				3080C7ED1D80A1D700AF9EA3 /* MultiObservable.swift in Sources */,
 				3080C7F61D80A1D700AF9EA3 /* PeerBrowserEventProducer.swift in Sources */,
 				9C0B1A9721A83FFD001AB7BB /* Atomic.swift in Sources */,
@@ -388,6 +439,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				CLANG_CXX_LIBRARY = "libc++";
@@ -448,6 +500,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
 				CLANG_CXX_LIBRARY = "libc++";
@@ -500,6 +553,7 @@
 		};
 		3086CD371D09FB9900E269A3 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 8CA0CE5BF88E33B3AC8826E5 /* Pods-PeerConnectivity.debug.xcconfig */;
 			buildSettings = {
 				CLANG_ENABLE_MODULES = YES;
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
@@ -514,7 +568,7 @@
 				);
 				INFOPLIST_FILE = Sources/Info.plist;
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-				IPHONEOS_DEPLOYMENT_TARGET = 10.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 11.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
 				PRODUCT_BUNDLE_IDENTIFIER = com.rchatham.PeerConnectivity;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -527,6 +581,7 @@
 		};
 		3086CD381D09FB9900E269A3 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = D189C30EDFF044AFA8A66FFC /* Pods-PeerConnectivity.release.xcconfig */;
 			buildSettings = {
 				CLANG_ENABLE_MODULES = YES;
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "";
@@ -541,7 +596,7 @@
 				);
 				INFOPLIST_FILE = Sources/Info.plist;
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
-				IPHONEOS_DEPLOYMENT_TARGET = 10.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 11.0;
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
 				PRODUCT_BUNDLE_IDENTIFIER = com.rchatham.PeerConnectivity;
 				PRODUCT_NAME = "$(TARGET_NAME)";
