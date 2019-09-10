@@ -10,4 +10,10 @@
    <FileRef
       location = "group:PeerConnectivityDemo.xcodeproj">
    </FileRef>
+   <FileRef
+      location = "group:PeerConnectivity.xcodeproj">
+   </FileRef>
+   <FileRef
+      location = "group:Pods/Pods.xcodeproj">
+   </FileRef>
 </Workspace>
