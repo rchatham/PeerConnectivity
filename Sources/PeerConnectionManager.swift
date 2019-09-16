@@ -97,6 +97,16 @@ public class PeerConnectionManager {
         })
     }
 
+    public var allAvailableSessions: [PeerSession] {
+        return [session] + servicesSessions
+    }
+
+    public var allAvailablePeers: [Peer] {
+        return servicesSessions.reduce(connectedPeers, { (peers, serviceSession) -> [Peer] in
+            return Array(Set(peers + [serviceSession.servicePeer]))
+        })
+    }
+
     /// Nearby peers available for connecting.
     ///
     /// - Note: Can be observed by listening for PeerConnectivityEvent.nearbyPeersChanged(foundPeers:).
