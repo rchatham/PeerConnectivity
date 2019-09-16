@@ -13,7 +13,7 @@ import Foundation
 public extension PeerConnectionManager {
 
     @discardableResult
-    func peerServiceAvailable(_ peer: Peer) throws -> Bool  {
+    func peerServiceAvailable(_ peer: Peer) throws -> Bool {
         /// ^ is equal check internal 'MCPeer', here we need to compare instance too
         /// similar to generation trick ^^
         guard foundPeers.contains(where: { $0 == peer && $0 === peer }) else {
@@ -90,7 +90,28 @@ public extension PeerConnectionManager {
     // - parameter toPeers: Specified `Peer` objects to send data.
 
     func sendData(_ data: Data, toPeers peers: [Peer] = []) {
-        session.sendData(data, toPeers: peers)
+        var peerRequested = peers.isEmpty == true ? allAvailablePeers : peers
+        var sessions: [PeerSession] = allAvailableSessions.reduce([]) { (sessions, serviceSession) in
+            if serviceSession.connectedPeers.first(where: { return peerRequested.contains($0) }) != nil {
+                return sessions + [serviceSession]
+            }
+
+            if peerRequested.contains(serviceSession.servicePeer) {
+                return sessions + [serviceSession]
+            }
+
+            return sessions
+        }
+
+        for session in sessions {
+            let peerInSession = session.connectedPeers.filter { peerRequested.contains($0) }
+            peerRequested = Array(Set(peerRequested).subtracting(peerInSession))
+
+            guard peerInSession.count > 0 else { continue }
+
+            session.sendData(data, toPeers: peerInSession)
+            logger.verbose("sendData - on session: \(session), for peers: \(peerInSession), requested: \(peerRequested)")
+        }
     }
 
     // Send events to connected users. Encoded as Data using the NSKeyedArchiver.
