@@ -103,7 +103,7 @@ public class PeerConnectionManager {
 
     public var allAvailablePeers: [Peer] {
         return servicesSessions.reduce(connectedPeers, { (peers, serviceSession) -> [Peer] in
-            return Array(Set(peers + [serviceSession.servicePeer]))
+            return Array(Set(peers + [serviceSession.servicePeer] + serviceSession.connectedPeers))
         })
     }
 
