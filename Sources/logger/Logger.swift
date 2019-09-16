@@ -43,5 +43,7 @@ public let logger: Logger = {
     logger.add(destination: LoggerDomain.peerConnectivity.fileDestination)
     logger.add(destination: LoggerDomain.peerConnectivity.oslogDestination)
 
+    logger.outputLevel = .verbose
+
     return logger
 }()
