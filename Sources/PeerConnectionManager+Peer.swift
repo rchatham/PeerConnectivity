@@ -91,23 +91,19 @@ public extension PeerConnectionManager {
 
     func sendData(_ data: Data, toPeers peers: [Peer] = []) {
         var peerRequested = peers.isEmpty == true ? allAvailablePeers : peers
-        var sessions: [PeerSession] = allAvailableSessions.reduce([]) { (sessions, serviceSession) in
-            if serviceSession.connectedPeers.first(where: { return peerRequested.contains($0) }) != nil {
-                return sessions + [serviceSession]
-            }
+        let sessions: [PeerSession] = allAvailableSessions.reduce([]) { (sessions, serviceSession) in
+            let containsServicePeer = peerRequested.contains(serviceSession.servicePeer)
+            let connectedPeers = serviceSession.connectedPeers.first(where: { return peerRequested.contains($0) })
+            let containsConnectedPeers = connectedPeers != nil
 
-            if peerRequested.contains(serviceSession.servicePeer) {
-                return sessions + [serviceSession]
-            }
-
-            return sessions
+            return sessions + ((containsServicePeer || containsConnectedPeers) ? [serviceSession] : [])
         }
 
         for session in sessions {
             let peerInSession = session.connectedPeers.filter { peerRequested.contains($0) }
             peerRequested = Array(Set(peerRequested).subtracting(peerInSession))
 
-            guard peerInSession.count > 0 else { continue }
+            guard peerInSession.isEmpty == false else { continue }
 
             session.sendData(data, toPeers: peerInSession)
             logger.verbose("sendData - on session: \(session), for peers: \(peerInSession), requested: \(peerRequested)")
