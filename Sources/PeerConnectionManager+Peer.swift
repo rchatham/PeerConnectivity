@@ -84,10 +84,39 @@ public extension PeerConnectionManager {
         retyAttemptQueue?.asyncAfter(deadline: deadline, execute: connectionWorkItem)
     }
 
-    // Send data to connected users. If no peer is specified it broadcasts to all users on a current session.
-    //
-    // - parameter data: Data to be sent to specified peers.
-    // - parameter toPeers: Specified `Peer` objects to send data.
+    /// Send data to connected users. If no peer is specified it broadcasts to all users on a current session.
+    ///
+    /// - parameter data: Data to be sent to specified peers.
+    /// - parameter toPeers: Specified `Peer` objects to send data.
+    ///
+    ///  Lastests change improve `sending` in `PeerManagerMode.node` managerMode (aka mesh networking mode)
+    ///    In the following mode, 'pcm' use both a `master` session and multiple `slave` session
+    ///    this allow to create a simili `mesh` network where every one is connected together
+    ///
+    ///   Previously `sendData` would only use the `master` session and send data to it's `connected` peers
+    ///    However, w/ multiple connection/session in `node` mode, some distant `slave` migh have issue connecting
+    ///    to our local session, even though they're already connected to another node `master` session
+    ///    If we're also connected to that node `master` session, then we also have access to all it's peers
+    ///     in the session
+    ///
+    ///   This latests change utilize such shared access of peers between sessions to maximize the number of peer a
+    ///     single node can reach inside of the `mesh` network
+    ///
+    ///    - First the `sendData` request all user, we compute all available peers from the following data:
+    ///      (local `master` session).connectedPeers + (all distant `master` session).connectedPeers + distant node peer
+    ///
+    ///    - Using this list of `requestedPeers` we filter all the available sessions including any of the `requestedPeers`
+    ///
+    ///    - finaly, using the match sessions, we iterate on all session, forwarding the provided data
+    ///        session by session, matching each session w/ the actual peers that it contains.
+    ///         we also continuously substract the `requestedPeers` array, to avoid sending duplicate data
+    ///         to the same peer over multiple sessions.
+    ///
+    ///
+    ///     This actually could still be improve, since we will randomly use theses session to reach a single peer
+    ///     as mentioned above a peer can be access in multiple session, currently the only optimisation is that we use
+    ///     our local session in priority, however it would be possible in the futur to prefer some session for peer
+    ///     depending on the context of each service/session and the proximity of the peer.
 
     func sendData(_ data: Data, toPeers peers: [Peer] = []) {
         var peerRequested = peers.isEmpty == true ? allAvailablePeers : peers
