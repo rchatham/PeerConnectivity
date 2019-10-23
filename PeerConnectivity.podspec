@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
   s.name         = "PeerConnectivity"
-  s.version      = "2.2.1"
+  s.version      = "2.3.0"
 
   s.summary      = "Functional wrapper for Apple's MultipeerConnectivity framework."
   s.description  = <<-DESC
@@ -12,7 +12,7 @@ Pod::Spec.new do |s|
   s.author       = { "Reid Chatham" => "reid.chatham@gmail.com" }
   s.homepage     = "https://github.com/tillersystems/PeerConnectivity"
 
-  s.swift_version = '4.2'
+  s.swift_version = ['4.2', '5.0']
   s.ios.deployment_target = '11.0'
 
   s.source       = { :git => "https://github.com/tillersystems/PeerConnectivity.git", :tag => "#{s.version}" }

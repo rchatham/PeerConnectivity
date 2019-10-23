@@ -17,7 +17,7 @@ DEPENDENCIES:
   - "Logger (from `git@github.com:tillersystems/logger-ios.git`, tag `0.2.5`)"
 
 SPEC REPOS:
-  https://cdn.cocoapods.org/:
+  trunk:
     - NSLogger
     - ObjcExceptionBridging
     - XCGLogger
@@ -40,4 +40,4 @@ SPEC CHECKSUMS:
 
 PODFILE CHECKSUM: 9822b49b5399bc0716a1eeefc5f94d01c75eb85c
 
-COCOAPODS: 1.7.5
+COCOAPODS: 1.8.4
