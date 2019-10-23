@@ -12,34 +12,33 @@ import PeerConnectivity
 class ViewController: UIViewController {
     
     fileprivate lazy var pcm: PeerConnectionManager = {
-        var pcm = PeerConnectionManager(serviceType: "local")
+        var pcm = PeerConnectionManager(serviceType: "local", securityIdentity: nil, encryptionPreference: .optional)
+
         pcm.listenOn({ [weak self] (event) in
-            
             switch event {
-            case .devicesChanged(let peer, let connectedPeers):
-                
+            case .devicesChanged(let session, let peer, let connectedPeers):
                 _ = connectedPeers.map { print($0.displayName) }
-                
+
                 defer {
                     if let origin = self?.userStatusLabel?.frame.origin,
                         let size = self?.userStatusLabel?.intrinsicContentSize {
                         self?.userStatusLabel?.frame = CGRect(origin: origin, size: size)
                     }
                 }
-                
+
                 guard !connectedPeers.isEmpty else {
                     self?.userStatusLabel?.text = "Not Connected!"
                     return
                 }
-                
+
                 if peer.status == .connected || peer.status == .notConnected {
                     self?.userStatusLabel?.text = connectedPeers.map { $0.displayName }.reduce("Connected to:") { $0 + "\n" + $1 }
                 }
-                
+
             default: break
             }
-            
         }, withKey: "configurationKey")
+
         return pcm
     }()
     
@@ -78,7 +77,7 @@ class ViewController: UIViewController {
     @objc internal func tappedConnectionButton(sender: UIButton) {
         switch isConnecting {
         case false:
-            pcm.start()
+            try? pcm.start()
             isConnecting = true
             
             connectionButton.setTitle("Stop networking!", for: .normal)
