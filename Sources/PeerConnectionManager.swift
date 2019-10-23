@@ -490,7 +490,7 @@ extension PeerConnectionManager {
                     self?.foundPeers.append(peer)
                 case .lostPeer(let peer):
                     self?.updatePeersStatus(peer, status: .unavailable)
-                    guard let index = self?.foundPeers.index(of: peer) else { break }
+                    guard let index = self?.foundPeers.firstIndex(of: peer) else { break }
 
                     self?.foundPeers.remove(at: index)
                     self?.disconnectServiceSession(for: peer)

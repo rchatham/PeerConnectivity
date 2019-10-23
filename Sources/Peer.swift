@@ -46,6 +46,7 @@ public struct Peer {
             case .notConnected: self = .notConnected
             case .connecting: self = .connecting
             case .connected: self = .connected
+            @unknown default: self = .notConnected
             }
         }
 
