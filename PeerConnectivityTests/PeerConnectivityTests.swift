@@ -17,8 +17,8 @@ class PeerConnectivityTests: XCTestCase {
         super.setUp()
         // Put setup code here. This method is called before the invocation of each test method in the class.
         
-        pcm = PeerConnectionManager(serviceType: "test-service")
-        pcm?.start()
+        pcm = PeerConnectionManager(serviceType: "test-service", securityIdentity: nil, encryptionPreference: .optional)
+        try? pcm?.start()
     }
     
     override func tearDown() {
