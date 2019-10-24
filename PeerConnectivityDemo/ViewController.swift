@@ -16,7 +16,7 @@ class ViewController: UIViewController {
 
         pcm.listenOn({ [weak self] (event) in
             switch event {
-            case .devicesChanged(let session, let peer, let connectedPeers):
+            case .devicesChanged(_, let peer, let connectedPeers):
                 _ = connectedPeers.map { print($0.displayName) }
 
                 defer {

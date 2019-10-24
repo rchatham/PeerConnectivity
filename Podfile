@@ -6,7 +6,6 @@ workspace 'PeerConnectivity'
 project 'PeerConnectivity'
 platform :ios, '11.0'
 
-
 use_frameworks!
 inhibit_all_warnings!
 
@@ -19,6 +18,6 @@ install! 'cocoapods', :disable_input_output_paths => true
 
 target 'PeerConnectivity' do
 
-    pod 'Logger', :git => "git@github.com:tillersystems/logger-ios.git", :tag => "0.2.5"
+    pod 'Logger', :git => "git@github.com:tillersystems/logger-ios.git", :tag => "0.3.0"
 
 end

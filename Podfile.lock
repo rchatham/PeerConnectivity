@@ -1,43 +1,40 @@
 PODS:
-  - Logger (0.2.5):
-    - NSLogger/Swift
-    - XCGLogger (= 6.1.0)
-  - NSLogger/ObjC (1.9.7)
-  - NSLogger/Swift (1.9.7):
-    - NSLogger/ObjC
+  - Logger (0.3.0):
+    - Logger/Core (= 0.3.0)
+    - XCGLogger (= 7.0.0)
+  - Logger/Core (0.3.0):
+    - XCGLogger (= 7.0.0)
   - ObjcExceptionBridging (1.0.1):
     - ObjcExceptionBridging/ObjcExceptionBridging (= 1.0.1)
   - ObjcExceptionBridging/ObjcExceptionBridging (1.0.1)
-  - XCGLogger (6.1.0):
-    - XCGLogger/Core (= 6.1.0)
-  - XCGLogger/Core (6.1.0):
+  - XCGLogger (7.0.0):
+    - XCGLogger/Core (= 7.0.0)
+  - XCGLogger/Core (7.0.0):
     - ObjcExceptionBridging
 
 DEPENDENCIES:
-  - "Logger (from `git@github.com:tillersystems/logger-ios.git`, tag `0.2.5`)"
+  - "Logger (from `git@github.com:tillersystems/logger-ios.git`, tag `0.3.0`)"
 
 SPEC REPOS:
   trunk:
-    - NSLogger
     - ObjcExceptionBridging
     - XCGLogger
 
 EXTERNAL SOURCES:
   Logger:
     :git: "git@github.com:tillersystems/logger-ios.git"
-    :tag: 0.2.5
+    :tag: 0.3.0
 
 CHECKOUT OPTIONS:
   Logger:
     :git: "git@github.com:tillersystems/logger-ios.git"
-    :tag: 0.2.5
+    :tag: 0.3.0
 
 SPEC CHECKSUMS:
-  Logger: 042561ce113b997a31e2ace491659c61f47f71a3
-  NSLogger: cf3013a4fba189f631f07e6c3d5b8ce2b209654b
+  Logger: 33aee2174f9ea5632884e1a220419b4fade8e179
   ObjcExceptionBridging: c30e00eb3700467e695faeea30e26e18bd445001
-  XCGLogger: 7f7f43f15dfe3a305fa1342b7dc29af656289abd
+  XCGLogger: 0434f15e3909cdc450bb63faf638b8792ab782ab
 
-PODFILE CHECKSUM: 9822b49b5399bc0716a1eeefc5f94d01c75eb85c
+PODFILE CHECKSUM: c305db987725563965d6e6fce974441e015298de
 
 COCOAPODS: 1.8.4
