@@ -147,7 +147,7 @@ if let somePeerThatIAmConnectedTo = connectedPeers.first {
     
     let progress: [Peer:Progress?] = pcm.sendResourceAtURL(NSURL(string: "someurl")! as URL, withName: "resource-name", toPeers: [somePeerThatIAmConnectedTo]) { (error: Error?) in
         // Handle potential error
-        print("Error: \(error)")
+        print("Error: " + String(describing: error))
     }
 }
 
@@ -189,6 +189,7 @@ let eventListener: PeerConnectionEventListener = { event in
     case .foundPeer(let peer): break
     case .lostPeer(let peer): break
     case .receivedInvitation(let peer, let context, let invitationHandler): break
+    case .nearbyPeersChanged(let foundPeers): break
     }
 }
 
@@ -243,7 +244,7 @@ pcm.listenOn({ event in
         
     case .finishedReceivingResource(let peer, let name, let url, let error):
         // Finished receiving resource from peer
-        print("Finished receiving resource with name: \(name) from peer: \(peer.displayName) at url: \(url.path) with error: \(error)")
+        print("Finished receiving resource with name: \(name) from peer: \(peer.displayName) at url: \(String(describing: url?.path)) with error: \(String(describing: error))")
         
     default: break
     }
