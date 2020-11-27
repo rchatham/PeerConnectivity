@@ -111,9 +111,9 @@ public struct PeerSession {
     // TODO: - Alternative methods of finding peers not yet supported.
     
     internal func nearbyConnectionDataForPeer(_ peer: Peer,
-                                              withCompletionHandler completion: @escaping (Data, Error?) -> Void) {
+                                              withCompletionHandler completion: @escaping (Data?, Error?) -> Void) {
         session.nearbyConnectionData(forPeer: peer.peerID,
-                                     withCompletionHandler: completion as! (Data?, Error?) -> Void)
+                                     withCompletionHandler: completion)
     }
     
     internal func connectPeer(_ peer: Peer, withNearbyConnectionData data: Data) {

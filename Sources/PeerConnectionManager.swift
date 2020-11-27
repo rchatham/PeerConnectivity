@@ -69,6 +69,8 @@ public class PeerConnectionManager {
         case maxConnectionRetriesExceeded
     }
 
+    fileprivate static let subServiceKey: String = "subService"
+
     // MARK: - Properties -
 
     /// Access to the local peer representing the user.
@@ -177,13 +179,13 @@ public class PeerConnectionManager {
     ///
     /// - Returns: A fully initialized `PeerConnectionManager`.
     public init(serviceType: ServiceType,
+                subService: ServiceType = "",
                 displayName: String = UIDevice.current.name,
                 serviceDiscoveryInfo: [String: String]? = nil,
                 connectionType: PeerConnectionType = .automatic, managerMode: PeerManagerMode = .master,
                 securityIdentity identity: [Any]?, encryptionPreference: MCEncryptionPreference) {
 
         self.serviceType = serviceType
-        self.serviceDiscoveryInfo = serviceDiscoveryInfo
 
         self.managerMode = managerMode
         self.connectionType = connectionType
@@ -192,7 +194,11 @@ public class PeerConnectionManager {
         self.sessionEncryptionPreference = encryptionPreference
 
         self.peer = Peer(peerID: MCPeerID(displayName: displayName), status: .currentUser, info: serviceDiscoveryInfo)
-        self.subService = serviceType + (serviceDiscoveryInfo?["sessionName"] ?? "")
+        self.subService = subService
+
+
+        let subServiceDict = [Self.subServiceKey: subService]
+        self.serviceDiscoveryInfo = subServiceDict.merging(serviceDiscoveryInfo ?? [:]) { (_, new) in new }
 
         // - Lock
 
@@ -276,7 +282,6 @@ extension PeerConnectionManager {
     public func start(_ completion: (() -> Void)? = nil) throws {
         self.mutex.lock()
         defer { self.mutex.unlock() }
-        print("[PEER] Start \(self.serviceDiscoveryInfo)")
 
         configureManagerPeerObservers()
         configureObserverResponseEventDispatch()
@@ -534,13 +539,7 @@ extension PeerConnectionManager {
                 DispatchQueue.main.async {
                     switch event {
                     case .foundPeer(let peer, let discoveryInfo):
-                        print("[PEER] session info: \(self.serviceDiscoveryInfo )")
-                        print("[PEER] Found peer \(peer.displayName) with \(discoveryInfo)")
-                        let equal = NSDictionary(dictionary: discoveryInfo ?? [:])
-                            .isEqual(to: self.serviceDiscoveryInfo ?? [:])
-                        guard equal == true else {
-                            return
-                        }
+                        guard self.subService == discoveryInfo?[Self.subServiceKey] ?? "" else { return }
                         do {
                             try self.invitePeer(peer)
                         } catch {
@@ -553,10 +552,7 @@ extension PeerConnectionManager {
             advertiserObserver.addObserver { [unowned self] event in
                 DispatchQueue.main.async {
                     switch event {
-                    case .didReceiveInvitationFromPeer(peer: let peer, withContext: _, invitationHandler: let handler):
-                        print("[PEER] session info: \(self.serviceDiscoveryInfo )")
-                        print("[PEER] invitation from peer \(peer.displayName)")
-                            
+                    case .didReceiveInvitationFromPeer(peer: _, withContext: _, invitationHandler: let handler):
                         handler(true, self.session)
                         self.advertiser.stopAdvertising()
                     default: break
