@@ -22,6 +22,6 @@ Pod::Spec.new do |s|
   s.framework    = "MultipeerConnectivity"
 
   ## Required Tiller Dependencies
-  s.dependency 'Logger'
+  s.dependency 'Logger', '>= 0.3'
 
 end

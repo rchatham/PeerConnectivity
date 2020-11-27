@@ -124,6 +124,7 @@ public class PeerConnectionManager {
     public var servicesSessions: [PeerSession] = []
 
     fileprivate let serviceType: ServiceType
+    fileprivate let subService: ServiceType
     fileprivate let serviceDiscoveryInfo: [String: String]?
 
     internal var browser: PeerBrowser?
@@ -190,7 +191,8 @@ public class PeerConnectionManager {
         self.sessionSecurityIdentity = identity
         self.sessionEncryptionPreference = encryptionPreference
 
-        self.peer = Peer(displayName: displayName)
+        self.peer = Peer(peerID: MCPeerID(displayName: displayName), status: .currentUser, info: serviceDiscoveryInfo)
+        self.subService = serviceType + (serviceDiscoveryInfo?["sessionName"] ?? "")
 
         // - Lock
 
@@ -246,18 +248,20 @@ public class PeerConnectionManager {
         }, forKey: PeerConnectivityKeys.CertificateListener)
         
         // Prevent mingling signals from the same device
-        if let existing = PeerConnectionManager.shared[serviceType] {
+        if let existing = PeerConnectionManager.shared[subService] {
             existing.stop()
             existing.removeAllListeners()
         }
-        PeerConnectionManager.shared[serviceType] = self
+
+
+        PeerConnectionManager.shared[subService] = self
     }
     
     deinit {
         stop()
         removeAllListeners()
-        if let existing = PeerConnectionManager.shared[serviceType], existing === self {
-            PeerConnectionManager.shared.removeValue(forKey: serviceType)
+        if let existing = PeerConnectionManager.shared[subService], existing === self {
+            PeerConnectionManager.shared.removeValue(forKey: subService)
         }
     }
 }
@@ -272,6 +276,7 @@ extension PeerConnectionManager {
     public func start(_ completion: (() -> Void)? = nil) throws {
         self.mutex.lock()
         defer { self.mutex.unlock() }
+        print("[PEER] Start \(self.serviceDiscoveryInfo)")
 
         configureManagerPeerObservers()
         configureObserverResponseEventDispatch()
@@ -528,8 +533,19 @@ extension PeerConnectionManager {
             browserObserver.addObserver { [unowned self] event in
                 DispatchQueue.main.async {
                     switch event {
-                    case .foundPeer(let peer, _):
-                        try? self.invitePeer(peer)
+                    case .foundPeer(let peer, let discoveryInfo):
+                        print("[PEER] session info: \(self.serviceDiscoveryInfo )")
+                        print("[PEER] Found peer \(peer.displayName) with \(discoveryInfo)")
+                        let equal = NSDictionary(dictionary: discoveryInfo ?? [:])
+                            .isEqual(to: self.serviceDiscoveryInfo ?? [:])
+                        guard equal == true else {
+                            return
+                        }
+                        do {
+                            try self.invitePeer(peer)
+                        } catch {
+                            print("[PEER] invite error: \(error)")
+                        }
                     default: break
                     }
                 }
@@ -537,7 +553,10 @@ extension PeerConnectionManager {
             advertiserObserver.addObserver { [unowned self] event in
                 DispatchQueue.main.async {
                     switch event {
-                    case .didReceiveInvitationFromPeer(peer: _, withContext: _, invitationHandler: let handler):
+                    case .didReceiveInvitationFromPeer(peer: let peer, withContext: _, invitationHandler: let handler):
+                        print("[PEER] session info: \(self.serviceDiscoveryInfo )")
+                        print("[PEER] invitation from peer \(peer.displayName)")
+                            
                         handler(true, self.session)
                         self.advertiser.stopAdvertising()
                     default: break
