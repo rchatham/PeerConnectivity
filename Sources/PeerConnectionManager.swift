@@ -184,6 +184,8 @@ public class PeerConnectionManager {
                 serviceDiscoveryInfo: [String: String]? = nil,
                 connectionType: PeerConnectionType = .automatic, managerMode: PeerManagerMode = .master,
                 securityIdentity identity: [Any]?, encryptionPreference: MCEncryptionPreference) {
+        let subServiceDict = [Self.subServiceKey: subService]
+        self.serviceDiscoveryInfo = subServiceDict.merging(serviceDiscoveryInfo ?? [:]) { (_, new) in new }
 
         self.serviceType = serviceType
 
@@ -193,12 +195,9 @@ public class PeerConnectionManager {
         self.sessionSecurityIdentity = identity
         self.sessionEncryptionPreference = encryptionPreference
 
-        self.peer = Peer(peerID: MCPeerID(displayName: displayName), status: .currentUser, info: serviceDiscoveryInfo)
+        self.peer = Peer(peerID: MCPeerID(displayName: displayName), status: .currentUser,
+                         info: self.serviceDiscoveryInfo)
         self.subService = subService
-
-
-        let subServiceDict = [Self.subServiceKey: subService]
-        self.serviceDiscoveryInfo = subServiceDict.merging(serviceDiscoveryInfo ?? [:]) { (_, new) in new }
 
         // - Lock
 
@@ -224,7 +223,7 @@ public class PeerConnectionManager {
         session = PeerSession(peer: peer, eventProducer: sessionEventProducer,
                               securityIdentity: sessionSecurityIdentity, encryptionPreference: encryptionPreference)
         advertiser = PeerAdvertiser(session: session, serviceType: serviceType,
-                                    discoveryInfo: serviceDiscoveryInfo, eventProducer: advertiserEventProducer)
+                                    discoveryInfo: self.serviceDiscoveryInfo, eventProducer: advertiserEventProducer)
 
         switch managerMode {
         case .node:
