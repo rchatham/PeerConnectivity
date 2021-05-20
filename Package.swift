@@ -14,11 +14,12 @@ let package = Package(
             targets: ["PeerConnectivity"]),
     ],
     dependencies: [
+        .package(name: "Logger", url: "git@github.com:tillersystems/logger-ios.git", .branch("master")),
     ],
     targets: [
         .target(
             name: "PeerConnectivity",
-            dependencies: [],
+            dependencies: ["Logger"],
             path: "Sources"
         ),
         .testTarget(
