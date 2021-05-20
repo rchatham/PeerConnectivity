@@ -76,14 +76,12 @@ internal struct PeerBrowser {
             }
 
             invitations[index] = updatedInvitation
-            logger.info("PeerBrowser Manager - invitation updated - \(updatedInvitation)")
 
         case .notConnected:
             try? invitePeer(invitation: invitation)
 
         default:
             invitations.remove(at: index)
-            logger.info("PeerBrowser Manager - invitation removed - \(invitation)")
         }
 
         return true
@@ -109,15 +107,8 @@ internal struct PeerBrowser {
         do {
             let invitation = try Invitation(invitation, status: .failed, context: context)
             invitations[index] = invitation
-            logger.info("PeerBrowser Manager - invitation updated - \(invitation)")
 
             browser.invitePeer(invitation: invitation, timeout: timeout)
-            logger.info {
-                let contextValue: [String: Any]? = context?.jsonDictionary
-                return "peer invited (invitation) \(invitation.peer.peerID), retry: \(invitation.retryCount)" +
-                "\n\tsession: \(invitation.session)\n\tcontext: \(contextValue ?? [:])"
-            }
-
         } catch {
             switch error {
             case InvitationError.connectionInconsistency:
@@ -128,18 +119,10 @@ internal struct PeerBrowser {
 
                 let invitation = try Invitation(invitation, status: .inconsistent, session: session, context: context)
                 invitations[index] = invitation
-                logger.info("PeerBrowser Manager - invitation changed - \(invitation)")
-
                 browser.invitePeer(invitation: invitation, timeout: timeout)
-                logger.info {
-                    let contextValue: [String: Any]? = context?.jsonDictionary
-                    return "peer invited (new session) \(invitation.peer.peerID), retry: \(invitation.retryCount)" +
-                    "\n\tsession: \(invitation.session)\n\tcontext: \(contextValue ?? [:])"
-                }
 
             case InvitationError.maxConnectionRetriesExceeded:
                 invitations.remove(at: index)
-                logger.info("PeerBrowser Manager - invitation removed - \(invitation)")
                 throw PeerConnectionManager.Error.maxConnectionRetriesExceeded
 
             default: throw InvitationError.invitationPending
@@ -165,14 +148,8 @@ internal struct PeerBrowser {
 
         let invitation = Invitation(peer: peer, session: session, context: context)
         invitations.append(invitation)
-        logger.info("PeerBrowser Manager - invitation added - \(invitation)")
 
         browser.invitePeer(peer.peerID, to: session.session, withContext: context, timeout: timeout)
-
-        logger.info {
-            let contextValue: [String: Any]? = context?.jsonDictionary
-            return "peer invited \(peer.peerID)\n\tsession: \(session)\n\tcontext: \(contextValue ?? [:])"
-        }
     }
 
 }

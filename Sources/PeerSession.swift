@@ -88,7 +88,7 @@ public struct PeerSession {
 
             try session.send(data, toPeers: peers, with: MCSessionSendDataMode.reliable)
         } catch let error {
-            logger.error("session error, sending data - error: \(error)")
+            print("session error, sending data - error: \(error)")
         }
     }
     
@@ -97,7 +97,7 @@ public struct PeerSession {
             let stream = try session.startStream(withName: streamName, toPeer: peer.peerID)
             return stream
         } catch let error {
-            logger.error("session error, starting stream - error: \(error)")
+            print("session error, starting stream - error: \(error)")
             throw error
         }
     }

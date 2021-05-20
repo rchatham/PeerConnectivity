@@ -180,7 +180,7 @@ public class PeerConnectionManager {
     /// - Returns: A fully initialized `PeerConnectionManager`.
     public init(serviceType: ServiceType,
                 subService: ServiceType = "",
-                displayName: String = UIDevice.current.name,
+                displayName: String,
                 serviceDiscoveryInfo: [String: String]? = nil,
                 connectionType: PeerConnectionType = .automatic, managerMode: PeerManagerMode = .master,
                 securityIdentity identity: [Any]?, encryptionPreference: MCEncryptionPreference) {
@@ -400,7 +400,6 @@ extension PeerConnectionManager {
         }
 
         guard session.isDistantServiceSession == false || peer == session.servicePeer else {
-            logger.info("\t - distant service slave, other device connection: \(peer)")
             return
         }
 
@@ -424,7 +423,6 @@ extension PeerConnectionManager {
         let matchingServicePeer = foundPeers.first(where: { $0.displayName == peer.displayName })
         if let servicePeer = matchingServicePeer, matchingServicePeer?.status == .unavailable {
             /// this resolve services session being reused and thus not rediscovered after small disconnections
-            logger.debug("force discovery of matching inviting peer service for distant-service")
             observer.value = .foundPeer(peer: servicePeer, info: servicePeer.serviceDiscoveryInfo)
         }
     }
@@ -588,7 +586,7 @@ extension PeerConnectionManager {
     //
     // - Returns: A browser view controller for inviting available peers nearby if connection type is `.InviteOnly` or `nil` otherwise.
 
-    public func browserViewController(_ callback: @escaping (PeerBrowserViewControllerEvent) -> Void) -> UIViewController? {
+    public func browserViewController(_ callback: @escaping (PeerBrowserViewControllerEvent) -> Void) -> Any? {
         browserViewControllerObserver.addObserver { callback($0) }
         switch connectionType {
         case .inviteOnly: return browserAssisstant?.peerBrowserViewController()

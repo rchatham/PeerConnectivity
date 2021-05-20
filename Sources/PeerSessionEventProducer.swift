@@ -77,7 +77,6 @@ extension PeerSessionEventProducer: MCSessionDelegate {
         let event: PeerSessionEvent = .devicesChanged(peer: peer)
         let peerSession: PeerSession = PeerSession(session: session, sessionPeerStatus: .connected)
 
-        logger.info("PeerSessionEventProducer - \(event)\n\tsession: \(peerSession)")
         self.observer.value = (peerSession, event)
     }
     
@@ -86,7 +85,6 @@ extension PeerSessionEventProducer: MCSessionDelegate {
         let event: PeerSessionEvent = .didReceiveData(peer: peer, data: data)
         let peerSession: PeerSession = PeerSession(session: session, sessionPeerStatus: .connected)
 
-        logger.info("PeerSessionEventProducer - \(event)\n\tsession: \(peerSession)")
         self.observer.value = (peerSession, event)
     }
     
@@ -96,7 +94,6 @@ extension PeerSessionEventProducer: MCSessionDelegate {
         let event: PeerSessionEvent = .didReceiveStream(peer: peer, stream: stream, name: streamName)
         let peerSession: PeerSession = PeerSession(session: session, sessionPeerStatus: .connected)
 
-        logger.info("PeerSessionEventProducer - \(event)\n\tsession: \(peerSession)")
         self.observer.value = (peerSession, event)
     }
     
@@ -106,7 +103,6 @@ extension PeerSessionEventProducer: MCSessionDelegate {
         let event: PeerSessionEvent = .startedReceivingResource(peer: peer, name: resourceName, progress: progress)
         let peerSession: PeerSession = PeerSession(session: session, sessionPeerStatus: .connected)
 
-        logger.info("PeerSessionEventProducer - \(event)\n\tsession: \(peerSession)")
         self.observer.value = (peerSession, event)
     }
     
@@ -117,7 +113,6 @@ extension PeerSessionEventProducer: MCSessionDelegate {
                                                                  url: localURL, error: error)
         let peerSession: PeerSession = PeerSession(session: session, sessionPeerStatus: .connected)
 
-        logger.info("PeerSessionEventProducer - \(event)\n\tsession: \(peerSession)")
         self.observer.value = (peerSession, event)
     }
     
@@ -127,7 +122,6 @@ extension PeerSessionEventProducer: MCSessionDelegate {
         let event: PeerSessionEvent = .didReceiveCertificate(peer: peer, certificate: certificate, handler: certificateHandler)
         let peerSession: PeerSession = PeerSession(session: session, sessionPeerStatus: .connected)
 
-        logger.info("PeerSessionEventProducer - \(event)\n\tsession: \(peerSession)")
         self.observer.value = (peerSession, event)
     }
 

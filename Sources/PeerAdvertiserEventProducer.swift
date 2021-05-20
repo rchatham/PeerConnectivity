@@ -53,7 +53,7 @@ extension PeerAdvertiserEventProducer: MCNearbyServiceAdvertiserDelegate {
 
     internal func advertiser(_ advertiser: MCNearbyServiceAdvertiser, didNotStartAdvertisingPeer error: Error) {
         let event: PeerAdvertiserEvent = .didNotStartAdvertisingPeer(error)
-        logger.error("PeerAdvertiserEventProducer - \(event)")
+        print("PeerAdvertiserEventProducer - \(event)")
 
         self.observer.value = event
     }
@@ -61,7 +61,6 @@ extension PeerAdvertiserEventProducer: MCNearbyServiceAdvertiserDelegate {
     internal func advertiser(_ advertiser: MCNearbyServiceAdvertiser, didReceiveInvitationFromPeer peerID: MCPeerID,
                              withContext context: Data?, invitationHandler: @escaping (Bool, MCSession?) -> Void) {
         let handler: ((Bool, PeerSession) -> Void) = { (accept, session) in
-            logger.info("\tPeerAdvertiserEventProducer - invitationHandler - accept: \(accept); peer: \(session.peer.peerID)\n\tsession: \(session)")
             invitationHandler(accept, session.session)
         }
         
@@ -69,7 +68,6 @@ extension PeerAdvertiserEventProducer: MCNearbyServiceAdvertiserDelegate {
         let event: PeerAdvertiserEvent = .didReceiveInvitationFromPeer(peer: peer, withContext: context,
                                                                        invitationHandler: handler)
 
-        logger.info("PeerAdvertiserEventProducer - \(event)")
         self.observer.value = event
     }
 

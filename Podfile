@@ -18,6 +18,4 @@ install! 'cocoapods', :disable_input_output_paths => true
 
 target 'PeerConnectivity' do
 
-    pod 'Logger', :git => "git@github.com:tillersystems/logger-ios.git", :tag => "0.3.0"
-
 end

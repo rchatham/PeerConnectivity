@@ -47,7 +47,7 @@ extension PeerBrowserViewControllerEventProducer: MCBrowserViewControllerDelegat
         let event: PeerBrowserViewControllerEvent = .didFinish
         self.observer.value = event
         
-        browserViewController.dismiss(animated: true, completion: nil)
+        //browserViewController.dismiss(animated: true, completion: nil)
     }
     
     internal func browserViewControllerWasCancelled(_ browserViewController: MCBrowserViewController) {
@@ -55,6 +55,6 @@ extension PeerBrowserViewControllerEventProducer: MCBrowserViewControllerDelegat
         let event: PeerBrowserViewControllerEvent = .wasCancelled
         self.observer.value = event
         
-        browserViewController.dismiss(animated: true, completion: nil)
+        //browserViewController.dismiss(animated: true, completion: nil)
     }
 }

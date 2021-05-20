@@ -168,3 +168,4 @@ fastlane/test_output
 *.mobileprovision
 
 jenkins.keychain
+.build/

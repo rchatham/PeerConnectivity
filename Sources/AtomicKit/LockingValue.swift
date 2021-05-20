@@ -73,10 +73,6 @@ public class LockingValue< T, L >: ThreadSafeValueWrapper where L: NSLocking
         catch
         {}
         
-        #if DEBUG
-        logger.debug("Initialization of " + String( describing: L.self ) + " failed! Falling back to NSRecursiveLock.")
-        #endif
-        
         self.init( value: value, lock: NSRecursiveLock() )
     }
     

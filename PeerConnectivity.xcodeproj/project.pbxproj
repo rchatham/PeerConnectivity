@@ -32,7 +32,6 @@
 		9C0B1A9721A83FFD001AB7BB /* Atomic.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C0B1A9321A83FFD001AB7BB /* Atomic.swift */; };
 		9C0B1A9921A84025001AB7BB /* UnfairLock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C0B1A9821A84024001AB7BB /* UnfairLock.swift */; };
 		9C0B1A9B21A84049001AB7BB /* ThreadSafeValueWrapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C0B1A9A21A84049001AB7BB /* ThreadSafeValueWrapper.swift */; };
-		9C758B3D23269EE30074D029 /* Logger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C1CDF452253BF0B00D8DB5F /* Logger.swift */; };
 		9C8518E42182172D000C5C3F /* PeerConnectionManager+Peer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C8518E32182172D000C5C3F /* PeerConnectionManager+Peer.swift */; };
 		9C8518E621821763000C5C3F /* PeerConnectionManager+Listener.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C8518E521821763000C5C3F /* PeerConnectionManager+Listener.swift */; };
 		9CEEDB2F21BECDBD00AF0505 /* Invitation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CEEDB2E21BECDBD00AF0505 /* Invitation.swift */; };
@@ -78,7 +77,6 @@
 		9C0B1A9321A83FFD001AB7BB /* Atomic.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Atomic.swift; sourceTree = "<group>"; };
 		9C0B1A9821A84024001AB7BB /* UnfairLock.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = UnfairLock.swift; sourceTree = "<group>"; };
 		9C0B1A9A21A84049001AB7BB /* ThreadSafeValueWrapper.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ThreadSafeValueWrapper.swift; sourceTree = "<group>"; };
-		9C1CDF452253BF0B00D8DB5F /* Logger.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = Logger.swift; path = Sources/logger/Logger.swift; sourceTree = "<group>"; };
 		9C8518E32182172D000C5C3F /* PeerConnectionManager+Peer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = "PeerConnectionManager+Peer.swift"; path = "Sources/PeerConnectionManager+Peer.swift"; sourceTree = "<group>"; };
 		9C8518E521821763000C5C3F /* PeerConnectionManager+Listener.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = "PeerConnectionManager+Listener.swift"; path = "Sources/PeerConnectionManager+Listener.swift"; sourceTree = "<group>"; };
 		9CEEDB2E21BECDBD00AF0505 /* Invitation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = Invitation.swift; path = Sources/Invitation.swift; sourceTree = "<group>"; };
@@ -164,7 +162,6 @@
 				9C0B1A8F21A83FFD001AB7BB /* AtomicKit */,
 				3080C7DE1D80A1D600AF9EA3 /* Peer.swift */,
 				9CEEDB2E21BECDBD00AF0505 /* Invitation.swift */,
-				9C1CDF452253BF0B00D8DB5F /* Logger.swift */,
 			);
 			name = Commons;
 			sourceTree = "<group>";
@@ -407,7 +404,6 @@
 				3080C7F51D80A1D700AF9EA3 /* PeerBrowserAssisstant.swift in Sources */,
 				3080C7FB1D80A1D700AF9EA3 /* PeerSession.swift in Sources */,
 				3080C7EE1D80A1D700AF9EA3 /* Observable.swift in Sources */,
-				9C758B3D23269EE30074D029 /* Logger.swift in Sources */,
 				3080C7ED1D80A1D700AF9EA3 /* MultiObservable.swift in Sources */,
 				3080C7F61D80A1D700AF9EA3 /* PeerBrowserEventProducer.swift in Sources */,
 				9C0B1A9721A83FFD001AB7BB /* Atomic.swift in Sources */,

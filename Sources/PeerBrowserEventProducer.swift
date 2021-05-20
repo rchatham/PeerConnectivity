@@ -51,7 +51,7 @@ extension PeerBrowserEventProducer: MCNearbyServiceBrowserDelegate {
 
     internal func browser(_ browser: MCNearbyServiceBrowser, didNotStartBrowsingForPeers error: Error) {
         let event: PeerBrowserEvent = .didNotStartBrowsingForPeers(error)
-        logger.error("PeerBrowserEventProducer - \(event)")
+        print("PeerBrowserEventProducer - \(event)")
 
         self.observer.value = event
     }
@@ -61,7 +61,7 @@ extension PeerBrowserEventProducer: MCNearbyServiceBrowserDelegate {
         let peer = Peer(peerID: peerID, status: .available, info: info)
         let event: PeerBrowserEvent = .foundPeer(peer, info)
 
-        logger.info("PeerBrowserEventProducer - \(event)")
+        print("PeerBrowserEventProducer - \(event)")
         self.observer.value = event
     }
     
@@ -69,7 +69,7 @@ extension PeerBrowserEventProducer: MCNearbyServiceBrowserDelegate {
         let peer = Peer(peerID: peerID, status: .unavailable)
         let event: PeerBrowserEvent = .lostPeer(peer)
 
-        logger.info("PeerBrowserEventProducer - \(event)")
+        print("PeerBrowserEventProducer - \(event)")
         self.observer.value = event
     }
 
