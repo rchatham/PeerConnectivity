@@ -1,0 +1,78 @@
+# file options
+--exclude Pods, sonarqube, Documentation
+
+--indent 4
+--indentcase true
+
+# rules
+
+--enable andOperator
+--enable blankLinesAtEndOfScope
+--enable blankLinesAtStartOfScope
+--enable blankLinesBetweenScopes
+--enable braces
+--enable consecutiveBlankLines,
+--enable consecutiveSpaces
+--enable duplicateImports
+--enable elseOnSameLine
+--enable emptybraces
+--enable fileHeader
+--enable isEmpty
+--enable modifierOrder
+--enable preferKeyPath
+--enable redundantExtensionACL
+--enable redundantBreak
+--enable redundantFileprivate
+--enable redundantInit
+--enable redundantLet
+--enable redundantLetError
+--enable redundantNilInit
+--enable redundantObjc
+--enable redundantParens
+--enable redundantPattern
+--enable redundantReturn
+--enable redundantSelf
+--enable redundantVoidReturnType
+--enable semicolons
+--enable sortedImports
+--enable sortedSwitchCases
+--enable spaceAroundBraces
+--enable spaceAroundBrackets
+--enable spaceAroundComments
+--enable spaceAroundGenerics
+--enable spaceAroundOperators
+--enable spaceAroundParens
+--enable spaceInsideBraces
+--enable spaceInsideBrackets
+--enable spaceInsideComments
+--enable spaceInsideGenerics
+--enable spaceInsideParens
+--enable todos
+--enable trailingClosures
+--enable trailingSpace
+--enable void
+--enable wrapEnumCases
+
+
+--disable enumNamespaces
+--disable extensionAccessControl
+--disable hoistPatternLet
+--disable initCoderUnavailable
+--disable leadingDelimiters
+--disable linebreakAtEndOfFile
+--disable linebreaks
+--disable markTypes
+--disable numberFormatting
+--disable organizeDeclarations
+--disable specifiers
+--disable strongOutlets
+--disable strongifiedSelf
+--disable trailingCommas
+--disable typeSugar
+--disable unusedArguments
+--disable wrap
+--disable wrapArguments
+--disable wrapAttributes
+--disable wrapMultilineStatementBraces
+--disable wrapSwitchCases
+--disable yodaConditions

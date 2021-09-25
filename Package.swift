@@ -5,26 +5,19 @@ import PackageDescription
 let package = Package(
     name: "PeerConnectivity",
     platforms: [
-        .macOS(.v10_13),
-        .iOS(.v11)
+        .iOS(.v11),
+        .macOS(.v10_13)
     ],
     products: [
-        .library(
-            name: "PeerConnectivity",
-            targets: ["PeerConnectivity"]),
-    ],
-    dependencies: [
+        .library(name: "PeerConnectivity", targets: ["PeerConnectivity"])
     ],
     targets: [
         .target(
-            name: "PeerConnectivity",
-            dependencies: [],
-            path: "Sources"
+            name: "PeerConnectivity"
         ),
         .testTarget(
             name: "PeerConnectivityTests",
-            dependencies: ["PeerConnectivity"],
-            path: "PeerConnectivityTests"
-        ),
+            dependencies: ["PeerConnectivity"]
+        )
     ]
 )
