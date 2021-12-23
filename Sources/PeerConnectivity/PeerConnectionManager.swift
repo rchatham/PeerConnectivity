@@ -526,8 +526,9 @@ extension PeerConnectionManager {
     private func configureDefaultConnectionTypeBehavior() throws {
         switch connectionType {
             case .automatic: // TODO: use internal observer instead of individuals producders
-                browserObserver.addObserver { [unowned self] event in
+                browserObserver.addObserver { [weak self] event in
                     DispatchQueue.main.async {
+                        guard let self = self else { return }
                         switch event {
                             case .foundPeer(let peer, let discoveryInfo):
                                 guard self.subService == discoveryInfo?[Self.subServiceKey] ?? "" else { return }
@@ -540,8 +541,9 @@ extension PeerConnectionManager {
                         }
                     }
                 }
-                advertiserObserver.addObserver { [unowned self] event in
+                advertiserObserver.addObserver { [weak self] event in
                     DispatchQueue.main.async {
+                        guard let self = self else { return }
                         switch event {
                             case .didReceiveInvitationFromPeer(peer: _, withContext: _, invitationHandler: let handler):
                                 handler(true, self.session)
