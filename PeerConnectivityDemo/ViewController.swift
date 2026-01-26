@@ -52,12 +52,12 @@ class ViewController: UIViewController {
         super.viewDidLoad()
         // Do any additional setup after loading the view, typically from a nib.
         
-        connectionButton = UIButton(type: UIButtonType.system)
+        connectionButton = UIButton(type: UIButton.ButtonType.system)
         connectionButton.setTitle("Start networking!", for: .normal)
         connectionButton.setTitleColor(.blue, for: .normal)
         connectionButton.sizeToFit()
         connectionButton.center = view.center
-        connectionButton.addTarget(self, action: #selector(tappedConnectionButton(sender:)), for: UIControlEvents.touchUpInside)
+        connectionButton.addTarget(self, action: #selector(tappedConnectionButton(sender:)), for: UIControl.Event.touchUpInside)
         view.addSubview(connectionButton)
         
         userStatusLabel = UILabel()

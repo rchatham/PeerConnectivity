@@ -68,11 +68,12 @@ public struct Peer {
 
 extension Peer : Hashable, Equatable {
     /// :nodoc:
-    public var hashValue : Int {
-        return peerID.hashValue
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(peerID)
     }
-}
-/// :nodoc:
-public func ==(lhs: Peer, rhs: Peer) -> Bool {
-    return lhs.peerID == rhs.peerID
+
+    /// :nodoc:
+    public static func ==(lhs: Peer, rhs: Peer) -> Bool {
+        return lhs.peerID == rhs.peerID
+    }
 }
