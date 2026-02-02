@@ -75,7 +75,7 @@ class ViewController: UIViewController {
         // Dispose of any resources that can be recreated.
     }
 
-    internal func tappedConnectionButton(sender: UIButton) {
+    @objc internal func tappedConnectionButton(sender: UIButton) {
         switch isConnecting {
         case false:
             pcm.start()

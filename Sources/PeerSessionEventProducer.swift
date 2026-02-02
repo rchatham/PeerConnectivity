@@ -15,7 +15,7 @@ internal enum PeerSessionEvent {
     case didReceiveData(peer: Peer, data: Data)
     case didReceiveStream(peer: Peer, stream: Stream, name: String)
     case startedReceivingResource(peer: Peer, name: String, progress: Progress)
-    case finishedReceivingResource(peer: Peer, name: String, url: URL, error: Error?)
+    case finishedReceivingResource(peer: Peer, name: String, url: URL?, error: Error?)
     case didReceiveCertificate(peer: Peer, certificate: [Any]?, handler: (Bool) -> Void)
 }
 
@@ -34,7 +34,7 @@ extension MCSessionState {
         case .notConnected: return "NotConnected"
         case .connecting: return "Connecting"
         case .connected: return "Connected"
-            //        default: return "Unknown"
+        @unknown default: return "Unknown"
         }
     }
 }
@@ -44,8 +44,8 @@ extension PeerSessionEventProducer: MCSessionDelegate {
     internal func session(_ session: MCSession, peer peerID: MCPeerID, didChange state: MCSessionState) {
         NSLog("%@", "peer \(peerID) didChangeState: \(state.stringValue())")
         
-        var peer : Peer
-        
+        var peer: Peer?
+
         switch state {
         case .connected:
             peer = Peer(peerID: peerID, status: .connected)
@@ -53,10 +53,15 @@ extension PeerSessionEventProducer: MCSessionDelegate {
             peer = Peer(peerID: peerID, status: .connecting)
         case .notConnected:
             peer = Peer(peerID: peerID, status: .notConnected)
+        @unknown default:
+            NSLog("No matching case for \(state.stringValue())")
+//            fatalError()
         }
         
-        let event: PeerSessionEvent = .devicesChanged(peer: peer)
-        self.observer.value = event
+        if let peer {
+            let event: PeerSessionEvent = .devicesChanged(peer: peer)
+            self.observer.value = event
+        }
     }
     
     internal func session(_ session: MCSession, didReceive data: Data, fromPeer peerID: MCPeerID) {
@@ -83,7 +88,7 @@ extension PeerSessionEventProducer: MCSessionDelegate {
         self.observer.value = event
     }
     
-    internal func session(_ session: MCSession, didFinishReceivingResourceWithName resourceName: String, fromPeer peerID: MCPeerID, at localURL: URL, withError error: Error?) {
+    internal func session(_ session: MCSession, didFinishReceivingResourceWithName resourceName: String, fromPeer peerID: MCPeerID, at localURL: URL?, withError error: Error?) {
         NSLog("%@", "didFinishReceivingResourceWithName")
         
         let peer = Peer(peerID: peerID, status: .connected)
