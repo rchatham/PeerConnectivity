@@ -1,5 +1,7 @@
 # Changelog
 
+* **0.6.0** Updated to Swift 5.0
+
 * **0.4.1** Swift 3 and iOS 10 compatibility
 
 * **0.5.0** Changed instances of AnyObject to Any

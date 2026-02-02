@@ -43,7 +43,7 @@ public enum PeerConnectionEvent {
     /**
      Finished receiving resource from `Peer` with name at url with optional error.
      */
-    case finishedReceivingResource(peer: Peer, name: String, url: URL, error: Error?)
+    case finishedReceivingResource(peer: Peer, name: String, url: URL?, error: Error?)
     /**
      Received security certificate from `Peer` with handler.
      */

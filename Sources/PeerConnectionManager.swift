@@ -174,7 +174,7 @@ extension PeerConnectionManager {
      
      - parameter completion: Called once session is initialized. Default is `nil`.
      */
-    public func start(_ completion: ((Void)->Void)? = nil) {
+    public func start(_ completion: (()->Void)? = nil) {
         
         browserObserver.addObserver { [weak self] event in
             switch event {
@@ -231,7 +231,7 @@ extension PeerConnectionManager {
                     guard let peers = self?.foundPeers , !peers.contains(peer) else { break }
                     self?.foundPeers.append(peer)
                 case .lostPeer(let peer):
-                    guard let index = self?.foundPeers.index(of: peer) else { break }
+                    guard let index = self?.foundPeers.firstIndex(of: peer) else { break }
                     self?.foundPeers.remove(at: index)
                 default: break
                 }
@@ -375,7 +375,7 @@ extension PeerConnectionManager {
      
      - parameter completion: Completion handler called after the session has completed refreshing.
      */
-    public func refresh(_ completion: ((Void)->Void)? = nil) {
+    public func refresh(_ completion: (()->Void)? = nil) {
         stop()
         start(completion)
     }
