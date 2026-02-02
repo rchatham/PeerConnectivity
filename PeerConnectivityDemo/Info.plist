@@ -41,5 +41,12 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_local._tcp</string>
+		<string>_local._udp</string>
+	</array>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>This app uses the local network to discover and connect with nearby devices for peer-to-peer communication.</string>
 </dict>
 </plist>
