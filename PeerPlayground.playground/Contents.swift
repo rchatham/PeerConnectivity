@@ -66,10 +66,13 @@ pcm.listenOn({ (event: PeerConnectionEvent) in
         pcm.invitePeer(peer)
     
         // Invite peers with context data
-        let someInfoAboutSession = [
+        let someInfoAboutSession: [String: String] = [
             "thisSession" : "isCool"
         ]
-        let sessionContextData = NSKeyedArchiver.archivedData(withRootObject: someInfoAboutSession)
+        let sessionContextData = try! NSKeyedArchiver.archivedData(
+            withRootObject: someInfoAboutSession as NSDictionary,
+            requiringSecureCoding: true
+        )
         pcm.invitePeer(peer, withContext: sessionContextData, timeout: 10)
         
     case .lostPeer(let peer):
@@ -85,7 +88,10 @@ pcm.listenOn({ (event: PeerConnectionEvent) in
         }
         
         guard let context = context,
-            let invitationContext = NSKeyedUnarchiver.unarchiveObject(with: context) as? [String:String],
+            let invitationContext = try? NSKeyedUnarchiver.unarchivedObject(
+                ofClasses: [NSDictionary.self, NSString.self],
+                from: context
+            ) as? [String: String],
             let isItCool = invitationContext["thisSession"]
             else { return }
         
@@ -114,12 +120,43 @@ for peer in peersAvailableForInvite {
 
 // MARK: - Sending Events/Information
 
-// Create events as [String:AnyObject] Dictionaries
+/*:
+ ## Modern Type-Safe Messaging (Recommended)
+
+ The new `PeerMessage` protocol provides type-safe messaging with automatic
+ JSON encoding/decoding. Define your message types as Codable structs.
+ */
+
+// Define a type-safe message
+struct ChatMessage: PeerMessage {
+    let text: String
+    let timestamp: Date
+    let senderId: String
+}
+
+// Create and send a typed message
+let chatMessage = ChatMessage(
+    text: "Hello from the playground!",
+    timestamp: Date(),
+    senderId: "playground-user"
+)
+
+// Sends to all connected peers with type safety
+pcm.sendMessage(chatMessage)
+
+/*:
+ ## Legacy Dictionary-Based Messaging
+
+ The original `sendEvent` API still works but is deprecated.
+ New code should use `sendMessage` instead.
+ */
+
+// Create events as [String:Any] Dictionaries (legacy approach)
 let event: [String: Any] = [
     "eventKey" : Date()
 ]
 
-// Sends to all connected peers
+// Sends to all connected peers (deprecated but still functional)
 pcm.sendEvent(event)
 
 // Use this to access the connectedPeers
@@ -157,13 +194,33 @@ if let somePeerThatIAmConnectedTo = connectedPeers.first {
 
 // It is generally a good idea to configure your peer session before calling .start()
 
-// Create an event listener
+/*:
+ ## Modern Type-Safe Message Listening (Recommended)
+
+ Use `observeMessages(ofType:forKey:listener:)` to receive typed messages
+ with automatic decoding.
+ */
+
+// Listen for ChatMessage types with automatic decoding
+pcm.observeMessages(ofType: ChatMessage.self, forKey: "chatListener") { message, peer in
+    print("\(peer.displayName) says: \(message.text)")
+    print("Sent at: \(message.timestamp)")
+}
+
+/*:
+ ## Legacy Event Listening
+
+ The original dictionary-based listener still works but is deprecated.
+ New code should use `observeMessages` for type safety.
+ */
+
+// Create an event listener (legacy approach)
 pcm.observeEventListenerForKey("someEvent") { (eventInfo, peer) in
-    
+
     print("Received some event \(eventInfo) from \(peer.displayName)")
     guard let date = eventInfo["eventKey"] as? Date else { return }
     print(date)
-    
+
 }
 // or...
 let eventListener: PeerConnectionEventListener = { event in
@@ -175,11 +232,19 @@ let eventListener: PeerConnectionEventListener = { event in
     case .devicesChanged(let peer, let connectedPeers): break
     case .receivedData(let peer, let data): break
     case .receivedEvent(let peer, let eventInfo):
-    
+        // Legacy dictionary-based events
         print("Received some event \(eventInfo) from \(peer.displayName)")
         guard let date = eventInfo["eventKey"] as? Date else { return }
         print(date)
-        
+
+    case .receivedMessage(let peer, let messageType, let data):
+        // Modern type-safe messages - decode based on messageType
+        print("Received message of type '\(messageType)' from \(peer.displayName)")
+        if messageType == ChatMessage.messageType,
+           let message = try? JSONDecoder().decode(ChatMessage.self, from: data) {
+            print("Chat: \(message.text)")
+        }
+
     case .receivedStream(let peer, let stream, let name): break
     case .startedReceivingResource(let peer, let name, let progress): break
     case .finishedReceivingResource(let peer, let name, let url, let error): break
@@ -188,6 +253,7 @@ let eventListener: PeerConnectionEventListener = { event in
     case .ended: break
     case .foundPeer(let peer): break
     case .lostPeer(let peer): break
+    case .nearbyPeersChanged(let foundPeers): break
     case .receivedInvitation(let peer, let context, let invitationHandler): break
     }
 }

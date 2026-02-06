@@ -20,6 +20,34 @@ public struct PeerConnectivityKeys {
     static fileprivate let CertificateListener = "CertificateRecievedListener"
 }
 
+// MARK: - Modern Type-Safe Messaging API
+
+/**
+ Protocol for type-safe peer-to-peer messages.
+
+ Conform your message types to this protocol to use the modern `sendMessage`/`observeMessages` API
+ instead of the legacy `[String:Any]` dictionary-based messaging.
+
+ Example:
+ ```swift
+ struct ChatMessage: PeerMessage {
+     let text: String
+     let timestamp: Date
+ }
+ ```
+ */
+public protocol PeerMessage: Codable {
+    /// Unique identifier for this message type, used for routing on the receiving end.
+    static var messageType: String { get }
+}
+
+extension PeerMessage {
+    /// Default implementation uses the type name as the message type identifier.
+    public static var messageType: String {
+        return String(describing: Self.self)
+    }
+}
+
 /**
  Enum represeting available connection types. `.automatic`, `.inviteOnly`, `.custom`.
  */
@@ -210,7 +238,21 @@ extension PeerConnectionManager {
                 self?.observer.value = .devicesChanged(peer: peer, connectedPeers: connectedPeers)
             case .didReceiveData(peer: let peer, data: let data):
                 self?.observer.value = .receivedData(peer: peer, data: data)
-                guard let eventInfo = NSKeyedUnarchiver.unarchiveObject(with: data) as? [String:Any] else { return }
+
+                // Try modern JSON envelope first (from sendMessage)
+                if let envelope = try? JSONDecoder().decode([String: Data].self, from: data),
+                   let typeData = envelope["type"],
+                   let messageType = String(data: typeData, encoding: .utf8),
+                   let payload = envelope["payload"] {
+                    self?.observer.value = .receivedMessage(peer: peer, messageType: messageType, data: payload)
+                    return
+                }
+
+                // Fall back to legacy NSKeyedArchiver format (from sendEvent)
+                guard let eventInfo = try? NSKeyedUnarchiver.unarchivedObject(
+                    ofClasses: [NSDictionary.self, NSArray.self, NSString.self, NSNumber.self, NSDate.self, NSData.self],
+                    from: data
+                ) as? [String: Any] else { return }
                 self?.observer.value = .receivedEvent(peer: peer, eventInfo: eventInfo)
             case .didReceiveCertificate(peer: let peer, certificate: let certificate, handler: let handler):
                 self?.observer.value = .receivedCertificate(peer: peer, certificate: certificate, handler: handler)
@@ -326,15 +368,52 @@ extension PeerConnectionManager {
     
     /**
      Send events to connected users. Encoded as Data using the NSKeyedArchiver. If no peer is specified it broadcasts to all users on a current session.
-     
+
      - parameter eventInfo: Dictionary of Any data which is encoded with the NSKeyedArchiver and passed to the specified peers.
      - parameter toPeers: Specified `Peer` objects to send event.
      */
+    @available(*, deprecated, message: "Use sendMessage(_:toPeers:) with PeerMessage types for type-safe messaging")
     public func sendEvent(_ eventInfo: [String:Any], toPeers peers: [Peer] = []) {
-        let eventData = NSKeyedArchiver.archivedData(withRootObject: eventInfo)
-        session.sendData(eventData, toPeers: peers)
+        do {
+            let eventData = try NSKeyedArchiver.archivedData(withRootObject: eventInfo, requiringSecureCoding: true)
+            session.sendData(eventData, toPeers: peers)
+        } catch {
+            NSLog(error.localizedDescription)
+        }
     }
-    
+
+    /**
+     Send a type-safe Codable message to connected peers.
+
+     This is the modern alternative to `sendEvent(_:toPeers:)`. Messages are JSON-encoded
+     and include type information for routing on the receiving end.
+
+     Example:
+     ```swift
+     struct ChatMessage: PeerMessage {
+         let text: String
+         let timestamp: Date
+     }
+
+     let message = ChatMessage(text: "Hello!", timestamp: Date())
+     pcm.sendMessage(message)
+     ```
+
+     - parameter message: The message conforming to `PeerMessage` protocol.
+     - parameter toPeers: Specific peers to send to, or empty to broadcast to all connected peers.
+     */
+    public func sendMessage<T: PeerMessage>(_ message: T, toPeers peers: [Peer] = []) {
+        do {
+            var envelope: [String: Data] = [:]
+            envelope["type"] = T.messageType.data(using: .utf8)
+            envelope["payload"] = try JSONEncoder().encode(message)
+            let data = try JSONEncoder().encode(envelope)
+            session.sendData(data, toPeers: peers)
+        } catch {
+            NSLog("PeerConnectivity: Failed to encode message: \(error.localizedDescription)")
+        }
+    }
+
     /**
      Send a data stream to a connected user. This method throws an error if the stream cannot be established. This method returns the NSOutputStream with which you can send events to the connected users.
      
@@ -448,10 +527,11 @@ extension PeerConnectionManager {
     
     /**
      Takes a key to register the callback and calls the listener when an event is recieved and also passes back the `Peer` that sent it.
-     
+
      - parameter key: `String` key with which to keep track of the listener for later removal.
      - parameter listener: Callback that returns the event info and the `Peer` whenever an event is received.
      */
+    @available(*, deprecated, message: "Use observeMessages(ofType:forKey:listener:) for type-safe messaging")
     public func observeEventListenerForKey(_ key: String, listener: @escaping ([String:Any], Peer)->Void) {
         responder.addListener({ (event) in
             switch event {
@@ -461,7 +541,48 @@ extension PeerConnectionManager {
             }
         }, forKey: key)
     }
-    
+
+    /**
+     Listen for specific message types using the modern type-safe API.
+
+     This method automatically decodes incoming messages that match the specified type
+     and calls your listener with the decoded message.
+
+     Example:
+     ```swift
+     struct ChatMessage: PeerMessage {
+         let text: String
+         let timestamp: Date
+     }
+
+     pcm.observeMessages(ofType: ChatMessage.self, forKey: "chat") { message, peer in
+         print("\(peer.displayName): \(message.text)")
+     }
+     ```
+
+     - parameter type: The `PeerMessage` type to listen for.
+     - parameter key: The key with which to associate the listener for later removal.
+     - parameter listener: Callback that receives the decoded message and the `Peer` that sent it.
+     */
+    public func observeMessages<T: PeerMessage>(
+        ofType type: T.Type,
+        forKey key: String,
+        listener: @escaping (T, Peer) -> Void
+    ) {
+        responder.addListener({ event in
+            switch event {
+            case .receivedMessage(let peer, let messageType, let data)
+                where messageType == T.messageType:
+                if let message = try? JSONDecoder().decode(T.self, from: data) {
+                    DispatchQueue.main.async {
+                        listener(message, peer)
+                    }
+                }
+            default: break
+            }
+        }, forKey: key)
+    }
+
     /**
      Remove a listener associated with a specified key.
      

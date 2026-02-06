@@ -33,6 +33,19 @@ public enum PeerConnectionEvent {
      */
     case receivedEvent(peer: Peer, eventInfo: [String:Any])
     /**
+     Type-safe message received from `Peer`.
+
+     Decode using:
+     ```swift
+     if let message = try? JSONDecoder().decode(YourMessageType.self, from: data) {
+         // Handle message
+     }
+     ```
+
+     Or use `observeMessages(ofType:forKey:listener:)` for automatic decoding.
+     */
+    case receivedMessage(peer: Peer, messageType: String, data: Data)
+    /**
      Data stream received from `Peer`.
      */
     case receivedStream(peer: Peer, stream: Stream, name: String)

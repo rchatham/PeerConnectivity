@@ -25,6 +25,7 @@
 		3080C7FC1D80A1D700AF9EA3 /* PeerSessionEventProducer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3080C7EB1D80A1D600AF9EA3 /* PeerSessionEventProducer.swift */; };
 		3086CD2D1D09FB9900E269A3 /* PeerConnectivity.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3086CD221D09FB9800E269A3 /* PeerConnectivity.framework */; };
 		3086CD321D09FB9900E269A3 /* PeerConnectivityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3086CD311D09FB9900E269A3 /* PeerConnectivityTests.swift */; };
+		30PEERMSG2602020000000002 /* PeerMessageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30PEERMSG2602020000000001 /* PeerMessageTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -38,6 +39,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		30PEERMSG2602020000000001 /* PeerMessageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeerMessageTests.swift; sourceTree = "<group>"; };
 		3080C7DB1D80A1D600AF9EA3 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = Sources/Info.plist; sourceTree = "<group>"; };
 		3080C7DC1D80A1D600AF9EA3 /* MultiObservable.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = MultiObservable.swift; path = Sources/MultiObservable.swift; sourceTree = "<group>"; };
 		3080C7DD1D80A1D600AF9EA3 /* Observable.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = Observable.swift; path = Sources/Observable.swift; sourceTree = "<group>"; };
@@ -126,6 +128,7 @@
 			isa = PBXGroup;
 			children = (
 				3086CD311D09FB9900E269A3 /* PeerConnectivityTests.swift */,
+				30PEERMSG2602020000000001 /* PeerMessageTests.swift */,
 				3086CD331D09FB9900E269A3 /* Info.plist */,
 			);
 			path = PeerConnectivityTests;
@@ -267,6 +270,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				3086CD321D09FB9900E269A3 /* PeerConnectivityTests.swift in Sources */,
+				30PEERMSG2602020000000002 /* PeerMessageTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -461,6 +465,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				INFOPLIST_FILE = PeerConnectivityTests/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -476,6 +481,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				INFOPLIST_FILE = PeerConnectivityTests/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
