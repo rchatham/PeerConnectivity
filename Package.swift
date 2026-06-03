@@ -4,7 +4,8 @@ import PackageDescription
 let package = Package(
     name: "PeerConnectivity",
     platforms: [
-        .iOS(.v8)
+        .iOS(.v8),
+        .macOS(.v10_10),
     ],
     products: [
         .library(

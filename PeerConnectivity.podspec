@@ -9,7 +9,8 @@ Pod::Spec.new do |s|
   s.homepage     = "https://github.com/rchatham/PeerConnectivity"
   s.license      = "MIT"
   s.author       = { "Reid Chatham" => "reid.chatham@gmail.com" }
-  s.platform     = :ios, "8.0"
+  s.ios.deployment_target = "8.0"
+  s.osx.deployment_target = "10.10"
   s.source       = { :git => "https://github.com/rchatham/PeerConnectivity.git", :tag => "#{s.version}" }
   s.source_files = "Sources/*"
   s.framework    = "MultipeerConnectivity"

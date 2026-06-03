@@ -12,23 +12,23 @@ import MultipeerConnectivity
 import UIKit
 #endif
 
+#if canImport(UIKit)
 internal struct PeerBrowserAssisstant {
-    
+
     fileprivate let session : PeerSession
     fileprivate let serviceType : ServiceType
     fileprivate let eventProducer: PeerBrowserViewControllerEventProducer
-    
+
     internal init(session: PeerSession, serviceType: ServiceType, eventProducer: PeerBrowserViewControllerEventProducer) {
         self.session = session
         self.serviceType = serviceType
         self.eventProducer = eventProducer
     }
-    
-    #if canImport(UIKit)
+
     internal func peerBrowserViewController() -> MCBrowserViewController {
         let bvc = MCBrowserViewController(serviceType: serviceType, session: session.session)
         bvc.delegate = eventProducer
         return bvc
     }
-    #endif
 }
+#endif

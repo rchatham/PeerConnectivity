@@ -9,6 +9,8 @@
 import Foundation
 #if canImport(UIKit)
 import UIKit
+#elseif os(macOS)
+import AppKit
 #endif
 
 /**
@@ -126,13 +128,17 @@ public class PeerConnectionManager {
     
     fileprivate let sessionEventProducer : PeerSessionEventProducer
     fileprivate let browserEventProducer : PeerBrowserEventProducer
+    #if canImport(UIKit)
     fileprivate let browserViewControllerEventProducer : PeerBrowserViewControllerEventProducer
+    #endif
     fileprivate let advertiserEventProducer : PeerAdvertiserEventProducer
     fileprivate let advertiserAssisstantEventProducer : PeerAdvertiserAssisstantEventProducer
     
     fileprivate let session : PeerSession
     fileprivate let browser : PeerBrowser
+    #if canImport(UIKit)
     fileprivate let browserAssisstant : PeerBrowserAssisstant
+    #endif
     fileprivate let advertiser : PeerAdvertiser
     fileprivate let advertiserAssisstant : PeerAdvertiserAssisstant
     
@@ -165,13 +171,17 @@ public class PeerConnectionManager {
         
         sessionEventProducer = PeerSessionEventProducer(observer: sessionObserver)
         browserEventProducer = PeerBrowserEventProducer(observer: browserObserver)
+        #if canImport(UIKit)
         browserViewControllerEventProducer = PeerBrowserViewControllerEventProducer(observer: browserViewControllerObserver)
+        #endif
         advertiserEventProducer = PeerAdvertiserEventProducer(observer: advertiserObserver)
         advertiserAssisstantEventProducer = PeerAdvertiserAssisstantEventProducer(observer: advertiserAssisstantObserver)
         
         session = PeerSession(peer: peer, eventProducer: sessionEventProducer)
         browser = PeerBrowser(session: session, serviceType: serviceType, eventProducer: browserEventProducer)
+        #if canImport(UIKit)
         browserAssisstant = PeerBrowserAssisstant(session: session, serviceType: serviceType, eventProducer: browserViewControllerEventProducer)
+        #endif
         advertiser = PeerAdvertiser(session: session, serviceType: serviceType, eventProducer: advertiserEventProducer)
         advertiserAssisstant = PeerAdvertiserAssisstant(session: session, serviceType: serviceType, eventProducer: advertiserAssisstantEventProducer)
         
@@ -194,7 +204,7 @@ public class PeerConnectionManager {
             PeerConnectionManager.shared[serviceType] = self
         }
     }
-    
+
     deinit {
         stop()
         removeAllListeners()
