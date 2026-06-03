@@ -8,6 +8,9 @@
 
 import Foundation
 import MultipeerConnectivity
+#if canImport(UIKit)
+import UIKit
+#endif
 
 /** 
  Event callbacks associated with user interaction with the browser view controller.
@@ -36,6 +39,7 @@ internal class PeerBrowserViewControllerEventProducer: NSObject {
     }
 }
 
+#if canImport(UIKit)
 extension PeerBrowserViewControllerEventProducer: MCBrowserViewControllerDelegate {
 
 //    func browserViewController(browserViewController: MCBrowserViewController, shouldPresentNearbyPeer peerID: MCPeerID, withDiscoveryInfo info: [String : String]?) -> Bool {
@@ -58,3 +62,4 @@ extension PeerBrowserViewControllerEventProducer: MCBrowserViewControllerDelegat
         browserViewController.dismiss(animated: true, completion: nil)
     }
 }
+#endif

@@ -6,7 +6,10 @@
 //  Copyright © 2015 Reid Chatham. All rights reserved.
 //
 
+import Foundation
+#if canImport(UIKit)
 import UIKit
+#endif
 
 /**
  The service type describing the channel over which connections are made.
@@ -19,6 +22,7 @@ public typealias ServiceType = String
 public struct PeerConnectivityKeys {
     static fileprivate let CertificateListener = "CertificateRecievedListener"
 }
+
 
 // MARK: - Modern Type-Safe Messaging API
 
@@ -147,7 +151,13 @@ public class PeerConnectionManager {
      */
     public init(serviceType: ServiceType,
                 connectionType: PeerConnectionType = .automatic,
-                displayName: String = UIDevice.current.name) {
+                displayName: String = {
+                    #if canImport(UIKit)
+                    return UIDevice.current.name
+                    #else
+                    return Host.current().localizedName ?? ProcessInfo.processInfo.hostName
+                    #endif
+                }()) {
         
         self.connectionType = connectionType
         self.serviceType = serviceType
@@ -337,6 +347,7 @@ extension PeerConnectionManager {
      
      - Returns: A browser view controller for inviting available peers nearby if connection type is `.InviteOnly` or `nil` otherwise.
      */
+    #if canImport(UIKit)
     public func browserViewController(_ callback: @escaping (PeerBrowserViewControllerEvent)->Void) -> UIViewController? {
         browserViewControllerObserver.addObserver { callback($0) }
         switch connectionType {
@@ -344,6 +355,7 @@ extension PeerConnectionManager {
         default: return nil
         }
     }
+    #endif
     
     /**
      Use to invite peers that have been found locally to join a MultipeerConnectivity session.
