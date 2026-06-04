@@ -13,12 +13,19 @@ internal struct PeerAdvertiserAssisstant {
     
     fileprivate let session : PeerSession
     fileprivate let assisstant : MCAdvertiserAssistant
+    internal let discoveryInfo : PeerDiscoveryInfo?
     fileprivate let eventProducer : PeerAdvertiserAssisstantEventProducer?
     
-    internal init(session: PeerSession, serviceType: ServiceType, eventProducer: PeerAdvertiserAssisstantEventProducer? = nil) {
+    internal init(session: PeerSession,
+                  serviceType: ServiceType,
+                  discoveryInfo: PeerDiscoveryInfo? = nil,
+                  eventProducer: PeerAdvertiserAssisstantEventProducer? = nil) {
         self.session = session
+        self.discoveryInfo = discoveryInfo
         self.eventProducer = eventProducer
-        assisstant = MCAdvertiserAssistant(serviceType: serviceType, discoveryInfo: nil, session: session.session)
+        assisstant = MCAdvertiserAssistant(serviceType: serviceType,
+                                           discoveryInfo: discoveryInfo,
+                                           session: session.session)
         if let eventProducer = eventProducer { assisstant.delegate = eventProducer }
     }
     

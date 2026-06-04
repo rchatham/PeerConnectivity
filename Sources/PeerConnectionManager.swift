@@ -15,6 +15,15 @@ import MultipeerConnectivity
 public typealias ServiceType = String
 
 /**
+ Discovery metadata advertised over Bonjour TXT records.
+
+ Treat discovery info as public, unauthenticated metadata. Do not include secrets, tokens,
+ emails, stable user IDs, or sensitive device information. Prefer non-secret values such as
+ protocol versions, capability flags, or non-secret room/session labels.
+ */
+public typealias PeerDiscoveryInfo = [String:String]
+
+/**
  Struct representing specified keys for configuring a connection manager.
  */
 public struct PeerConnectivityKeys {}
@@ -99,6 +108,14 @@ public class PeerConnectionManager {
      Security settings used to create the underlying MultipeerConnectivity session.
      */
     public let securityConfiguration : PeerSecurityConfiguration
+
+    /**
+     Public discovery metadata advertised to nearby browsers.
+
+     This metadata is unauthenticated and visible to nearby peers. Do not include secrets,
+     tokens, emails, stable user IDs, or sensitive device information.
+     */
+    public let discoveryInfo : PeerDiscoveryInfo?
     
     /**
      Returns the peers that are connected on the current session.
@@ -169,6 +186,7 @@ public class PeerConnectionManager {
      - parameter connectionType: Takes a PeerConnectionType case determining the default behavior of the framework.
      - parameter displayName: The local user's display name to other peers.
      - parameter securityConfiguration: Security settings used to create the underlying MultipeerConnectivity session.
+     - parameter discoveryInfo: Public, unauthenticated metadata advertised to nearby browsers.
      
      - Returns: A fully initialized `PeerConnectionManager`.
      */
@@ -181,12 +199,14 @@ public class PeerConnectionManager {
                     return ProcessInfo.processInfo.hostName
                     #endif
                 }(),
-                securityConfiguration: PeerSecurityConfiguration = .default) {
+                securityConfiguration: PeerSecurityConfiguration = .default,
+                discoveryInfo: PeerDiscoveryInfo? = nil) {
         
         self.connectionType = connectionType
         self.serviceType = serviceType
         self.peer = Peer(displayName: displayName)
         self.securityConfiguration = securityConfiguration
+        self.discoveryInfo = discoveryInfo
         
         sessionEventProducer = PeerSessionEventProducer(observer: sessionObserver)
         browserEventProducer = PeerBrowserEventProducer(observer: browserObserver)
@@ -195,8 +215,14 @@ public class PeerConnectionManager {
         
         session = PeerSession(peer: peer, securityConfiguration: securityConfiguration, eventProducer: sessionEventProducer)
         browser = PeerBrowser(session: session, serviceType: serviceType, eventProducer: browserEventProducer)
-        advertiser = PeerAdvertiser(session: session, serviceType: serviceType, eventProducer: advertiserEventProducer)
-        advertiserAssisstant = PeerAdvertiserAssisstant(session: session, serviceType: serviceType, eventProducer: advertiserAssisstantEventProducer)
+        advertiser = PeerAdvertiser(session: session,
+                                    serviceType: serviceType,
+                                    discoveryInfo: discoveryInfo,
+                                    eventProducer: advertiserEventProducer)
+        advertiserAssisstant = PeerAdvertiserAssisstant(session: session,
+                                                        serviceType: serviceType,
+                                                        discoveryInfo: discoveryInfo,
+                                                        eventProducer: advertiserAssisstantEventProducer)
         
         responder = PeerConnectionResponder(observer: observer)
         
@@ -449,8 +475,9 @@ extension PeerConnectionManager {
         if includeBrowserObservers {
             browserObserver.addObserver { [weak self] event in
                 switch event {
-                case .foundPeer(let peer):
+                case .foundPeer(let peer, let discoveryInfo):
                     self?.observer.value = .foundPeer(peer: peer)
+                    self?.observer.value = .foundPeerWithDiscoveryInfo(peer: peer, discoveryInfo: discoveryInfo)
                 case .lostPeer(let peer):
                     self?.observer.value = .lostPeer(peer: peer)
                 case .didNotStartBrowsingForPeers(let error):
@@ -516,7 +543,7 @@ extension PeerConnectionManager {
             browserObserver.addObserver { [weak self] event in
                 DispatchQueue.main.async {
                     switch event {
-                    case .foundPeer(let peer):
+                    case .foundPeer(let peer, _):
                         guard let peers = self?.foundPeers , !peers.contains(peer) else { break }
                         self?.foundPeers.append(peer)
                     case .lostPeer(let peer):
@@ -552,7 +579,7 @@ extension PeerConnectionManager {
                 browserObserver.addObserver { [unowned self] event in
                     DispatchQueue.main.async {
                         switch event {
-                        case .foundPeer(let peer):
+                        case .foundPeer(let peer, _):
                             self.browser.invitePeer(peer)
                         default: break
                         }

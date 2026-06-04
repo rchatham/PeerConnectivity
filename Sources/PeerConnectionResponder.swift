@@ -77,6 +77,13 @@ public enum PeerConnectionEvent {
      */
     case foundPeer(peer: Peer)
     /**
+     Found nearby `Peer` with advertised discovery metadata.
+
+     Discovery info is public, unauthenticated Bonjour TXT record metadata. Do not treat it as secret
+     or trusted without additional validation.
+     */
+    case foundPeerWithDiscoveryInfo(peer: Peer, discoveryInfo: PeerDiscoveryInfo?)
+    /**
      Lost nearby `Peer`.
      */
     case lostPeer(peer: Peer)
