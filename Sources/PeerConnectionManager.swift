@@ -161,7 +161,7 @@ public class PeerConnectionManager {
     
     // MARK: Initializer
     /**
-     Initializer for a connection manager. Requires the requested service type. If the connectionType and displayName are not specified the connection manager defaults to .Automatic and using the localized host name, falling back to the process host name. The `PeerConnectivityUI` product provides an iOS convenience initializer that uses the current device name.
+     Initializer for a connection manager. Requires the requested service type. If the connectionType and displayName are not specified the connection manager defaults to .Automatic and using the localized host name where available, falling back to the process host name. The `PeerConnectivityUI` product provides an iOS convenience initializer that uses the current device name.
      
      - parameter serviceType: The requested service type describing the channel on which peers are able to connect.
      - parameter connectionType: Takes a PeerConnectionType case determining the default behavior of the framework.
@@ -171,7 +171,13 @@ public class PeerConnectionManager {
      */
     public init(serviceType: ServiceType,
                 connectionType: PeerConnectionType = .automatic,
-                displayName: String = Host.current().localizedName ?? ProcessInfo.processInfo.hostName) {
+                displayName: String = {
+                    #if os(macOS)
+                    return Host.current().localizedName ?? ProcessInfo.processInfo.hostName
+                    #else
+                    return ProcessInfo.processInfo.hostName
+                    #endif
+                }()) {
         
         self.connectionType = connectionType
         self.serviceType = serviceType
