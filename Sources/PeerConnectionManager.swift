@@ -7,11 +7,7 @@
 //
 
 import Foundation
-#if canImport(UIKit)
-import UIKit
-#elseif os(macOS)
-import AppKit
-#endif
+import MultipeerConnectivity
 
 /**
  The service type describing the channel over which connections are made.
@@ -108,6 +104,24 @@ public class PeerConnectionManager {
     public var connectedPeers : [Peer] {
         return session.connectedPeers
     }
+
+    /**
+     The MultipeerConnectivity session used by this connection manager.
+
+     This is exposed for platform-specific helper packages such as `PeerConnectivityUI`.
+     */
+    public var multipeerSession : MCSession {
+        return session.session
+    }
+
+    /**
+     The service type used by this connection manager.
+
+     This is exposed for platform-specific helper packages such as `PeerConnectivityUI`.
+     */
+    public var peerServiceType : ServiceType {
+        return serviceType
+    }
     
     /**
      Nearby peers available for connecting. 
@@ -129,23 +143,16 @@ public class PeerConnectionManager {
     
     fileprivate let sessionObserver = Observable<PeerSessionEvent>(.none)
     fileprivate let browserObserver = Observable<PeerBrowserEvent>(.none)
-    fileprivate let browserViewControllerObserver = Observable<PeerBrowserViewControllerEvent>(.none)
     fileprivate let advertiserObserver = Observable<PeerAdvertiserEvent>(.none)
     fileprivate let advertiserAssisstantObserver = Observable<PeerAdvertiserAssisstantEvent>(.none)
     
     fileprivate let sessionEventProducer : PeerSessionEventProducer
     fileprivate let browserEventProducer : PeerBrowserEventProducer
-    #if canImport(UIKit)
-    fileprivate let browserViewControllerEventProducer : PeerBrowserViewControllerEventProducer
-    #endif
     fileprivate let advertiserEventProducer : PeerAdvertiserEventProducer
     fileprivate let advertiserAssisstantEventProducer : PeerAdvertiserAssisstantEventProducer
     
     fileprivate let session : PeerSession
     fileprivate let browser : PeerBrowser
-    #if canImport(UIKit)
-    fileprivate let browserAssisstant : PeerBrowserAssisstant
-    #endif
     fileprivate let advertiser : PeerAdvertiser
     fileprivate let advertiserAssisstant : PeerAdvertiserAssisstant
     
@@ -154,7 +161,7 @@ public class PeerConnectionManager {
     
     // MARK: Initializer
     /**
-     Initializer for a connection manager. Requires the requested service type. If the connectionType and displayName are not specified the connection manager defaults to .Automatic and using the local device name.
+     Initializer for a connection manager. Requires the requested service type. If the connectionType and displayName are not specified the connection manager defaults to .Automatic and using the localized host name where available, falling back to the process host name. The `PeerConnectivityUI` product provides an iOS convenience initializer that uses the current device name.
      
      - parameter serviceType: The requested service type describing the channel on which peers are able to connect.
      - parameter connectionType: Takes a PeerConnectionType case determining the default behavior of the framework.
@@ -165,10 +172,10 @@ public class PeerConnectionManager {
     public init(serviceType: ServiceType,
                 connectionType: PeerConnectionType = .automatic,
                 displayName: String = {
-                    #if canImport(UIKit)
-                    return UIDevice.current.name
-                    #else
+                    #if os(macOS)
                     return Host.current().localizedName ?? ProcessInfo.processInfo.hostName
+                    #else
+                    return ProcessInfo.processInfo.hostName
                     #endif
                 }()) {
         
@@ -178,17 +185,11 @@ public class PeerConnectionManager {
         
         sessionEventProducer = PeerSessionEventProducer(observer: sessionObserver)
         browserEventProducer = PeerBrowserEventProducer(observer: browserObserver)
-        #if canImport(UIKit)
-        browserViewControllerEventProducer = PeerBrowserViewControllerEventProducer(observer: browserViewControllerObserver)
-        #endif
         advertiserEventProducer = PeerAdvertiserEventProducer(observer: advertiserObserver)
         advertiserAssisstantEventProducer = PeerAdvertiserAssisstantEventProducer(observer: advertiserAssisstantObserver)
         
         session = PeerSession(peer: peer, eventProducer: sessionEventProducer)
         browser = PeerBrowser(session: session, serviceType: serviceType, eventProducer: browserEventProducer)
-        #if canImport(UIKit)
-        browserAssisstant = PeerBrowserAssisstant(session: session, serviceType: serviceType, eventProducer: browserViewControllerEventProducer)
-        #endif
         advertiser = PeerAdvertiser(session: session, serviceType: serviceType, eventProducer: advertiserEventProducer)
         advertiserAssisstant = PeerAdvertiserAssisstant(session: session, serviceType: serviceType, eventProducer: advertiserAssisstantEventProducer)
         
@@ -268,23 +269,6 @@ extension PeerConnectionManager {
         startupMode = .advertisingOnly
         startCurrentMode(completion)
     }
-    
-    /**
-     Returns a browser view controller if the connectionType was set to `.InviteOnly` or returns `nil` if not.
-     
-     - parameter callback: Events sent back with cases `.DidFinish` and `.DidCancel`.
-     
-     - Returns: A browser view controller for inviting available peers nearby if connection type is `.InviteOnly` or `nil` otherwise.
-     */
-    #if canImport(UIKit)
-    public func browserViewController(_ callback: @escaping (PeerBrowserViewControllerEvent)->Void) -> UIViewController? {
-        browserViewControllerObserver.addObserver { callback($0) }
-        switch connectionType {
-        case .inviteOnly: return browserAssisstant.peerBrowserViewController()
-        default: return nil
-        }
-    }
-    #endif
     
     /**
      Use to invite peers that have been found locally to join a MultipeerConnectivity session.
@@ -416,13 +400,11 @@ extension PeerConnectionManager {
         browserObserver.observers = []
         advertiserObserver.observers = []
         advertiserAssisstantObserver.observers = []
-        browserViewControllerObserver.observers = []
         
         sessionObserver.value = .none
         browserObserver.value = .none
         advertiserObserver.value = .none
         advertiserAssisstantObserver.value = .none
-        browserViewControllerObserver.value = .none
         
         observer.value = .ready
     }
