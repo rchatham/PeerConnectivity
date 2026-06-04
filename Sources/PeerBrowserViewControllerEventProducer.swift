@@ -8,10 +8,13 @@
 
 import Foundation
 import MultipeerConnectivity
+#if canImport(UIKit)
+import UIKit
+#endif
 
-/** 
+/**
  Event callbacks associated with user interaction with the browser view controller.
- 
+
  - none: No event was passed.
  - didFinish: The user did finish picking peers in the browser view controller.
  - wasCancelled: The user did cancel their interaction with the browser view controller.
@@ -23,38 +26,42 @@ public enum PeerBrowserViewControllerEvent {
     case didFinish
     /// The user did cancel their interaction with the browser view controller.
     case wasCancelled
-    
+
 //    case shouldPresentNearbyPeer
 }
 
+#if canImport(UIKit)
 internal class PeerBrowserViewControllerEventProducer: NSObject {
-    
+
     fileprivate let observer: Observable<PeerBrowserViewControllerEvent>
 
     internal init(observer: Observable<PeerBrowserViewControllerEvent>) {
         self.observer = observer
     }
 }
+#endif
 
+#if canImport(UIKit)
 extension PeerBrowserViewControllerEventProducer: MCBrowserViewControllerDelegate {
 
 //    func browserViewController(browserViewController: MCBrowserViewController, shouldPresentNearbyPeer peerID: MCPeerID, withDiscoveryInfo info: [String : String]?) -> Bool {
 //        return true
 //    }
-    
+
     internal func browserViewControllerDidFinish(_ browserViewController: MCBrowserViewController) {
-        
+
         let event : PeerBrowserViewControllerEvent = .didFinish
         self.observer.value = event
-        
+
         browserViewController.dismiss(animated: true, completion: nil)
     }
-    
+
     internal func browserViewControllerWasCancelled(_ browserViewController: MCBrowserViewController) {
-        
+
         let event : PeerBrowserViewControllerEvent = .wasCancelled
         self.observer.value = event
-        
+
         browserViewController.dismiss(animated: true, completion: nil)
     }
 }
+#endif

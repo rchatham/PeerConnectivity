@@ -6,7 +6,12 @@
 //  Copyright © 2015 Reid Chatham. All rights reserved.
 //
 
+import Foundation
+#if canImport(UIKit)
 import UIKit
+#elseif os(macOS)
+import AppKit
+#endif
 
 /**
  The service type describing the channel over which connections are made.
@@ -19,6 +24,7 @@ public typealias ServiceType = String
 public struct PeerConnectivityKeys {
     static fileprivate let CertificateListener = "CertificateRecievedListener"
 }
+
 
 // MARK: - Modern Type-Safe Messaging API
 
@@ -129,13 +135,17 @@ public class PeerConnectionManager {
     
     fileprivate let sessionEventProducer : PeerSessionEventProducer
     fileprivate let browserEventProducer : PeerBrowserEventProducer
+    #if canImport(UIKit)
     fileprivate let browserViewControllerEventProducer : PeerBrowserViewControllerEventProducer
+    #endif
     fileprivate let advertiserEventProducer : PeerAdvertiserEventProducer
     fileprivate let advertiserAssisstantEventProducer : PeerAdvertiserAssisstantEventProducer
     
     fileprivate let session : PeerSession
     fileprivate let browser : PeerBrowser
+    #if canImport(UIKit)
     fileprivate let browserAssisstant : PeerBrowserAssisstant
+    #endif
     fileprivate let advertiser : PeerAdvertiser
     fileprivate let advertiserAssisstant : PeerAdvertiserAssisstant
     
@@ -154,7 +164,13 @@ public class PeerConnectionManager {
      */
     public init(serviceType: ServiceType,
                 connectionType: PeerConnectionType = .automatic,
-                displayName: String = UIDevice.current.name) {
+                displayName: String = {
+                    #if canImport(UIKit)
+                    return UIDevice.current.name
+                    #else
+                    return Host.current().localizedName ?? ProcessInfo.processInfo.hostName
+                    #endif
+                }()) {
         
         self.connectionType = connectionType
         self.serviceType = serviceType
@@ -162,13 +178,17 @@ public class PeerConnectionManager {
         
         sessionEventProducer = PeerSessionEventProducer(observer: sessionObserver)
         browserEventProducer = PeerBrowserEventProducer(observer: browserObserver)
+        #if canImport(UIKit)
         browserViewControllerEventProducer = PeerBrowserViewControllerEventProducer(observer: browserViewControllerObserver)
+        #endif
         advertiserEventProducer = PeerAdvertiserEventProducer(observer: advertiserObserver)
         advertiserAssisstantEventProducer = PeerAdvertiserAssisstantEventProducer(observer: advertiserAssisstantObserver)
         
         session = PeerSession(peer: peer, eventProducer: sessionEventProducer)
         browser = PeerBrowser(session: session, serviceType: serviceType, eventProducer: browserEventProducer)
+        #if canImport(UIKit)
         browserAssisstant = PeerBrowserAssisstant(session: session, serviceType: serviceType, eventProducer: browserViewControllerEventProducer)
+        #endif
         advertiser = PeerAdvertiser(session: session, serviceType: serviceType, eventProducer: advertiserEventProducer)
         advertiserAssisstant = PeerAdvertiserAssisstant(session: session, serviceType: serviceType, eventProducer: advertiserAssisstantEventProducer)
         
@@ -191,7 +211,7 @@ public class PeerConnectionManager {
             PeerConnectionManager.shared[serviceType] = self
         }
     }
-    
+
     deinit {
         stop()
         removeAllListeners()
@@ -256,6 +276,7 @@ extension PeerConnectionManager {
      
      - Returns: A browser view controller for inviting available peers nearby if connection type is `.InviteOnly` or `nil` otherwise.
      */
+    #if canImport(UIKit)
     public func browserViewController(_ callback: @escaping (PeerBrowserViewControllerEvent)->Void) -> UIViewController? {
         browserViewControllerObserver.addObserver { callback($0) }
         switch connectionType {
@@ -263,6 +284,7 @@ extension PeerConnectionManager {
         default: return nil
         }
     }
+    #endif
     
     /**
      Use to invite peers that have been found locally to join a MultipeerConnectivity session.

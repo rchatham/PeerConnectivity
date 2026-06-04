@@ -6,7 +6,7 @@
 //  Copyright © 2016 Reid Chatham. All rights reserved.
 //
 
-#import <UIKit/UIKit.h>
+#import <Foundation/Foundation.h>
 
 //! Project version number for PeerConnectivity.
 FOUNDATION_EXPORT double PeerConnectivityVersionNumber;
