@@ -66,6 +66,12 @@ public enum PeerConnectionType : Int {
     case custom
 }
 
+fileprivate enum PeerConnectionStartupMode {
+    case advertisingAndBrowsing
+    case browsingOnly
+    case advertisingOnly
+}
+
 /**
  Functional wrapper for Apple's MultipeerConnectivity framework.
  
@@ -111,6 +117,7 @@ public class PeerConnectionManager {
     
     // Private
     fileprivate let serviceType : ServiceType
+    fileprivate var startupMode : PeerConnectionStartupMode = .advertisingAndBrowsing
     
     fileprivate let observer = MultiObservable<PeerConnectionEvent>(.ready)
     
@@ -212,8 +219,8 @@ extension PeerConnectionManager {
      - parameter completion: Called once session is initialized. Default is `nil`.
      */
     public func startAdvertisingAndBrowsing(_ completion: (()->Void)? = nil) {
-        prepareForStart(includeBrowserObservers: true, includeAdvertiserObservers: true)
-        startConfiguredSession(shouldBrowse: true, shouldAdvertise: true, completion)
+        startupMode = .advertisingAndBrowsing
+        startCurrentMode(completion)
     }
 
     /**
@@ -225,8 +232,8 @@ extension PeerConnectionManager {
      - parameter completion: Called once session is initialized. Default is `nil`.
      */
     public func startBrowsingOnly(_ completion: (()->Void)? = nil) {
-        prepareForStart(includeBrowserObservers: true, includeAdvertiserObservers: false)
-        startConfiguredSession(shouldBrowse: true, shouldAdvertise: false, completion)
+        startupMode = .browsingOnly
+        startCurrentMode(completion)
     }
 
     /**
@@ -238,8 +245,8 @@ extension PeerConnectionManager {
      - parameter completion: Called once session is initialized. Default is `nil`.
      */
     public func startAdvertisingOnly(_ completion: (()->Void)? = nil) {
-        prepareForStart(includeBrowserObservers: false, includeAdvertiserObservers: true)
-        startConfiguredSession(shouldBrowse: false, shouldAdvertise: true, completion)
+        startupMode = .advertisingOnly
+        startCurrentMode(completion)
     }
     
     /**
@@ -368,7 +375,7 @@ extension PeerConnectionManager {
      */
     public func refresh(_ completion: (()->Void)? = nil) {
         stop()
-        start(completion)
+        startCurrentMode(completion)
     }
     
     /**
@@ -410,6 +417,20 @@ extension PeerConnectionManager {
      */
     public func openSession() {
         browser.startBrowsing()
+    }
+
+    private func startCurrentMode(_ completion: (() -> Void)? = nil) {
+        switch startupMode {
+        case .advertisingAndBrowsing:
+            prepareForStart(includeBrowserObservers: true, includeAdvertiserObservers: true)
+            startConfiguredSession(shouldBrowse: true, shouldAdvertise: true, completion)
+        case .browsingOnly:
+            prepareForStart(includeBrowserObservers: true, includeAdvertiserObservers: false)
+            startConfiguredSession(shouldBrowse: true, shouldAdvertise: false, completion)
+        case .advertisingOnly:
+            prepareForStart(includeBrowserObservers: false, includeAdvertiserObservers: true)
+            startConfiguredSession(shouldBrowse: false, shouldAdvertise: true, completion)
+        }
     }
 
     private func prepareForStart(includeBrowserObservers: Bool, includeAdvertiserObservers: Bool) {
