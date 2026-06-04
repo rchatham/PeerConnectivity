@@ -59,6 +59,9 @@ public enum PeerConnectionEvent {
     case finishedReceivingResource(peer: Peer, name: String, url: URL?, error: Error?)
     /**
      Received security certificate from `Peer` with handler.
+
+     Certificate decisions are handled by `PeerSecurityConfiguration.certificatePolicy`.
+     This event remains for API compatibility.
      */
     case receivedCertificate(peer: Peer, certificate: [Any]?, handler: (Bool)->Void)
     /**

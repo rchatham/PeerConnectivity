@@ -17,10 +17,7 @@ public typealias ServiceType = String
 /**
  Struct representing specified keys for configuring a connection manager.
  */
-public struct PeerConnectivityKeys {
-    static fileprivate let CertificateListener = "CertificateRecievedListener"
-}
-
+public struct PeerConnectivityKeys {}
 
 // MARK: - Modern Type-Safe Messaging API
 
@@ -97,6 +94,11 @@ public class PeerConnectionManager {
      Access to the local peer representing the user.
      */
     public let peer : Peer
+
+    /**
+     Security settings used to create the underlying MultipeerConnectivity session.
+     */
+    public let securityConfiguration : PeerSecurityConfiguration
     
     /**
      Returns the peers that are connected on the current session.
@@ -166,6 +168,7 @@ public class PeerConnectionManager {
      - parameter serviceType: The requested service type describing the channel on which peers are able to connect.
      - parameter connectionType: Takes a PeerConnectionType case determining the default behavior of the framework.
      - parameter displayName: The local user's display name to other peers.
+     - parameter securityConfiguration: Security settings used to create the underlying MultipeerConnectivity session.
      
      - Returns: A fully initialized `PeerConnectionManager`.
      */
@@ -177,33 +180,25 @@ public class PeerConnectionManager {
                     #else
                     return ProcessInfo.processInfo.hostName
                     #endif
-                }()) {
+                }(),
+                securityConfiguration: PeerSecurityConfiguration = .default) {
         
         self.connectionType = connectionType
         self.serviceType = serviceType
         self.peer = Peer(displayName: displayName)
+        self.securityConfiguration = securityConfiguration
         
         sessionEventProducer = PeerSessionEventProducer(observer: sessionObserver)
         browserEventProducer = PeerBrowserEventProducer(observer: browserObserver)
         advertiserEventProducer = PeerAdvertiserEventProducer(observer: advertiserObserver)
         advertiserAssisstantEventProducer = PeerAdvertiserAssisstantEventProducer(observer: advertiserAssisstantObserver)
         
-        session = PeerSession(peer: peer, eventProducer: sessionEventProducer)
+        session = PeerSession(peer: peer, securityConfiguration: securityConfiguration, eventProducer: sessionEventProducer)
         browser = PeerBrowser(session: session, serviceType: serviceType, eventProducer: browserEventProducer)
         advertiser = PeerAdvertiser(session: session, serviceType: serviceType, eventProducer: advertiserEventProducer)
         advertiserAssisstant = PeerAdvertiserAssisstant(session: session, serviceType: serviceType, eventProducer: advertiserAssisstantEventProducer)
         
         responder = PeerConnectionResponder(observer: observer)
-        
-        // Currently checking security certificates is not yet supported.
-        responder.addListener({ (event) in
-            switch event {
-            case .receivedCertificate(peer: _, certificate: _, handler: let handler):
-                //print("PeerConnectionManager: listenOn: certificateReceived")
-                handler(true)
-            default: break
-            }
-        }, forKey: PeerConnectivityKeys.CertificateListener)
         
         // Prevent mingling signals from the same device
         if let existing = PeerConnectionManager.shared[serviceType] {
@@ -218,6 +213,19 @@ public class PeerConnectionManager {
         removeAllListeners()
         if let existing = PeerConnectionManager.shared[serviceType], existing === self {
             PeerConnectionManager.shared.removeValue(forKey: serviceType)
+        }
+    }
+
+    internal func handleCertificate(peer: Peer, certificate: [Any]?, handler: @escaping (Bool) -> Void) {
+        switch securityConfiguration.certificatePolicy {
+        case .acceptAll:
+            handler(true)
+        case .rejectAll:
+            handler(false)
+        case .requireCertificate:
+            handler(certificate?.isEmpty == false)
+        case .custom(let certificateHandler):
+            certificateHandler(peer, certificate, handler)
         }
     }
 }
@@ -493,7 +501,7 @@ extension PeerConnectionManager {
                 ) as? [String: Any] else { return }
                 self?.observer.value = .receivedEvent(peer: peer, eventInfo: eventInfo)
             case .didReceiveCertificate(peer: let peer, certificate: let certificate, handler: let handler):
-                self?.observer.value = .receivedCertificate(peer: peer, certificate: certificate, handler: handler)
+                self?.handleCertificate(peer: peer, certificate: certificate, handler: handler)
             case .didReceiveStream(peer: let peer, stream: let stream, name: let name):
                 self?.observer.value = .receivedStream(peer: peer, stream: stream, name: name)
             case .startedReceivingResource(peer: let peer, name: let name, progress: let progress):
