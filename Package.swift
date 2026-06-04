@@ -18,6 +18,12 @@ let package = Package(
             name: "PeerConnectivity",
             dependencies: [],
             path: "Sources"
+        ),
+        .testTarget(
+            name: "PeerConnectivityTests",
+            dependencies: ["PeerConnectivity"],
+            path: "PeerConnectivityTests",
+            exclude: ["Info.plist"]
         )
     ],
     swiftLanguageVersions: [.v5]

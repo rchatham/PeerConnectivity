@@ -72,6 +72,12 @@ public enum PeerConnectionType : Int {
     case custom
 }
 
+fileprivate enum PeerConnectionStartupMode {
+    case advertisingAndBrowsing
+    case browsingOnly
+    case advertisingOnly
+}
+
 /**
  Functional wrapper for Apple's MultipeerConnectivity framework.
  
@@ -117,6 +123,7 @@ public class PeerConnectionManager {
     
     // Private
     fileprivate let serviceType : ServiceType
+    fileprivate var startupMode : PeerConnectionStartupMode = .advertisingAndBrowsing
     
     fileprivate let observer = MultiObservable<PeerConnectionEvent>(.ready)
     
@@ -223,131 +230,43 @@ extension PeerConnectionManager {
      - parameter completion: Called once session is initialized. Default is `nil`.
      */
     public func start(_ completion: (()->Void)? = nil) {
-        
-        browserObserver.addObserver { [weak self] event in
-            switch event {
-            case .foundPeer(let peer):
-                self?.observer.value = .foundPeer(peer: peer)
-            case .lostPeer(let peer):
-                self?.observer.value = .lostPeer(peer: peer)
-            case .didNotStartBrowsingForPeers(let error):
-                self?.observer.value = .error(error)
-            default: break
-            }
-        }
-        
-        advertiserObserver.addObserver { [weak self] event in
-            switch event {
-            case.didReceiveInvitationFromPeer(peer: let peer, withContext: let context, invitationHandler: let invite):
-                let invitationReceiver = {
-                    [weak self] (accept: Bool) -> Void in
-                    guard let session = self?.session else { return }
-                    invite(accept, session)
-                }
-                self?.observer.value = .receivedInvitation(peer: peer, withContext: context, invitationHandler: invitationReceiver)
-            case .didNotStartAdvertisingPeer(let error):
-                self?.observer.value = .error(error)
-            default: break
-            }
-        }
-        
-        sessionObserver.addObserver { [weak self] event in
-            switch event {
-            case .devicesChanged(peer: let peer):
-                guard let connectedPeers = self?.connectedPeers else { break }
-                self?.observer.value = .devicesChanged(peer: peer, connectedPeers: connectedPeers)
-            case .didReceiveData(peer: let peer, data: let data):
-                self?.observer.value = .receivedData(peer: peer, data: data)
+        startAdvertisingAndBrowsing(completion)
+    }
 
-                // Try modern JSON envelope first (from sendMessage)
-                if let envelope = try? JSONDecoder().decode([String: Data].self, from: data),
-                   let typeData = envelope["type"],
-                   let messageType = String(data: typeData, encoding: .utf8),
-                   let payload = envelope["payload"] {
-                    self?.observer.value = .receivedMessage(peer: peer, messageType: messageType, data: payload)
-                    return
-                }
+    /**
+     Start browsing and advertising with optional completion.
 
-                // Fall back to legacy NSKeyedArchiver format (from sendEvent)
-                guard let eventInfo = try? NSKeyedUnarchiver.unarchivedObject(
-                    ofClasses: [NSDictionary.self, NSArray.self, NSString.self, NSNumber.self, NSDate.self, NSData.self],
-                    from: data
-                ) as? [String: Any] else { return }
-                self?.observer.value = .receivedEvent(peer: peer, eventInfo: eventInfo)
-            case .didReceiveCertificate(peer: let peer, certificate: let certificate, handler: let handler):
-                self?.observer.value = .receivedCertificate(peer: peer, certificate: certificate, handler: handler)
-            case .didReceiveStream(peer: let peer, stream: let stream, name: let name):
-                self?.observer.value = .receivedStream(peer: peer, stream: stream, name: name)
-            case .startedReceivingResource(peer: let peer, name: let name, progress: let progress):
-                self?.observer.value = .startedReceivingResource(peer: peer, name: name, progress: progress)
-            case .finishedReceivingResource(peer: let peer, name: let name, url: let url, error: let error):
-                self?.observer.value = .finishedReceivingResource(peer: peer, name: name, url: url, error: error)
-            default: break
-            }
-        }
-        
-        browserObserver.addObserver { [weak self] event in
-            DispatchQueue.main.async {
-                switch event {
-                case .foundPeer(let peer):
-                    guard let peers = self?.foundPeers , !peers.contains(peer) else { break }
-                    self?.foundPeers.append(peer)
-                case .lostPeer(let peer):
-                    guard let index = self?.foundPeers.firstIndex(of: peer) else { break }
-                    self?.foundPeers.remove(at: index)
-                default: break
-                }
-            }
-        }
-        
-        sessionObserver.addObserver { [weak self] event in
-            DispatchQueue.main.async {
-                guard let peerCount = self?.connectedPeers.count else { return }
-                
-                switch event {
-                case .devicesChanged(peer: let peer) where peerCount <= 0 :
-                    switch peer.status {
-                    case .notConnected:
-                        self?.refresh()
-                    default: break
-                    }
-                default: break
-                }
-            }
-        }
-        
-        switch connectionType {
-        case .automatic:
-            browserObserver.addObserver { [unowned self] event in
-                DispatchQueue.main.async {
-                    switch event {
-                    case .foundPeer(let peer):
-                        self.browser.invitePeer(peer)
-                    default: break
-                    }
-                }
-            }
-            advertiserObserver.addObserver { [unowned self] event in
-                DispatchQueue.main.async {
-                    switch event {
-                    case .didReceiveInvitationFromPeer(peer: _, withContext: _, invitationHandler: let handler):
-                        handler(true, self.session)
-                        self.advertiser.stopAdvertising()
-                    default: break
-                    }
-                }
-            }
-        case .inviteOnly:
-            advertiserAssisstant.startAdvertisingAssisstant()
-        case .custom: break
-        }
-        
-        session.startSession()
-        browser.startBrowsing()
-        advertiser.startAdvertising()
-        
-        observer.value = .started
-        completion?()
+     - parameter completion: Called once session is initialized. Default is `nil`.
+     */
+    public func startAdvertisingAndBrowsing(_ completion: (()->Void)? = nil) {
+        startupMode = .advertisingAndBrowsing
+        startCurrentMode(completion)
+    }
+
+    /**
+     Start browsing without advertising the local peer.
+
+     Use this mode when the local device should discover and invite nearby
+     advertisers, but should not itself be discoverable by other peers.
+
+     - parameter completion: Called once session is initialized. Default is `nil`.
+     */
+    public func startBrowsingOnly(_ completion: (()->Void)? = nil) {
+        startupMode = .browsingOnly
+        startCurrentMode(completion)
+    }
+
+    /**
+     Start advertising without browsing for nearby peers.
+
+     Use this mode when the local device should be discoverable and accept
+     invitations, but should not itself discover or invite nearby peers.
+
+     - parameter completion: Called once session is initialized. Default is `nil`.
+     */
+    public func startAdvertisingOnly(_ completion: (()->Void)? = nil) {
+        startupMode = .advertisingOnly
+        startCurrentMode(completion)
     }
     
     /**
@@ -478,7 +397,7 @@ extension PeerConnectionManager {
      */
     public func refresh(_ completion: (()->Void)? = nil) {
         stop()
-        start(completion)
+        startCurrentMode(completion)
     }
     
     /**
@@ -520,6 +439,164 @@ extension PeerConnectionManager {
      */
     public func openSession() {
         browser.startBrowsing()
+    }
+
+    private func startCurrentMode(_ completion: (() -> Void)? = nil) {
+        switch startupMode {
+        case .advertisingAndBrowsing:
+            prepareForStart(includeBrowserObservers: true, includeAdvertiserObservers: true)
+            startConfiguredSession(shouldBrowse: true, shouldAdvertise: true, completion)
+        case .browsingOnly:
+            prepareForStart(includeBrowserObservers: true, includeAdvertiserObservers: false)
+            startConfiguredSession(shouldBrowse: true, shouldAdvertise: false, completion)
+        case .advertisingOnly:
+            prepareForStart(includeBrowserObservers: false, includeAdvertiserObservers: true)
+            startConfiguredSession(shouldBrowse: false, shouldAdvertise: true, completion)
+        }
+    }
+
+    private func prepareForStart(includeBrowserObservers: Bool, includeAdvertiserObservers: Bool) {
+        if includeBrowserObservers {
+            browserObserver.addObserver { [weak self] event in
+                switch event {
+                case .foundPeer(let peer):
+                    self?.observer.value = .foundPeer(peer: peer)
+                case .lostPeer(let peer):
+                    self?.observer.value = .lostPeer(peer: peer)
+                case .didNotStartBrowsingForPeers(let error):
+                    self?.observer.value = .error(error)
+                default: break
+                }
+            }
+        }
+
+        if includeAdvertiserObservers {
+            advertiserObserver.addObserver { [weak self] event in
+                switch event {
+                case .didReceiveInvitationFromPeer(peer: let peer, withContext: let context, invitationHandler: let invite):
+                    let invitationReceiver = {
+                        [weak self] (accept: Bool) -> Void in
+                        guard let session = self?.session else { return }
+                        invite(accept, session)
+                    }
+                    self?.observer.value = .receivedInvitation(peer: peer, withContext: context, invitationHandler: invitationReceiver)
+                case .didNotStartAdvertisingPeer(let error):
+                    self?.observer.value = .error(error)
+                default: break
+                }
+            }
+        }
+
+        sessionObserver.addObserver { [weak self] event in
+            switch event {
+            case .devicesChanged(peer: let peer):
+                guard let connectedPeers = self?.connectedPeers else { break }
+                self?.observer.value = .devicesChanged(peer: peer, connectedPeers: connectedPeers)
+            case .didReceiveData(peer: let peer, data: let data):
+                self?.observer.value = .receivedData(peer: peer, data: data)
+
+                // Try modern JSON envelope first (from sendMessage)
+                if let envelope = try? JSONDecoder().decode([String: Data].self, from: data),
+                   let typeData = envelope["type"],
+                   let messageType = String(data: typeData, encoding: .utf8),
+                   let payload = envelope["payload"] {
+                    self?.observer.value = .receivedMessage(peer: peer, messageType: messageType, data: payload)
+                    return
+                }
+
+                // Fall back to legacy NSKeyedArchiver format (from sendEvent)
+                guard let eventInfo = try? NSKeyedUnarchiver.unarchivedObject(
+                    ofClasses: [NSDictionary.self, NSArray.self, NSString.self, NSNumber.self, NSDate.self, NSData.self],
+                    from: data
+                ) as? [String: Any] else { return }
+                self?.observer.value = .receivedEvent(peer: peer, eventInfo: eventInfo)
+            case .didReceiveCertificate(peer: let peer, certificate: let certificate, handler: let handler):
+                self?.observer.value = .receivedCertificate(peer: peer, certificate: certificate, handler: handler)
+            case .didReceiveStream(peer: let peer, stream: let stream, name: let name):
+                self?.observer.value = .receivedStream(peer: peer, stream: stream, name: name)
+            case .startedReceivingResource(peer: let peer, name: let name, progress: let progress):
+                self?.observer.value = .startedReceivingResource(peer: peer, name: name, progress: progress)
+            case .finishedReceivingResource(peer: let peer, name: let name, url: let url, error: let error):
+                self?.observer.value = .finishedReceivingResource(peer: peer, name: name, url: url, error: error)
+            default: break
+            }
+        }
+
+        if includeBrowserObservers {
+            browserObserver.addObserver { [weak self] event in
+                DispatchQueue.main.async {
+                    switch event {
+                    case .foundPeer(let peer):
+                        guard let peers = self?.foundPeers , !peers.contains(peer) else { break }
+                        self?.foundPeers.append(peer)
+                    case .lostPeer(let peer):
+                        guard let index = self?.foundPeers.firstIndex(of: peer) else { break }
+                        self?.foundPeers.remove(at: index)
+                    default: break
+                    }
+                }
+            }
+        }
+
+        sessionObserver.addObserver { [weak self] event in
+            DispatchQueue.main.async {
+                guard let peerCount = self?.connectedPeers.count else { return }
+
+                switch event {
+                case .devicesChanged(peer: let peer) where peerCount <= 0:
+                    switch peer.status {
+                    case .notConnected:
+                        self?.refresh()
+                    default: break
+                    }
+                default: break
+                }
+            }
+        }
+    }
+
+    private func startConfiguredSession(shouldBrowse: Bool, shouldAdvertise: Bool, _ completion: (() -> Void)? = nil) {
+        switch connectionType {
+        case .automatic:
+            if shouldBrowse {
+                browserObserver.addObserver { [unowned self] event in
+                    DispatchQueue.main.async {
+                        switch event {
+                        case .foundPeer(let peer):
+                            self.browser.invitePeer(peer)
+                        default: break
+                        }
+                    }
+                }
+            }
+            if shouldAdvertise {
+                advertiserObserver.addObserver { [unowned self] event in
+                    DispatchQueue.main.async {
+                        switch event {
+                        case .didReceiveInvitationFromPeer(peer: _, withContext: _, invitationHandler: let handler):
+                            handler(true, self.session)
+                            self.advertiser.stopAdvertising()
+                        default: break
+                        }
+                    }
+                }
+            }
+        case .inviteOnly where shouldAdvertise:
+            advertiserAssisstant.startAdvertisingAssisstant()
+        case .inviteOnly, .custom:
+            break
+        }
+
+        session.startSession()
+        if shouldBrowse {
+            browser.startBrowsing()
+        }
+        if shouldAdvertise {
+            advertiser.startAdvertising()
+        }
+
+        observer.value = .started
+        completion?()
     }
 }
 
