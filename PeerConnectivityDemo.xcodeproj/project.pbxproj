@@ -123,7 +123,7 @@
 			);
 			mainGroup = 3098372E1D8A8D600002338A;
 			packageReferences = (
-				B1E4E4E62F30592D00AE11AA /* XCLocalSwiftPackageReference "../PeerConnectivity" */,
+				B1E4E4E62F30592D00AE11AA /* XCLocalSwiftPackageReference "." */,
 			);
 			productRefGroup = 309837381D8A8D600002338A /* Products */;
 			projectDirPath = "";
@@ -355,9 +355,9 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		B1E4E4E62F30592D00AE11AA /* XCLocalSwiftPackageReference "../PeerConnectivity" */ = {
+		B1E4E4E62F30592D00AE11AA /* XCLocalSwiftPackageReference "." */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = ../PeerConnectivity;
+			relativePath = .;
 		};
 /* End XCLocalSwiftPackageReference section */
 
