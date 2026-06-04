@@ -11,13 +11,23 @@ let package = Package(
         .library(
             name: "PeerConnectivity",
             targets: ["PeerConnectivity"]
+        ),
+        .library(
+            name: "PeerConnectivityUI",
+            targets: ["PeerConnectivityUI"]
         )
     ],
     targets: [
         .target(
             name: "PeerConnectivity",
             dependencies: [],
-            path: "Sources"
+            path: "Sources",
+            exclude: ["PeerConnectivityUI"]
+        ),
+        .target(
+            name: "PeerConnectivityUI",
+            dependencies: ["PeerConnectivity"],
+            path: "Sources/PeerConnectivityUI"
         ),
         .testTarget(
             name: "PeerConnectivityTests",

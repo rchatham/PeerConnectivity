@@ -7,7 +7,7 @@ This document provides guidance for AI assistants working with the PeerConnectiv
 PeerConnectivity is a functional Swift wrapper for Apple's MultipeerConnectivity framework. It provides a lightweight, easy-to-use API for mesh networking over Bluetooth and WiFi, abstracting away the complexity and edge cases of the underlying framework.
 
 - **Language**: Swift 5.0
-- **Platform**: iOS 8.0+
+- **Platform**: iOS 8.0+, macOS 10.10+
 - **Framework**: MultipeerConnectivity
 - **Author**: Reid Chatham
 - **License**: MIT
@@ -23,18 +23,19 @@ PeerConnectivity/
 │   ├── PeerSession.swift             # MCSession wrapper
 │   ├── PeerBrowser.swift             # MCNearbyServiceBrowser wrapper
 │   ├── PeerAdvertiser.swift          # MCNearbyServiceAdvertiser wrapper
-│   ├── PeerBrowserAssisstant.swift   # Browser assistant for invite-only mode
+│   ├── PeerBrowserAssisstant.swift   # Placeholder; browser UI lives in PeerConnectivityUI
 │   ├── PeerAdvertiserAssisstant.swift # Advertiser assistant for invite-only mode
 │   ├── PeerConnectionResponder.swift # Event dispatching and listener management
 │   ├── Observable.swift              # Simple observable pattern implementation
 │   ├── MultiObservable.swift         # Keyed observable with multiple listeners
 │   └── *EventProducer.swift          # Delegate-to-observable bridges
+│   └── PeerConnectivityUI/           # SwiftPM UIKit browser UI helper product
 ├── PeerConnectivityTests/            # Unit tests
 ├── PeerConnectivityDemo/             # Demo iOS application
 ├── PeerPlayground.playground/        # Interactive playground examples
 ├── PeerConnectivity.xcodeproj/       # Xcode project
 ├── PeerConnectivity.xcworkspace/     # Xcode workspace
-├── PeerConnectivity.podspec          # CocoaPods spec
+├── PeerConnectivity.podspec          # Legacy CocoaPods spec for core sources
 └── Package.swift                     # Swift Package Manager manifest
 ```
 
@@ -52,7 +53,6 @@ PeerConnectivity/
 PeerConnectionManager (public API)
 ├── PeerSession (MCSession wrapper)
 ├── PeerBrowser (MCNearbyServiceBrowser wrapper)
-├── PeerBrowserAssisstant (MCBrowserViewController wrapper)
 ├── PeerAdvertiser (MCNearbyServiceAdvertiser wrapper)
 ├── PeerAdvertiserAssisstant (MCAdvertiserAssistant wrapper)
 └── PeerConnectionResponder (listener management)
@@ -139,9 +139,10 @@ The `PeerConnectivityDemo` project demonstrates basic usage:
 
 ### Package Managers
 
-- **CocoaPods**: `pod 'PeerConnectivity', '~> 0.5.4'`
-- **Carthage**: `github "rchatham/PeerConnectivity"`
-- **Swift Package Manager**: Basic Package.swift available
+- **Swift Package Manager**: primary distribution path
+  - `PeerConnectivity`: core networking product with no UIKit dependency
+  - `PeerConnectivityUI`: UIKit browser view controller helper product
+- **CocoaPods/Carthage**: legacy distribution paths; browser UI helper support is not preserved there
 
 ## Common Tasks
 
@@ -156,7 +157,7 @@ The `PeerConnectivityDemo` project demonstrates basic usage:
 
 Connection behavior is determined by `PeerConnectionType`:
 - `.automatic`: Auto-browse and auto-accept invitations (configured in `start()`)
-- `.inviteOnly`: Uses browser/advertiser assistants
+- `.inviteOnly`: Uses advertiser assistant behavior; browser view controller support is in `PeerConnectivityUI`
 - `.custom`: No default behavior; user implements all logic
 
 ### Working with Observers
@@ -182,6 +183,7 @@ responder.addListener({ event in
 | Peer model | `Sources/Peer.swift` |
 | Session handling | `Sources/PeerSession.swift`, `Sources/PeerSessionEventProducer.swift` |
 | Discovery | `Sources/PeerBrowser.swift`, `Sources/PeerAdvertiser.swift` |
+| Browser UI | `Sources/PeerConnectivityUI/` |
 | Observable pattern | `Sources/Observable.swift`, `Sources/MultiObservable.swift` |
 
 ## Notes for AI Assistants
@@ -190,14 +192,14 @@ responder.addListener({ event in
 2. **Maintain patterns**: Follow the existing Observable/EventProducer pattern for new features
 3. **Access levels**: Keep internal components `internal`, only expose necessary public API
 4. **Threading safety**: Be mindful of main thread requirements for UI updates
-5. **Backward compatibility**: This is a published library; avoid breaking API changes
+5. **Backward compatibility**: This is a published library; document intentional API/distribution changes clearly
 6. **Documentation**: Maintain documentation comments for public APIs
 7. **Spelling note**: The codebase uses "Assisstant" (with double 's') - maintain this for consistency even though it's misspelled
 
 ## Dependencies
 
 - **MultipeerConnectivity.framework**: Apple's peer-to-peer networking framework (system)
-- **UIKit**: For `UIDevice.current.name` and `UIViewController` (browser VC)
+- **UIKit**: Used only by the `PeerConnectivityUI` SwiftPM product for `UIDevice.current.name` and `UIViewController` browser UI
 
 No third-party dependencies are used.
 

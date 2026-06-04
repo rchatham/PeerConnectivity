@@ -2,11 +2,9 @@
 ![PeerConnectivity](http://reidchatham.com/src/PeerConnectivity.png)
 
 
-[![Platform: iOS 8+](https://img.shields.io/badge/platform-iOS%208%2B-blue.svg?style=flat)]()
-[![Language: Swift 3](https://img.shields.io/badge/language-swift3-f48041.svg?style=flat)](https://developer.apple.com/swift)
-[![Carthage compatible](https://img.shields.io/badge/Carthage-compatible-4BC51D.svg?style=flat)](https://github.com/Carthage/Carthage)
-[![Cocoapods compatible](https://cocoapod-badges.herokuapp.com/v/PeerConnectivity/badge.png)](https://cocoapods.org/pods/PeerConnectivity)
-[![Docs](https://img.shields.io/cocoapods/metrics/doc-percent/PeerConnectivity.svg)](http://cocoadocs.org/docsets/PeerConnectivity)
+[![Platform: iOS 8+ / macOS 10.10+](https://img.shields.io/badge/platform-iOS%208%2B%20%7C%20macOS%2010.10%2B-blue.svg?style=flat)]()
+[![Language: Swift 5](https://img.shields.io/badge/language-swift%205-f48041.svg?style=flat)](https://developer.apple.com/swift)
+[![SwiftPM compatible](https://img.shields.io/badge/SwiftPM-compatible-brightgreen.svg?style=flat)](https://swift.org/package-manager/)
 [![License: MIT](http://img.shields.io/badge/license-MIT-lightgrey.svg?style=flat)]()
 
 #### A functional wrapper for the MultipeerConnectivity framework. 
@@ -19,19 +17,27 @@
 
 ## Installation
 
-#### Cocoapods
+#### Swift Package Manager
 
-The easiest way to get started is to use [CocoaPods](http://cocoapods.org/). Just add the following line to your Podfile:
+Add PeerConnectivity as a Swift Package dependency:
 
-```ruby
-pod 'PeerConnectivity', '~> 0.5.4'
+```swift
+.package(url: "https://github.com/rchatham/PeerConnectivity.git", from: "0.6.0")
 ```
 
-#### Carthage
+Use the core networking product for UIKit-free peer connectivity:
 
-```ruby
-github "rchatham/PeerConnectivity"
+```swift
+.product(name: "PeerConnectivity", package: "PeerConnectivity")
 ```
+
+Add the UI helper product only when you need UIKit browser view controller support:
+
+```swift
+.product(name: "PeerConnectivityUI", package: "PeerConnectivity")
+```
+
+CocoaPods and Carthage are no longer the recommended distribution paths for new releases.
 
 
 ## Creating/Stopping/Starting
@@ -47,19 +53,36 @@ pcm.start()
 //    before attempting to create a new one
 pcm.stop()
 
-// Can join chatrooms using PeerConnectionType.Automatic, .InviteOnly, and .Custom
-//  - .Automatic : automatically searches and joins other devices with the same service type
-//  - .InviteOnly : provides a browserViewController and invite alert controllers
-//  - .Custom : no default behavior is implemented
+// Can join chatrooms using PeerConnectionType.automatic, .inviteOnly, and .custom
+//  - .automatic : automatically searches and joins other devices with the same service type
+//  - .inviteOnly : provides advertiser assistant behavior; import PeerConnectivityUI for browserViewController support
+//  - .custom : no default behavior is implemented
 
 // The manager can be initialized with a contructed peer representing the local user
 // with a custom displayName
 
-pcm = PeerConnectionManager(serviceType: "local", connectionType: .Automatic, displayName: "I_AM_KING")
+pcm = PeerConnectionManager(serviceType: "local", connectionType: .automatic, displayName: "I_AM_KING")
 
 // Start again at any time
 pcm.start() {
     // Do something when finished starting the session
+}
+```
+
+## Browser UI
+
+UIKit browser view controller support lives in the separate `PeerConnectivityUI` SwiftPM product:
+
+```swift
+import PeerConnectivity
+import PeerConnectivityUI
+
+let pcm = PeerConnectionManager(serviceType: "local", connectionType: .inviteOnly)
+let browserViewController = pcm.browserViewController { event in
+    switch event {
+    case .didFinish, .wasCancelled, .none:
+        break
+    }
 }
 ```
 

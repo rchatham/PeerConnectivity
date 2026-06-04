@@ -2,6 +2,7 @@
 
 import UIKit
 import PeerConnectivity
+import PeerConnectivityUI
 
 
 /*:
@@ -20,7 +21,7 @@ import PeerConnectivity
 
 // MARK: Creating/Stopping/Starting the manager
 
-// Default joins mpc rooms automatically and uses the users device name as the display name
+// Default joins mpc rooms automatically. Import PeerConnectivityUI to use the current device name as the display name.
 var pcm = PeerConnectionManager(serviceType: "local")
 
 // Start peerconnectivity
@@ -32,7 +33,7 @@ pcm.stop()
 
 // Can join chatrooms using PeerConnectionType.Automatic, .InviteOnly, and .Custom
 //  - .Automatic : automatically searches and joins other devices with the same service type
-//  - .InviteOnly : provides a browserViewController and invite alert controllers
+//  - .InviteOnly : provides advertiser assistant behavior; import PeerConnectivityUI for browserViewController support
 //  - .Custom : no default behavior is implemented
 
 // The manager can be initialized with a contructed peer representing the local user
