@@ -53,6 +53,30 @@ class PeerSecurityConfigurationTests: XCTestCase {
         manager.stop()
     }
 
+    func testManagerDefaultsToAcceptAllInvitationPolicy() {
+        let manager = PeerConnectionManager(serviceType: "invite-default")
+
+        switch manager.invitationPolicy {
+        case .acceptAll:
+            break
+        default:
+            XCTFail("Default invitation policy should accept all invitations")
+        }
+        manager.stop()
+    }
+
+    func testManagerStoresInvitationPolicy() {
+        let manager = makeManager(invitationPolicy: .rejectAll)
+
+        switch manager.invitationPolicy {
+        case .rejectAll:
+            break
+        default:
+            XCTFail("Manager should store the configured invitation policy")
+        }
+        manager.stop()
+    }
+
     // MARK: - Certificate Policy Tests
 
     func testAcceptAllCertificatePolicyAcceptsMissingCertificate() {
@@ -113,6 +137,86 @@ class PeerSecurityConfigurationTests: XCTestCase {
         manager.stop()
     }
 
+    // MARK: - Invitation Policy Tests
+
+    func testAcceptAllInvitationPolicyAcceptsInvitation() {
+        let manager = makeManager(invitationPolicy: .acceptAll)
+        let result = evaluateInvitationPolicy(manager: manager, context: nil)
+
+        XCTAssertEqual(result, true)
+        manager.stop()
+    }
+
+    func testRejectAllInvitationPolicyRejectsInvitation() {
+        let manager = makeManager(invitationPolicy: .rejectAll)
+        let result = evaluateInvitationPolicy(manager: manager, context: nil)
+
+        XCTAssertEqual(result, false)
+        manager.stop()
+    }
+
+    func testCustomInvitationPolicyReceivesPeerAndContextAndControlsAcceptance() {
+        var receivedPeer: Peer?
+        var receivedContext: Data?
+        let expectedContext = "pairing".data(using: .utf8)
+        let manager = makeManager(invitationPolicy: .custom { peer, context in
+            receivedPeer = peer
+            receivedContext = context
+            return false
+        })
+
+        let result = evaluateInvitationPolicy(manager: manager, context: expectedContext)
+
+        XCTAssertEqual(result, false)
+        XCTAssertEqual(receivedPeer, manager.peer)
+        XCTAssertEqual(receivedContext, expectedContext)
+        manager.stop()
+    }
+
+    func testManualInvitationPolicyPreservesReceivedInvitationEvent() {
+        let manager = makeManager(invitationPolicy: .manual)
+        var receivedPeer: Peer?
+        var receivedContext: Data?
+        let expectedContext = "manual".data(using: .utf8)
+
+        manager.listenOn({ event in
+            switch event {
+            case .receivedInvitation(let peer, let context, let invitationHandler):
+                receivedPeer = peer
+                receivedContext = context
+                invitationHandler(false)
+            default: break
+            }
+        }, performListenerInBackground: true, withKey: "manual-invitation")
+
+        let result = evaluateInvitationPolicy(manager: manager, context: expectedContext)
+
+        XCTAssertEqual(result, false)
+        XCTAssertEqual(receivedPeer, manager.peer)
+        XCTAssertEqual(receivedContext, expectedContext)
+        manager.stop()
+    }
+
+    func testCustomConnectionTypePreservesReceivedInvitationEvent() {
+        let manager = makeManager(invitationPolicy: .acceptAll, connectionType: .custom)
+        var receivedInvitation = false
+
+        manager.listenOn({ event in
+            switch event {
+            case .receivedInvitation(_, _, let invitationHandler):
+                receivedInvitation = true
+                invitationHandler(false)
+            default: break
+            }
+        }, performListenerInBackground: true, withKey: "custom-invitation")
+
+        let result = evaluateInvitationPolicy(manager: manager, context: nil)
+
+        XCTAssertEqual(receivedInvitation, true)
+        XCTAssertEqual(result, false)
+        manager.stop()
+    }
+
     // MARK: - Helper Methods
 
     /// Builds a manager with a specific certificate policy.
@@ -128,10 +232,29 @@ class PeerSecurityConfigurationTests: XCTestCase {
         )
     }
 
+    /// Builds a manager with a specific invitation policy.
+    private func makeManager(invitationPolicy: PeerInvitationPolicy,
+                             connectionType: PeerConnectionType = .automatic) -> PeerConnectionManager {
+        return PeerConnectionManager(
+            serviceType: "inv-\(UUID().uuidString.prefix(8).lowercased())",
+            connectionType: connectionType,
+            invitationPolicy: invitationPolicy
+        )
+    }
+
     /// Applies the manager certificate policy and returns the resulting handler value.
     private func evaluateCertificatePolicy(manager: PeerConnectionManager, certificate: [Any]?) -> Bool? {
         var result: Bool?
         manager.handleCertificate(peer: manager.peer, certificate: certificate) { accepted in
+            result = accepted
+        }
+        return result
+    }
+
+    /// Applies the manager invitation policy and returns the resulting handler value.
+    private func evaluateInvitationPolicy(manager: PeerConnectionManager, context: Data?) -> Bool? {
+        var result: Bool?
+        manager.handleInvitation(peer: manager.peer, context: context) { accepted, _ in
             result = accepted
         }
         return result

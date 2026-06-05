@@ -116,6 +116,14 @@ public class PeerConnectionManager {
      tokens, emails, stable user IDs, or sensitive device information.
      */
     public let discoveryInfo : PeerDiscoveryInfo?
+
+    /**
+     Policy used to decide whether incoming invitations are accepted in `.automatic` mode.
+
+     Invitation context is unauthenticated metadata received before session establishment.
+     Do not treat it as trusted or include raw secrets.
+     */
+    public let invitationPolicy : PeerInvitationPolicy
     
     /**
      Returns the peers that are connected on the current session.
@@ -187,6 +195,7 @@ public class PeerConnectionManager {
      - parameter displayName: The local user's display name to other peers.
      - parameter securityConfiguration: Security settings used to create the underlying MultipeerConnectivity session.
      - parameter discoveryInfo: Public, unauthenticated metadata advertised to nearby browsers.
+     - parameter invitationPolicy: Policy used to decide whether incoming invitations are accepted in `.automatic` mode.
      
      - Returns: A fully initialized `PeerConnectionManager`.
      */
@@ -200,13 +209,15 @@ public class PeerConnectionManager {
                     #endif
                 }(),
                 securityConfiguration: PeerSecurityConfiguration = .default,
-                discoveryInfo: PeerDiscoveryInfo? = nil) {
+                discoveryInfo: PeerDiscoveryInfo? = nil,
+                invitationPolicy: PeerInvitationPolicy = .acceptAll) {
         
         self.connectionType = connectionType
         self.serviceType = serviceType
         self.peer = Peer(displayName: displayName)
         self.securityConfiguration = securityConfiguration
         self.discoveryInfo = discoveryInfo
+        self.invitationPolicy = invitationPolicy
         
         sessionEventProducer = PeerSessionEventProducer(observer: sessionObserver)
         browserEventProducer = PeerBrowserEventProducer(observer: browserObserver)
@@ -252,6 +263,38 @@ public class PeerConnectionManager {
             handler(certificate?.isEmpty == false)
         case .custom(let certificateHandler):
             certificateHandler(peer, certificate, handler)
+        }
+    }
+
+    internal func handleInvitation(peer: Peer,
+                                   context: Data?,
+                                   invitationHandler: @escaping (Bool, PeerSession) -> Void) {
+        let completeInvitation = { [weak self] (accept: Bool) -> Void in
+            guard let strongSelf = self else { return }
+            invitationHandler(accept, strongSelf.session)
+            if accept && strongSelf.connectionType == .automatic {
+                strongSelf.advertiser.stopAdvertising()
+            }
+        }
+
+        guard connectionType == .automatic else {
+            observer.value = .receivedInvitation(peer: peer,
+                                                 withContext: context,
+                                                 invitationHandler: completeInvitation)
+            return
+        }
+
+        switch invitationPolicy {
+        case .manual:
+            observer.value = .receivedInvitation(peer: peer,
+                                                 withContext: context,
+                                                 invitationHandler: completeInvitation)
+        case .acceptAll:
+            completeInvitation(true)
+        case .rejectAll:
+            completeInvitation(false)
+        case .custom(let invitationPolicy):
+            completeInvitation(invitationPolicy(peer, context))
         }
     }
 }
@@ -491,12 +534,7 @@ extension PeerConnectionManager {
             advertiserObserver.addObserver { [weak self] event in
                 switch event {
                 case .didReceiveInvitationFromPeer(peer: let peer, withContext: let context, invitationHandler: let invite):
-                    let invitationReceiver = {
-                        [weak self] (accept: Bool) -> Void in
-                        guard let session = self?.session else { return }
-                        invite(accept, session)
-                    }
-                    self?.observer.value = .receivedInvitation(peer: peer, withContext: context, invitationHandler: invitationReceiver)
+                    self?.handleInvitation(peer: peer, context: context, invitationHandler: invite)
                 case .didNotStartAdvertisingPeer(let error):
                     self?.observer.value = .error(error)
                 default: break
@@ -581,18 +619,6 @@ extension PeerConnectionManager {
                         switch event {
                         case .foundPeer(let peer, _):
                             self.browser.invitePeer(peer)
-                        default: break
-                        }
-                    }
-                }
-            }
-            if shouldAdvertise {
-                advertiserObserver.addObserver { [unowned self] event in
-                    DispatchQueue.main.async {
-                        switch event {
-                        case .didReceiveInvitationFromPeer(peer: _, withContext: _, invitationHandler: let handler):
-                            handler(true, self.session)
-                            self.advertiser.stopAdvertising()
                         default: break
                         }
                     }

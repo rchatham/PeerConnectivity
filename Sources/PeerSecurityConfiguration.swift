@@ -45,6 +45,36 @@ public enum PeerCertificatePolicy {
 }
 
 /**
+ Policy used to decide whether incoming invitations should be accepted.
+
+ Invitation context is received before session establishment and should be treated as
+ public, unauthenticated metadata. Do not include raw secrets in invitation context.
+ */
+public enum PeerInvitationPolicy {
+    /**
+     Surface invitations through `.receivedInvitation` for caller-managed decisions.
+     */
+    case manual
+    /**
+     Accept every incoming invitation.
+
+     This preserves PeerConnectivity's historical `.automatic` behavior.
+     */
+    case acceptAll
+    /**
+     Reject every incoming invitation.
+     */
+    case rejectAll
+    /**
+     Delegate invitation decisions to caller-provided logic.
+
+     - parameter peer: The peer sending the invitation.
+     - parameter context: Optional invitation context supplied by the inviting peer.
+     */
+    case custom((Peer, Data?) -> Bool)
+}
+
+/**
  Security settings used when creating the underlying `MCSession`.
 
  The default configuration intentionally preserves the library's previous behavior:
