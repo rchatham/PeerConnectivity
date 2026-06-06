@@ -65,7 +65,13 @@ public struct Peer {
      */
     public let status : Status
     
-    internal init(peerID: MCPeerID, status: Status) {
+    /**
+     Initializer for a peer backed by an existing MultipeerConnectivity peer identifier.
+
+     - parameter peerID: Existing MultipeerConnectivity peer identifier.
+     - parameter status: The peer's connection status.
+     */
+    public init(peerID: MCPeerID, status: Status) {
         self.peerID = peerID
         self.status = status
     }

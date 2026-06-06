@@ -137,5 +137,13 @@ class PeerConnectivityTests: XCTestCase {
         XCTAssertFalse(Peer.isValidDisplayName(String(repeating: "a", count: 64)))
         XCTAssertFalse(Peer.isValidDisplayName(String(repeating: "é", count: 32)))
     }
+
+    func testPeerCanWrapExistingPeerIdentifier() {
+        let peerID = MCPeerID(displayName: "remote")
+        let peer = Peer(peerID: peerID, status: .notConnected)
+
+        XCTAssertEqual(peer.displayName, "remote")
+        XCTAssertEqual(peer.status, .notConnected)
+    }
     
 }

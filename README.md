@@ -86,6 +86,17 @@ let browserViewController = pcm.browserViewController { event in
 }
 ```
 
+Use the optional `peerFilter` to hide nearby peers before they are presented by
+`MCBrowserViewController`. Discovery info is public, unauthenticated metadata, so
+only use it for non-secret values such as protocol versions, public capabilities,
+or non-secret room labels.
+
+```swift
+let filteredBrowserViewController = pcm.browserViewController({ _ in }, peerFilter: { peer, discoveryInfo in
+    return discoveryInfo?["protocol"] == "2"
+})
+```
+
 ## Sending Events to Peers
 
 ```swift

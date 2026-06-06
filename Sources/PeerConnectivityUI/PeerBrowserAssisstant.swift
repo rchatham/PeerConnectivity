@@ -38,8 +38,9 @@ internal struct PeerBrowserAssisstant {
         self.serviceType = serviceType
     }
 
-    internal func peerBrowserViewController(_ callback: @escaping (PeerBrowserViewControllerEvent) -> Void) -> MCBrowserViewController {
-        let eventProducer = PeerBrowserViewControllerEventProducer(callback: callback)
+    internal func peerBrowserViewController(_ callback: @escaping (PeerBrowserViewControllerEvent) -> Void,
+                                            peerFilter: PeerBrowserViewControllerPeerFilter? = nil) -> MCBrowserViewController {
+        let eventProducer = PeerBrowserViewControllerEventProducer(callback: callback, peerFilter: peerFilter)
         return PeerBrowserViewController(serviceType: serviceType, session: session, eventProducer: eventProducer)
     }
 }
