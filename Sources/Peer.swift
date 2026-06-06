@@ -13,6 +13,19 @@ import MultipeerConnectivity
  Struct reperesenting a user available for mesh-networking on the PeerConnectivity framework.
  */
 public struct Peer {
+
+    /**
+     Returns whether a display name satisfies MultipeerConnectivity's documented constraints.
+
+     Display names are visible to nearby peers. Avoid personal device names, email addresses,
+     stable user identifiers, or other sensitive information when choosing a display name.
+
+     - parameter displayName: Display name string to validate.
+     - Returns: `true` when the display name is non-empty and no more than 63 bytes when UTF-8 encoded.
+     */
+    public static func isValidDisplayName(_ displayName: String) -> Bool {
+        return !displayName.isEmpty && displayName.lengthOfBytes(using: .utf8) <= 63
+    }
     
     /**
      Peer connection status.
@@ -37,7 +50,7 @@ public struct Peer {
     }
     
     /**
-     The peer's display name
+     The peer's display name. Display names are visible to nearby peers.
      */
     public var displayName : String {
         return peerID.displayName
@@ -58,7 +71,7 @@ public struct Peer {
     }
     
     /**
-     Initializer for the local peer. DisplayName Must not be longer than 63 bytes in UTF8 Encoding according to the Apple documentation. ( xcdoc://?url=developer.apple.com/library/ios/documentation/MultipeerConnectivity/Reference/MCPeerID_class/index.html#//apple_ref/swift/cl/c:objc(cs)MCPeerID )
+     Initializer for the local peer. Display names must not be longer than 63 bytes in UTF-8 encoding and are visible to nearby peers.
      */
     internal init(displayName: String) {
         peerID = MCPeerID(displayName: displayName)

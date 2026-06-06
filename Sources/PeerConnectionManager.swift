@@ -11,6 +11,9 @@ import MultipeerConnectivity
 
 /**
  The service type describing the channel over which connections are made.
+
+ MultipeerConnectivity service types must be short Bonjour-style identifiers. Use
+ `PeerConnectionManager.isValidServiceType(_:)` to validate caller-provided values.
  */
 public typealias ServiceType = String
 
@@ -92,6 +95,30 @@ public class PeerConnectionManager {
      Access to shared connection managers by their service type.
      */
     public fileprivate(set) static var shared : [ServiceType:PeerConnectionManager] = [:]
+
+    /**
+     Returns whether a service type satisfies MultipeerConnectivity's documented constraints.
+
+     Valid service types are 1 to 15 characters and contain only ASCII lowercase letters,
+     numbers, and hyphens. Invalid values may cause MultipeerConnectivity objects to fail
+     during initialization.
+
+     - parameter serviceType: Service type string to validate.
+     - Returns: `true` when the service type matches the supported format.
+     */
+    public static func isValidServiceType(_ serviceType: ServiceType) -> Bool {
+        guard !serviceType.isEmpty && serviceType.count <= 15 else { return false }
+
+        for scalar in serviceType.unicodeScalars {
+            switch scalar.value {
+            case 45, 48...57, 97...122:
+                continue
+            default:
+                return false
+            }
+        }
+        return true
+    }
     
     // MARK: Properties
     /**
@@ -190,9 +217,9 @@ public class PeerConnectionManager {
     /**
      Initializer for a connection manager. Requires the requested service type. If the connectionType and displayName are not specified the connection manager defaults to .Automatic and using the localized host name where available, falling back to the process host name. The `PeerConnectivityUI` product provides an iOS convenience initializer that uses the current device name.
      
-     - parameter serviceType: The requested service type describing the channel on which peers are able to connect.
+     - parameter serviceType: The requested service type describing the channel on which peers are able to connect. Use `isValidServiceType(_:)` to validate caller-provided values before initialization.
      - parameter connectionType: Takes a PeerConnectionType case determining the default behavior of the framework.
-     - parameter displayName: The local user's display name to other peers.
+     - parameter displayName: The local user's display name to other peers. Display names are visible to nearby peers and must be no more than 63 bytes when UTF-8 encoded.
      - parameter securityConfiguration: Security settings used to create the underlying MultipeerConnectivity session.
      - parameter discoveryInfo: Public, unauthenticated metadata advertised to nearby browsers.
      - parameter invitationPolicy: Policy used to decide whether incoming invitations are accepted in `.automatic` mode.

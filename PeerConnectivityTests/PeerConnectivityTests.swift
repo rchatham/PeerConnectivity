@@ -115,5 +115,27 @@ class PeerConnectivityTests: XCTestCase {
 
         XCTAssertEqual(receivedDiscoveryInfo?["version"], "1")
     }
+
+    func testServiceTypeValidationAcceptsSupportedValues() {
+        XCTAssertTrue(PeerConnectionManager.isValidServiceType("chat"))
+        XCTAssertTrue(PeerConnectionManager.isValidServiceType("chat-1"))
+        XCTAssertTrue(PeerConnectionManager.isValidServiceType("abcdefghijklmn1"))
+    }
+
+    func testServiceTypeValidationRejectsUnsupportedValues() {
+        XCTAssertFalse(PeerConnectionManager.isValidServiceType(""))
+        XCTAssertFalse(PeerConnectionManager.isValidServiceType("abcdefghijklmnop"))
+        XCTAssertFalse(PeerConnectionManager.isValidServiceType("Chat"))
+        XCTAssertFalse(PeerConnectionManager.isValidServiceType("chat_room"))
+        XCTAssertFalse(PeerConnectionManager.isValidServiceType("chat.room"))
+    }
+
+    func testDisplayNameValidationUsesUtf8ByteLength() {
+        XCTAssertTrue(Peer.isValidDisplayName("peer"))
+        XCTAssertTrue(Peer.isValidDisplayName(String(repeating: "a", count: 63)))
+        XCTAssertFalse(Peer.isValidDisplayName(""))
+        XCTAssertFalse(Peer.isValidDisplayName(String(repeating: "a", count: 64)))
+        XCTAssertFalse(Peer.isValidDisplayName(String(repeating: "é", count: 32)))
+    }
     
 }
