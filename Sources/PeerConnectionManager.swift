@@ -291,6 +291,8 @@ public class PeerConnectionManager {
         case .custom(let certificateHandler):
             certificateHandler(peer, certificate, handler)
         }
+
+        observer.value = .receivedCertificate(peer: peer, certificate: certificate, handler: { _ in })
     }
 
     internal func handleInvitation(peer: Peer,

@@ -137,6 +137,33 @@ class PeerSecurityConfigurationTests: XCTestCase {
         manager.stop()
     }
 
+    func testCertificatePolicyStillEmitsCompatibilityEvent() {
+        let manager = makeManager(policy: .acceptAll)
+        var result: Bool?
+        var receivedPeer: Peer?
+        var receivedCertificate: [Any]?
+        let expectedCertificate: [Any] = ["certificate"]
+
+        manager.listenOn({ event in
+            switch event {
+            case .receivedCertificate(let peer, let certificate, let handler):
+                receivedPeer = peer
+                receivedCertificate = certificate
+                handler(false)
+            default: break
+            }
+        }, performListenerInBackground: true, withKey: "certificate-compatibility")
+
+        manager.handleCertificate(peer: manager.peer, certificate: expectedCertificate) { accepted in
+            result = accepted
+        }
+
+        XCTAssertEqual(result, true)
+        XCTAssertEqual(receivedPeer, manager.peer)
+        XCTAssertEqual(receivedCertificate?.first as? String, "certificate")
+        manager.stop()
+    }
+
     // MARK: - Invitation Policy Tests
 
     func testAcceptAllInvitationPolicyAcceptsInvitation() {

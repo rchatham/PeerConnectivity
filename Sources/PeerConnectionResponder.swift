@@ -61,7 +61,8 @@ public enum PeerConnectionEvent {
      Received security certificate from `Peer` with handler.
 
      Certificate decisions are handled by `PeerSecurityConfiguration.certificatePolicy`.
-     This event remains for API compatibility.
+     This event is emitted for observation/API compatibility only. Calling the supplied
+     handler does not affect the certificate decision.
      */
     case receivedCertificate(peer: Peer, certificate: [Any]?, handler: (Bool)->Void)
     /**
@@ -80,7 +81,8 @@ public enum PeerConnectionEvent {
      Found nearby `Peer` with advertised discovery metadata.
 
      Discovery info is public, unauthenticated Bonjour TXT record metadata. Do not treat it as secret
-     or trusted without additional validation.
+     or trusted without additional validation. Callers with exhaustive switches over
+     `PeerConnectionEvent` should handle this case or include a `default` case.
      */
     case foundPeerWithDiscoveryInfo(peer: Peer, discoveryInfo: PeerDiscoveryInfo?)
     /**
