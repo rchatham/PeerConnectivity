@@ -13,6 +13,7 @@
 		309837421D8A8D600002338A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 309837411D8A8D600002338A /* Assets.xcassets */; };
 		309837451D8A8D600002338A /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 309837431D8A8D600002338A /* LaunchScreen.storyboard */; };
 		B1E4E4E82F30592D00AE11AA /* PeerConnectivity in Frameworks */ = {isa = PBXBuildFile; productRef = B1E4E4E72F30592D00AE11AA /* PeerConnectivity */; };
+		B1E4E4EA2F30592D00AE11AA /* PeerConnectivityUI in Frameworks */ = {isa = PBXBuildFile; productRef = B1E4E4E92F30592D00AE11AA /* PeerConnectivityUI */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -32,6 +33,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				B1E4E4E82F30592D00AE11AA /* PeerConnectivity in Frameworks */,
+				B1E4E4EA2F30592D00AE11AA /* PeerConnectivityUI in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -365,6 +367,10 @@
 		B1E4E4E72F30592D00AE11AA /* PeerConnectivity */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = PeerConnectivity;
+		};
+		B1E4E4E92F30592D00AE11AA /* PeerConnectivityUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = PeerConnectivityUI;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
