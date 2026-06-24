@@ -10,7 +10,7 @@ import Foundation
 import Network
 
 @available(iOS 13.0, macOS 10.15, *)
-internal final class NetworkPeerConnection {
+internal final class NetworkPeerConnection : NetworkPeerConnectionCancellable {
 
     internal typealias StateHandler = (NWConnection.State) -> Void
     internal typealias DataHandler = (Data) -> Void
