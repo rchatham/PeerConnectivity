@@ -111,7 +111,7 @@ public class PeerConnectionManager {
      This is exposed for platform-specific helper packages such as `PeerConnectivityUI`.
      */
     public var multipeerSession : MCSession {
-        return session.session
+        return session.multipeerSession
     }
 
     /**
@@ -146,15 +146,10 @@ public class PeerConnectionManager {
     fileprivate let advertiserObserver = Observable<PeerAdvertiserEvent>(.none)
     fileprivate let advertiserAssisstantObserver = Observable<PeerAdvertiserAssisstantEvent>(.none)
     
-    fileprivate let sessionEventProducer : PeerSessionEventProducer
-    fileprivate let browserEventProducer : PeerBrowserEventProducer
-    fileprivate let advertiserEventProducer : PeerAdvertiserEventProducer
-    fileprivate let advertiserAssisstantEventProducer : PeerAdvertiserAssisstantEventProducer
-    
-    fileprivate let session : PeerSession
-    fileprivate let browser : PeerBrowser
-    fileprivate let advertiser : PeerAdvertiser
-    fileprivate let advertiserAssisstant : PeerAdvertiserAssisstant
+    fileprivate let session : PeerSessionTransport
+    fileprivate let browser : PeerBrowserTransport
+    fileprivate let advertiser : PeerAdvertiserTransport
+    fileprivate let advertiserAssisstant : PeerAdvertiserAssisstantTransport
     
     fileprivate let responder : PeerConnectionResponder
     
@@ -169,7 +164,7 @@ public class PeerConnectionManager {
      
      - Returns: A fully initialized `PeerConnectionManager`.
      */
-    public init(serviceType: ServiceType,
+    public convenience init(serviceType: ServiceType,
                 connectionType: PeerConnectionType = .automatic,
                 displayName: String = {
                     #if os(macOS)
@@ -178,34 +173,49 @@ public class PeerConnectionManager {
                     return ProcessInfo.processInfo.hostName
                     #endif
                 }()) {
-        
+        self.init(serviceType: serviceType,
+            connectionType: connectionType,
+            displayName: displayName,
+            transportFactory: .multipeerConnectivity,
+            shouldRegisterSharedManager: true)
+    }
+
+    internal convenience init(serviceType: ServiceType,
+        connectionType: PeerConnectionType = .automatic,
+        displayName: String,
+        transportFactory: PeerConnectionTransportFactory) {
+        self.init(serviceType: serviceType,
+            connectionType: connectionType,
+            displayName: displayName,
+            transportFactory: transportFactory,
+            shouldRegisterSharedManager: false)
+    }
+
+    fileprivate init(serviceType: ServiceType,
+        connectionType: PeerConnectionType,
+        displayName: String,
+        transportFactory: PeerConnectionTransportFactory,
+        shouldRegisterSharedManager: Bool) {
         self.connectionType = connectionType
         self.serviceType = serviceType
         self.peer = Peer(displayName: displayName)
-        
-        sessionEventProducer = PeerSessionEventProducer(observer: sessionObserver)
-        browserEventProducer = PeerBrowserEventProducer(observer: browserObserver)
-        advertiserEventProducer = PeerAdvertiserEventProducer(observer: advertiserObserver)
-        advertiserAssisstantEventProducer = PeerAdvertiserAssisstantEventProducer(observer: advertiserAssisstantObserver)
-        
-        session = PeerSession(peer: peer, eventProducer: sessionEventProducer)
-        browser = PeerBrowser(session: session, serviceType: serviceType, eventProducer: browserEventProducer)
-        advertiser = PeerAdvertiser(session: session, serviceType: serviceType, eventProducer: advertiserEventProducer)
-        advertiserAssisstant = PeerAdvertiserAssisstant(session: session, serviceType: serviceType, eventProducer: advertiserAssisstantEventProducer)
-        
+
+        session = transportFactory.makeSession(peer, sessionObserver)
+        browser = transportFactory.makeBrowser(session, serviceType, browserObserver)
+        advertiser = transportFactory.makeAdvertiser(session, serviceType, advertiserObserver)
+        advertiserAssisstant = transportFactory.makeAdvertiserAssisstant(session, serviceType, advertiserAssisstantObserver)
+
         responder = PeerConnectionResponder(observer: observer)
-        
-        // Currently checking security certificates is not yet supported.
+
         responder.addListener({ (event) in
             switch event {
             case .receivedCertificate(peer: _, certificate: _, handler: let handler):
-                //print("PeerConnectionManager: listenOn: certificateReceived")
                 handler(true)
             default: break
             }
         }, forKey: PeerConnectivityKeys.CertificateListener)
-        
-        // Prevent mingling signals from the same device
+
+        guard shouldRegisterSharedManager else { return }
         if let existing = PeerConnectionManager.shared[serviceType] {
             existing.stop()
             existing.removeAllListeners()

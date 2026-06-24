@@ -9,10 +9,13 @@
 import Foundation
 import MultipeerConnectivity
 
-internal struct PeerSession {
+internal struct PeerSession : PeerSessionTransport {
     
     internal let peer : Peer
     internal let session : MCSession
+    internal var multipeerSession : MCSession {
+        return session
+    }
     fileprivate let eventProducer: PeerSessionEventProducer
     
     internal var connectedPeers : [Peer] {
