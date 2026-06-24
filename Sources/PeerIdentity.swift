@@ -8,7 +8,7 @@
 
 import Foundation
 
-internal struct PeerIdentity : Hashable {
+internal struct PeerIdentity : Codable, Hashable {
 
     internal let identifier : String
     internal let displayName : String
