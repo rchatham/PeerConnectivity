@@ -32,8 +32,10 @@
 		30NETTRAN2606240002 /* NetworkPeerTransport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30NETTRAN2606240001 /* NetworkPeerTransport.swift */; };
 		30NETREG260624000002 /* NetworkPeerConnectionRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30NETREG260624000001 /* NetworkPeerConnectionRegistry.swift */; };
 		30NETSTATE2606240002 /* NetworkPeerStateMapping.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30NETSTATE2606240001 /* NetworkPeerStateMapping.swift */; };
+		30NETDATA26062400002 /* NetworkPeerDataSender.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30NETDATA26062400001 /* NetworkPeerDataSender.swift */; };
 		30NETREGTEST26062402 /* NetworkPeerConnectionRegistryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30NETREGTEST26062401 /* NetworkPeerConnectionRegistryTests.swift */; };
 		30NETSTATETEST2606242 /* NetworkPeerStateMappingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30NETSTATETEST2606241 /* NetworkPeerStateMappingTests.swift */; };
+		30NETDATATEST2606242 /* NetworkPeerDataSenderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30NETDATATEST2606241 /* NetworkPeerDataSenderTests.swift */; };
 		30TRANSTEST2606230002 /* PeerConnectionManagerTransportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30TRANSTEST2606230001 /* PeerConnectionManagerTransportTests.swift */; };
 		30IDENTTEST2606230002 /* PeerIdentityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30IDENTTEST2606230001 /* PeerIdentityTests.swift */; };
 		30NETPROTOTEST2606232 /* PeerNetworkProtocolTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30NETPROTOTEST2606231 /* PeerNetworkProtocolTests.swift */; };
@@ -57,8 +59,10 @@
 		30NETTRAN2606240001 /* NetworkPeerTransport.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = NetworkPeerTransport.swift; path = Sources/NetworkPeerTransport.swift; sourceTree = "<group>"; };
 		30NETREG260624000001 /* NetworkPeerConnectionRegistry.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = NetworkPeerConnectionRegistry.swift; path = Sources/NetworkPeerConnectionRegistry.swift; sourceTree = "<group>"; };
 		30NETSTATE2606240001 /* NetworkPeerStateMapping.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = NetworkPeerStateMapping.swift; path = Sources/NetworkPeerStateMapping.swift; sourceTree = "<group>"; };
+		30NETDATA26062400001 /* NetworkPeerDataSender.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = NetworkPeerDataSender.swift; path = Sources/NetworkPeerDataSender.swift; sourceTree = "<group>"; };
 		30NETREGTEST26062401 /* NetworkPeerConnectionRegistryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkPeerConnectionRegistryTests.swift; sourceTree = "<group>"; };
 		30NETSTATETEST2606241 /* NetworkPeerStateMappingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkPeerStateMappingTests.swift; sourceTree = "<group>"; };
+		30NETDATATEST2606241 /* NetworkPeerDataSenderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkPeerDataSenderTests.swift; sourceTree = "<group>"; };
 		30TRANSTEST2606230001 /* PeerConnectionManagerTransportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeerConnectionManagerTransportTests.swift; sourceTree = "<group>"; };
 		30IDENTTEST2606230001 /* PeerIdentityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeerIdentityTests.swift; sourceTree = "<group>"; };
 		30NETPROTOTEST2606231 /* PeerNetworkProtocolTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeerNetworkProtocolTests.swift; sourceTree = "<group>"; };
@@ -111,6 +115,7 @@
 				3080C7DC1D80A1D600AF9EA3 /* MultiObservable.swift */,
 				3080C7DD1D80A1D600AF9EA3 /* Observable.swift */,
 				30NETREG260624000001 /* NetworkPeerConnectionRegistry.swift */,
+				30NETDATA26062400001 /* NetworkPeerDataSender.swift */,
 				30NETSTATE2606240001 /* NetworkPeerStateMapping.swift */,
 				30NETTRAN2606240001 /* NetworkPeerTransport.swift */,
 				3080C7DE1D80A1D600AF9EA3 /* Peer.swift */,
@@ -159,6 +164,7 @@
 				30TRANSTEST2606230001 /* PeerConnectionManagerTransportTests.swift */,
 				30IDENTTEST2606230001 /* PeerIdentityTests.swift */,
 				30NETREGTEST26062401 /* NetworkPeerConnectionRegistryTests.swift */,
+				30NETDATATEST2606241 /* NetworkPeerDataSenderTests.swift */,
 				30NETSTATETEST2606241 /* NetworkPeerStateMappingTests.swift */,
 				30NETPROTOTEST2606231 /* PeerNetworkProtocolTests.swift */,
 				30PEERMSG2602020000000001 /* PeerMessageTests.swift */,
@@ -289,6 +295,7 @@
 				30NETPROTO2606230002 /* PeerNetworkProtocol.swift in Sources */,
 				30NETREG260624000002 /* NetworkPeerConnectionRegistry.swift in Sources */,
 				30NETSTATE2606240002 /* NetworkPeerStateMapping.swift in Sources */,
+				30NETDATA26062400002 /* NetworkPeerDataSender.swift in Sources */,
 				30NETTRAN2606240002 /* NetworkPeerTransport.swift in Sources */,
 				3080C7F91D80A1D700AF9EA3 /* PeerConnectionResponder.swift in Sources */,
 				30TRANS2606230000000002 /* PeerConnectionTransports.swift in Sources */,
@@ -312,6 +319,7 @@
 				30TRANSTEST2606230002 /* PeerConnectionManagerTransportTests.swift in Sources */,
 				30IDENTTEST2606230002 /* PeerIdentityTests.swift in Sources */,
 				30NETREGTEST26062402 /* NetworkPeerConnectionRegistryTests.swift in Sources */,
+				30NETDATATEST2606242 /* NetworkPeerDataSenderTests.swift in Sources */,
 				30NETSTATETEST2606242 /* NetworkPeerStateMappingTests.swift in Sources */,
 				30NETPROTOTEST2606232 /* PeerNetworkProtocolTests.swift in Sources */,
 				30PEERMSG2602020000000002 /* PeerMessageTests.swift in Sources */,
