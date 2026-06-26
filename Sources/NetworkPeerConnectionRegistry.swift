@@ -47,20 +47,23 @@ internal final class NetworkPeerConnectionRegistry<Connection: NetworkPeerConnec
         return entries[identity]?.connection
     }
 
+    @discardableResult
     internal func register(_ connection: Connection,
         for identity: PeerIdentity,
-        direction: NetworkPeerConnectionDirection) {
+        direction: NetworkPeerConnectionDirection) -> Bool {
         guard let existing = entries[identity] else {
             entries[identity] = Entry(connection: connection, direction: direction)
-            return
+            return true
         }
 
         let winningDirection = duplicateResolver(localIdentity, identity, existing.direction, direction)
         if winningDirection == existing.direction {
             connection.cancel()
+            return false
         } else {
             existing.connection.cancel()
             entries[identity] = Entry(connection: connection, direction: direction)
+            return true
         }
     }
 
