@@ -13,12 +13,13 @@ import Network
 internal final class NetworkPeerConnection : NetworkPeerConnectionCancellable {
 
     internal typealias StateHandler = (NWConnection.State) -> Void
-    internal typealias DataHandler = (Data) -> Void
+    internal typealias DataHandler = (PeerNetworkFrame) -> Void
 
     fileprivate let connection : NWConnection
     fileprivate let queue : DispatchQueue
     fileprivate let stateHandler : StateHandler?
     fileprivate let dataHandler : DataHandler?
+    fileprivate var frameDecoder = PeerNetworkFrameDecoder()
 
     internal init(endpoint: NWEndpoint,
         queue: DispatchQueue = DispatchQueue(label: "PeerConnectivity.NetworkPeerConnection"),
@@ -73,9 +74,11 @@ internal final class NetworkPeerConnection : NetworkPeerConnectionCancellable {
     }
 
     fileprivate func receiveNextFrame() {
-        connection.receive(minimumIncompleteLength: 5, maximumLength: 65536) { [weak self] data, _, isComplete, error in
-            if let data = data, let frame = PeerNetworkFrame.decode(data) {
-                self?.dataHandler?(frame.payload)
+        connection.receive(minimumIncompleteLength: 1, maximumLength: 65536) { [weak self] data, _, isComplete, error in
+            if let data = data, !data.isEmpty {
+                self?.frameDecoder.append(data).forEach { frame in
+                    self?.dataHandler?(frame)
+                }
             }
             guard error == nil, !isComplete else { return }
             self?.receiveNextFrame()

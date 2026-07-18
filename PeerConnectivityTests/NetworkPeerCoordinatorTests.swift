@@ -141,6 +141,27 @@ final class NetworkPeerCoordinatorTests : XCTestCase {
         XCTAssertTrue(harness.coordinator.connectedPeers.isEmpty)
     }
 
+    internal func testSelfHandshakeCancelsPendingConnection() {
+        let harness = makeHarness()
+        let connection = MockCoordinatorConnection()
+
+        harness.coordinator.addPendingConnection(connection, direction: .outbound)
+        harness.coordinator.receiveFrame(handshakeFrame(harness.localPeer.identity), from: connection)
+
+        XCTAssertEqual(connection.cancelCallCount, 1)
+        XCTAssertTrue(harness.coordinator.connectedPeers.isEmpty)
+    }
+
+    internal func testSelfDiscoveryIsIgnored() {
+        let harness = makeHarness()
+        let browserEventCount = harness.browserEvents.count
+
+        harness.coordinator.foundPeer(identity: harness.localPeer.identity)
+        harness.coordinator.lostPeer(identity: harness.localPeer.identity)
+
+        XCTAssertEqual(harness.browserEvents.count, browserEventCount)
+    }
+
     internal func testFoundAndLostPeerEmitBrowserEvents() throws {
         let harness = makeHarness()
         let remoteIdentity = identity("remote")

@@ -41,7 +41,15 @@ internal enum PeerNetworkFrameKind : UInt8 {
     case handshake = 2
 }
 
+internal enum PeerNetworkFrameDecodeResult {
+    case frame(PeerNetworkFrame, consumedBytes: Int)
+    case incomplete
+    case invalid
+}
+
 internal struct PeerNetworkFrame : Equatable {
+
+    fileprivate static let headerLength = 5
 
     internal let kind : PeerNetworkFrameKind
     internal let payload : Data
@@ -65,8 +73,17 @@ internal struct PeerNetworkFrame : Equatable {
     }
 
     internal static func decode(_ data: Data) -> PeerNetworkFrame? {
-        guard data.count >= 5 else { return nil }
-        guard let kind = PeerNetworkFrameKind(rawValue: data[data.startIndex]) else { return nil }
+        switch decodeNext(in: data) {
+        case .frame(let frame, consumedBytes: let consumedBytes) where consumedBytes == data.count:
+            return frame
+        default:
+            return nil
+        }
+    }
+
+    internal static func decodeNext(in data: Data) -> PeerNetworkFrameDecodeResult {
+        guard data.count >= headerLength else { return .incomplete }
+        guard let kind = PeerNetworkFrameKind(rawValue: data[data.startIndex]) else { return .invalid }
 
         let lengthStart = data.index(after: data.startIndex)
         let lengthEnd = data.index(lengthStart, offsetBy: 4)
@@ -74,12 +91,40 @@ internal struct PeerNetworkFrame : Equatable {
             return (value << 8) | UInt32(byte)
         }
 
-        guard UInt64(payloadLength) <= UInt64(Int.max) else { return nil }
-        let expectedCount = 5 + Int(payloadLength)
-        guard data.count == expectedCount else { return nil }
+        guard UInt64(payloadLength) <= UInt64(Int.max) else { return .invalid }
+        let expectedCount = headerLength + Int(payloadLength)
+        guard data.count >= expectedCount else { return .incomplete }
 
         let payloadStart = lengthEnd
-        let payload = data[payloadStart..<data.endIndex]
-        return PeerNetworkFrame(kind: kind, payload: Data(payload))
+        let payloadEnd = data.index(data.startIndex, offsetBy: expectedCount)
+        let payload = data[payloadStart..<payloadEnd]
+        return .frame(PeerNetworkFrame(kind: kind, payload: Data(payload)), consumedBytes: expectedCount)
+    }
+}
+
+internal struct PeerNetworkFrameDecoder {
+
+    fileprivate var buffer = Data()
+
+    internal init() {}
+
+    internal mutating func append(_ data: Data) -> [PeerNetworkFrame] {
+        buffer.append(data)
+        var frames : [PeerNetworkFrame] = []
+
+        while !buffer.isEmpty {
+            switch PeerNetworkFrame.decodeNext(in: buffer) {
+            case .frame(let frame, consumedBytes: let consumedBytes):
+                frames.append(frame)
+                buffer.removeFirst(consumedBytes)
+            case .incomplete:
+                return frames
+            case .invalid:
+                buffer.removeAll()
+                return frames
+            }
+        }
+
+        return frames
     }
 }

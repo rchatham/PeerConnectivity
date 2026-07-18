@@ -57,4 +57,35 @@ final class PeerNetworkProtocolTests : XCTestCase {
 
         XCTAssertNil(PeerNetworkFrame.decode(data))
     }
+
+    internal func testFrameDecoderBuffersPartialFrame() {
+        let frame = PeerNetworkFrame(kind: .handshake, payload: Data([1, 2, 3, 4]))
+        let encoded = frame.encoded()
+        let splitIndex = encoded.index(encoded.startIndex, offsetBy: 3)
+        var decoder = PeerNetworkFrameDecoder()
+
+        XCTAssertTrue(decoder.append(Data(encoded[..<splitIndex])).isEmpty)
+        XCTAssertEqual(decoder.append(Data(encoded[splitIndex...])), [frame])
+    }
+
+    internal func testFrameDecoderEmitsCoalescedFrames() {
+        let first = PeerNetworkFrame(kind: .handshake, payload: Data([1, 2, 3]))
+        let second = PeerNetworkFrame(kind: .data, payload: Data([4, 5, 6]))
+        var encoded = Data()
+        encoded.append(first.encoded())
+        encoded.append(second.encoded())
+        var decoder = PeerNetworkFrameDecoder()
+
+        XCTAssertEqual(decoder.append(encoded), [first, second])
+    }
+
+    internal func testFrameDecoderPreservesFrameKind() {
+        let frame = PeerNetworkFrame(kind: .handshake, payload: Data([7, 8, 9]))
+        var decoder = PeerNetworkFrameDecoder()
+
+        let decoded = decoder.append(frame.encoded())
+
+        XCTAssertEqual(decoded.first?.kind, .handshake)
+        XCTAssertEqual(decoded.first?.payload, frame.payload)
+    }
 }

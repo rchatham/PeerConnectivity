@@ -76,12 +76,14 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
     }
 
     internal func foundPeer(identity: PeerIdentity) {
+        guard identity != localPeer.identity else { return }
         let peer = Peer(identity: identity, status: .notConnected)
         discoveredPeers[identity] = peer
         browserObserver.value = .foundPeer(peer)
     }
 
     internal func lostPeer(identity: PeerIdentity) {
+        guard identity != localPeer.identity else { return }
         let peer = discoveredPeers.removeValue(forKey: identity) ?? Peer(identity: identity, status: .notConnected)
         browserObserver.value = .lostPeer(peer)
     }
@@ -89,6 +91,11 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
     fileprivate func receiveHandshake(_ data: Data, from connection: Connection) {
         guard let handshake = try? JSONDecoder().decode(PeerNetworkHandshake.self, from: data),
             handshake.protocolVersion == PeerNetworkHandshake.currentProtocolVersion else {
+            rejectHandshake(from: connection)
+            return
+        }
+
+        guard handshake.identity != localPeer.identity else {
             rejectHandshake(from: connection)
             return
         }
