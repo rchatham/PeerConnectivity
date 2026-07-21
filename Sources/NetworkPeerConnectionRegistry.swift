@@ -31,6 +31,7 @@ internal final class NetworkPeerConnectionRegistry<Connection: NetworkPeerConnec
 
     fileprivate let localIdentity : PeerIdentity
     fileprivate let duplicateResolver : DuplicateResolver
+    fileprivate let lock = NSLock()
     fileprivate var entries : [PeerIdentity:Entry] = [:]
 
     internal init(localIdentity: PeerIdentity,
@@ -40,40 +41,50 @@ internal final class NetworkPeerConnectionRegistry<Connection: NetworkPeerConnec
     }
 
     internal var connectedPeerIdentities : [PeerIdentity] {
-        return Array(entries.keys)
+        return locked { Array(entries.keys) }
     }
 
     internal func connection(for identity: PeerIdentity) -> Connection? {
-        return entries[identity]?.connection
+        return locked { entries[identity]?.connection }
     }
 
     @discardableResult
     internal func register(_ connection: Connection,
         for identity: PeerIdentity,
         direction: NetworkPeerConnectionDirection) -> Bool {
-        guard let existing = entries[identity] else {
-            entries[identity] = Entry(connection: connection, direction: direction)
-            return true
-        }
+        return locked {
+            guard let existing = entries[identity] else {
+                entries[identity] = Entry(connection: connection, direction: direction)
+                return true
+            }
 
-        let winningDirection = duplicateResolver(localIdentity, identity, existing.direction, direction)
-        if winningDirection == existing.direction {
-            connection.cancel()
-            return false
-        } else {
-            existing.connection.cancel()
-            entries[identity] = Entry(connection: connection, direction: direction)
-            return true
+            let winningDirection = duplicateResolver(localIdentity, identity, existing.direction, direction)
+            if winningDirection == existing.direction {
+                connection.cancel()
+                return false
+            } else {
+                existing.connection.cancel()
+                entries[identity] = Entry(connection: connection, direction: direction)
+                return true
+            }
         }
     }
 
     internal func remove(identity: PeerIdentity) {
-        entries.removeValue(forKey: identity)
+        locked { _ = entries.removeValue(forKey: identity) }
     }
 
     internal func cancelAll() {
-        entries.values.forEach { $0.connection.cancel() }
-        entries = [:]
+        locked {
+            entries.values.forEach { $0.connection.cancel() }
+            entries = [:]
+        }
+    }
+
+    fileprivate func locked<T>(_ operation: () -> T) -> T {
+        lock.lock()
+        defer { lock.unlock() }
+        return operation()
     }
 
     internal static func defaultDuplicateResolver(local: PeerIdentity,

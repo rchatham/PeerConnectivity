@@ -58,6 +58,22 @@ final class PeerNetworkProtocolTests : XCTestCase {
         XCTAssertNil(PeerNetworkFrame.decode(data))
     }
 
+    internal func testFrameDecodeRejectsOversizedPayloadLength() {
+        let oversizedLength = UInt32(PeerNetworkFrame.maxPayloadLength + 1)
+        let data = frameHeader(kind: .data, payloadLength: oversizedLength)
+
+        XCTAssertNil(PeerNetworkFrame.decode(data))
+    }
+
+    internal func testFrameDecoderClearsOversizedFrame() {
+        let oversizedLength = UInt32(PeerNetworkFrame.maxPayloadLength + 1)
+        let validFrame = PeerNetworkFrame(kind: .data, payload: Data([1, 2, 3]))
+        var decoder = PeerNetworkFrameDecoder()
+
+        XCTAssertTrue(decoder.append(frameHeader(kind: .data, payloadLength: oversizedLength)).isEmpty)
+        XCTAssertEqual(decoder.append(validFrame.encoded()), [validFrame])
+    }
+
     internal func testFrameDecoderBuffersPartialFrame() {
         let frame = PeerNetworkFrame(kind: .handshake, payload: Data([1, 2, 3, 4]))
         let encoded = frame.encoded()
@@ -87,5 +103,15 @@ final class PeerNetworkProtocolTests : XCTestCase {
 
         XCTAssertEqual(decoded.first?.kind, .handshake)
         XCTAssertEqual(decoded.first?.payload, frame.payload)
+    }
+
+    private func frameHeader(kind: PeerNetworkFrameKind, payloadLength: UInt32) -> Data {
+        var data = Data()
+        data.append(kind.rawValue)
+        var length = payloadLength.bigEndian
+        withUnsafeBytes(of: &length) { bytes in
+            data.append(contentsOf: bytes)
+        }
+        return data
     }
 }

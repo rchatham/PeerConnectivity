@@ -50,6 +50,7 @@ internal enum PeerNetworkFrameDecodeResult {
 internal struct PeerNetworkFrame : Equatable {
 
     fileprivate static let headerLength = 5
+    internal static let maxPayloadLength = 1024 * 1024
 
     internal let kind : PeerNetworkFrameKind
     internal let payload : Data
@@ -91,7 +92,7 @@ internal struct PeerNetworkFrame : Equatable {
             return (value << 8) | UInt32(byte)
         }
 
-        guard UInt64(payloadLength) <= UInt64(Int.max) else { return .invalid }
+        guard payloadLength <= UInt32(maxPayloadLength) else { return .invalid }
         let expectedCount = headerLength + Int(payloadLength)
         guard data.count >= expectedCount else { return .incomplete }
 

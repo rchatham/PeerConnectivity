@@ -78,6 +78,8 @@ Relevant Network framework APIs:
   - `NSBonjourServices`
 - Network framework is connection-oriented, not an `MCSession`-style symmetric mesh abstraction.
 - Peer-to-peer Wi-Fi/Bluetooth/AWDL behavior requires `NWParameters.includePeerToPeer = true` and on-device testing.
+- Network-backed transports must keep TLS enabled before any public backend selection is exposed; peer identities remain self-asserted until a later authentication/trust model binds them to TLS identity or app-provided verification.
+- Network coordinator state must be serialized and bounded; production wiring should add connection/discovery caps plus handshake or idle timeouts before accepting untrusted inbound traffic at scale.
 - Public `multipeerSession: MCSession` prevents completely removing MultipeerConnectivity without a breaking API change; a source-compatible transition release requires dual backend support.
 - `MCBrowserViewController` has no Network framework equivalent.
 - Need explicit message framing, handshake, peer identity exchange, reconnection, and duplicate-connection resolution.

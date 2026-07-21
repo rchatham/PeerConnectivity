@@ -86,7 +86,9 @@ internal final class NetworkPeerConnection : NetworkPeerConnectionCancellable {
     }
 
     internal static func parameters() -> NWParameters {
-        let parameters = NWParameters.tcp
+        // Network transport remains internal scaffolding; before exposing it publicly,
+        // provide app-configurable TLS identity or PSK verification for authenticated sessions.
+        let parameters = NWParameters(tls: NWProtocolTLS.Options(), tcp: NWProtocolTCP.Options())
         parameters.includePeerToPeer = true
         return parameters
     }

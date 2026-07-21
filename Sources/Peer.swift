@@ -77,13 +77,8 @@ public struct Peer {
 
 extension PeerIdentity {
     internal init(peerID: MCPeerID) {
-        let identifier: String
-        if let data = try? NSKeyedArchiver.archivedData(withRootObject: peerID, requiringSecureCoding: true) {
-            identifier = data.base64EncodedString()
-        } else {
-            identifier = peerID.displayName
-        }
-        self.init(identifier: identifier, displayName: peerID.displayName)
+        let data = NSKeyedArchiver.archivedData(withRootObject: peerID)
+        self.init(identifier: data.base64EncodedString(), displayName: peerID.displayName)
     }
 }
 
