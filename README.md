@@ -2,7 +2,8 @@
 ![PeerConnectivity](http://reidchatham.com/src/PeerConnectivity.png)
 
 
-[![Platform: iOS 8+ / macOS 10.10+](https://img.shields.io/badge/platform-iOS%208%2B%20%7C%20macOS%2010.10%2B-blue.svg?style=flat)]()
+[![CI](https://github.com/rchatham/PeerConnectivity/actions/workflows/ci.yml/badge.svg)](https://github.com/rchatham/PeerConnectivity/actions/workflows/ci.yml)
+[![Platform: iOS 13+ / macOS 10.15+](https://img.shields.io/badge/platform-iOS%2013%2B%20%7C%20macOS%2010.15%2B-blue.svg?style=flat)]()
 [![Language: Swift 5](https://img.shields.io/badge/language-swift%205-f48041.svg?style=flat)](https://developer.apple.com/swift)
 [![SwiftPM compatible](https://img.shields.io/badge/SwiftPM-compatible-brightgreen.svg?style=flat)](https://swift.org/package-manager/)
 [![License: MIT](http://img.shields.io/badge/license-MIT-lightgrey.svg?style=flat)]()
@@ -38,6 +39,8 @@ Add the UI helper product only when you need UIKit browser view controller suppo
 ```
 
 CocoaPods and Carthage are no longer the recommended distribution paths for new releases.
+
+The staged migration toward Apple's Network framework is tracked in [NetworkFrameworkMigrationPlan.md](NetworkFrameworkMigrationPlan.md), with follow-up PR sequencing in [NetworkMigrationPRPlan.md](NetworkMigrationPRPlan.md).
 
 
 ## Creating/Stopping/Starting

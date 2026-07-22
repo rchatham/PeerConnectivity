@@ -17,7 +17,7 @@ class PeerConnectivityTests: XCTestCase {
         super.setUp()
         // Put setup code here. This method is called before the invocation of each test method in the class.
         
-        pcm = PeerConnectionManager(serviceType: "test-service")
+        pcm = PeerConnectionManager(serviceType: "test-service", displayName: "TestPeer")
         pcm?.start()
     }
     
