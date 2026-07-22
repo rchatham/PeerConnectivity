@@ -10,26 +10,66 @@ import Foundation
 
 internal class MultiObservable<T> {
     internal typealias Observer = (T) -> Void
-    internal var observers: [String:Observer] = [:]
-    
+
+    fileprivate let lock = NSLock()
+    fileprivate var storedValue : T
+    fileprivate var storedObservers : [String:Observer] = [:]
+
+    internal var observers : [String:Observer] {
+        get {
+            lock.lock()
+            defer { lock.unlock() }
+            return storedObservers
+        }
+        set {
+            lock.lock()
+            storedObservers = newValue
+            lock.unlock()
+        }
+    }
+
     internal func addObserver(_ observer: @escaping Observer, key: String) {
-        observer(value)
-        self.observers[key] = observer
+        let currentValue : T
+        lock.lock()
+        currentValue = storedValue
+        storedObservers[key] = observer
+        lock.unlock()
+
+        observer(currentValue)
     }
-    
+
     internal func removeObserverForkey(_ key: String) {
-        self.observers.removeValue(forKey: key)
+        lock.lock()
+        storedObservers.removeValue(forKey: key)
+        lock.unlock()
     }
-    
-    internal var value: T {
-        didSet {
-            for (_, observer) in observers {
-                observer(value)
+
+    internal func removeAllObservers() {
+        lock.lock()
+        storedObservers.removeAll()
+        lock.unlock()
+    }
+
+    internal var value : T {
+        get {
+            lock.lock()
+            defer { lock.unlock() }
+            return storedValue
+        }
+        set {
+            let observers : [Observer]
+            lock.lock()
+            storedValue = newValue
+            observers = Array(storedObservers.values)
+            lock.unlock()
+
+            observers.forEach { observer in
+                observer(newValue)
             }
         }
     }
-    
+
     internal init(_ v: T) {
-        value = v
+        storedValue = v
     }
 }

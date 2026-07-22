@@ -95,15 +95,31 @@ public typealias PeerConnectionEventListener = (PeerConnectionEvent)->Void
 internal class PeerConnectionResponder {
     
     fileprivate let peerEventObserver : MultiObservable<PeerConnectionEvent>
+    fileprivate let lock = NSLock()
+    fileprivate var storedListeners : [String:PeerConnectionEventListener] = [:]
     
-    internal fileprivate(set) var listeners : [String:PeerConnectionEventListener] = [:]
+    internal fileprivate(set) var listeners : [String:PeerConnectionEventListener] {
+        get {
+            lock.lock()
+            defer { lock.unlock() }
+            return storedListeners
+        }
+        set {
+            lock.lock()
+            storedListeners = newValue
+            lock.unlock()
+        }
+    }
     
     internal init(observer: MultiObservable<PeerConnectionEvent>) {
         peerEventObserver = observer
     }
     
     @discardableResult internal func addListener(_ listener: @escaping PeerConnectionEventListener, forKey key: String) -> PeerConnectionResponder {
-        listeners[key] = listener
+        lock.lock()
+        storedListeners[key] = listener
+        lock.unlock()
+
         peerEventObserver.addObserver(listener, key: key)
         return self
     }
@@ -114,12 +130,18 @@ internal class PeerConnectionResponder {
     }
     
     internal func removeAllListeners() {
-        listeners = [:]
-        peerEventObserver.observers = [:]
+        lock.lock()
+        storedListeners.removeAll()
+        lock.unlock()
+
+        peerEventObserver.removeAllObservers()
     }
     
     internal func removeListenerForKey(_ key: String) {
-        listeners.removeValue(forKey: key)
-        peerEventObserver.observers.removeValue(forKey: key)
+        lock.lock()
+        storedListeners.removeValue(forKey: key)
+        lock.unlock()
+
+        peerEventObserver.removeObserverForkey(key)
     }
 }

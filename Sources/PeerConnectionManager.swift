@@ -406,10 +406,10 @@ extension PeerConnectionManager {
         advertiserAssisstant.stopAdvertisingAssisstant()
         foundPeers = []
         
-        sessionObserver.observers = []
-        browserObserver.observers = []
-        advertiserObserver.observers = []
-        advertiserAssisstantObserver.observers = []
+        sessionObserver.removeAllObservers()
+        browserObserver.removeAllObservers()
+        advertiserObserver.removeAllObservers()
+        advertiserAssisstantObserver.removeAllObservers()
         
         sessionObserver.value = .none
         browserObserver.value = .none

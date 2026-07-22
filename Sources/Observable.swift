@@ -12,22 +12,60 @@ import Foundation
 
 internal class Observable<T> {
     internal typealias Observer = (T) -> Void
-    internal var observers: [Observer] = []
-  
-    internal func addObserver(_ observer: @escaping Observer) {
-        observer(value)
-        self.observers.append(observer)
+
+    fileprivate let lock = NSLock()
+    fileprivate var storedValue : T
+    fileprivate var storedObservers : [Observer] = []
+
+    internal var observers : [Observer] {
+        get {
+            lock.lock()
+            defer { lock.unlock() }
+            return storedObservers
+        }
+        set {
+            lock.lock()
+            storedObservers = newValue
+            lock.unlock()
+        }
     }
-  
-    internal var value: T {
-        didSet {
+
+    internal func addObserver(_ observer: @escaping Observer) {
+        let currentValue : T
+        lock.lock()
+        currentValue = storedValue
+        storedObservers.append(observer)
+        lock.unlock()
+
+        observer(currentValue)
+    }
+
+    internal func removeAllObservers() {
+        lock.lock()
+        storedObservers.removeAll()
+        lock.unlock()
+    }
+
+    internal var value : T {
+        get {
+            lock.lock()
+            defer { lock.unlock() }
+            return storedValue
+        }
+        set {
+            let observers : [Observer]
+            lock.lock()
+            storedValue = newValue
+            observers = storedObservers
+            lock.unlock()
+
             observers.forEach { observer in
-                observer(value)
+                observer(newValue)
             }
         }
     }
-  
+
     internal init(_ v: T) {
-        value = v
+        storedValue = v
     }
 }
