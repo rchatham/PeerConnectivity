@@ -123,6 +123,7 @@ internal final class NetworkPeerListener : NetworkPeerListening {
     fileprivate let connectionFactory : (NWConnection, DispatchQueue) -> NetworkPeerConnection
 
     internal init(serviceType: ServiceType,
+        identity: PeerIdentity? = nil,
         queue: DispatchQueue = DispatchQueue(label: "PeerConnectivity.NetworkPeerListener"),
         connectionHandler: ConnectionHandler? = nil,
         stateHandler: StateHandler? = nil,
@@ -131,7 +132,12 @@ internal final class NetworkPeerListener : NetworkPeerListening {
         }) throws {
         let service = PeerNetworkBonjourService(serviceType: serviceType)
         let listener = try NWListener(using: NetworkPeerConnection.parameters())
-        listener.service = NWListener.Service(name: nil, type: service.bonjourType)
+        if let identity = identity {
+            let txtRecord = NWTXTRecord(PeerNetworkDiscoveryInfo(identity: identity).txtRecordDictionary)
+            listener.service = NWListener.Service(name: nil, type: service.bonjourType, domain: nil, txtRecord: txtRecord)
+        } else {
+            listener.service = NWListener.Service(name: nil, type: service.bonjourType)
+        }
         self.listener = listener
         self.queue = queue
         self.connectionHandler = connectionHandler

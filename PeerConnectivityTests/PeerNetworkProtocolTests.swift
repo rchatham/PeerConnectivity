@@ -36,6 +36,38 @@ final class PeerNetworkProtocolTests : XCTestCase {
         XCTAssertEqual(decoded.protocolVersion, PeerNetworkHandshake.currentProtocolVersion)
     }
 
+    internal func testDiscoveryInfoTxtRecordRoundTrip() {
+        let identity = PeerIdentity(identifier: "peer-1", displayName: "Remote Peer")
+        let discoveryInfo = PeerNetworkDiscoveryInfo(identity: identity)
+
+        let decoded = PeerNetworkDiscoveryInfo(txtRecordDictionary: discoveryInfo.txtRecordDictionary)
+
+        XCTAssertEqual(decoded, discoveryInfo)
+    }
+
+    internal func testDiscoveryInfoConstrainsTxtRecordValueLengths() {
+        let identity = PeerIdentity(identifier: String(repeating: "a", count: 400),
+            displayName: String(repeating: "b", count: 400))
+        let discoveryInfo = PeerNetworkDiscoveryInfo(identity: identity)
+
+        XCTAssertLessThanOrEqual(discoveryInfo.identity.identifier.count, 180)
+        XCTAssertLessThanOrEqual(discoveryInfo.identity.displayName.count, 255)
+    }
+
+    internal func testDiscoveryInfoRejectsMalformedTxtRecord() {
+        XCTAssertNil(PeerNetworkDiscoveryInfo(txtRecordDictionary: [:]))
+        XCTAssertNil(PeerNetworkDiscoveryInfo(txtRecordDictionary: [
+            "pc-id": "peer-1",
+            "pc-name": "Remote Peer",
+            "pc-v": "999",
+        ]))
+        XCTAssertNil(PeerNetworkDiscoveryInfo(txtRecordDictionary: [
+            "pc-id": "",
+            "pc-name": "Remote Peer",
+            "pc-v": String(PeerNetworkHandshake.currentProtocolVersion),
+        ]))
+    }
+
     internal func testFrameRoundTrip() {
         let payload = Data([1, 2, 3, 4])
         let frame = PeerNetworkFrame(kind: .data, payload: payload)

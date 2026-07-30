@@ -116,7 +116,7 @@ internal final class NetworkPeerSessionTransport : PeerSessionTransport {
         coordinator: NetworkPeerCoordinator<NetworkPeerConnection>,
         serviceType: ServiceType) -> NetworkPeerListening {
         do {
-            return try NetworkPeerListener(serviceType: serviceType, connectionHandler: { connection in
+            return try NetworkPeerListener(serviceType: serviceType, identity: peer.identity, connectionHandler: { connection in
                 connection.setDataHandler { [weak coordinator, weak connection] frame in
                     guard let connection = connection else { return }
                     coordinator?.receiveFrame(frame, from: connection)
@@ -175,23 +175,38 @@ internal final class NetworkPeerBrowserTransport : PeerBrowserTransport {
     internal func handleBrowserResultChange(_ change: NWBrowser.Result.Change) {
         switch change {
         case .added(let result):
-            foundEndpoint(result.endpoint)
+            foundResult(result)
         case .removed(let result):
-            lostEndpoint(result.endpoint)
+            lostResult(result)
         default: break
         }
     }
 
-    internal func foundEndpoint(_ endpoint: NWEndpoint) {
-        let identity = PeerIdentity(identifier: endpoint.debugDescription, displayName: endpoint.debugDescription)
+    internal func foundResult(_ result: NWBrowser.Result) {
+        guard let identity = identity(from: result) else { return }
+        foundEndpoint(result.endpoint, identity: identity)
+    }
+
+    internal func lostResult(_ result: NWBrowser.Result) {
+        guard let identity = identity(from: result) else { return }
+        lostEndpoint(result.endpoint, identity: identity)
+    }
+
+    internal func foundEndpoint(_ endpoint: NWEndpoint, identity: PeerIdentity) {
+        guard identity != session.peer.identity else { return }
         endpointsByIdentity[identity] = endpoint
         browserObserver.value = .foundPeer(Peer(identity: identity, status: .notConnected))
     }
 
-    internal func lostEndpoint(_ endpoint: NWEndpoint) {
-        let identity = PeerIdentity(identifier: endpoint.debugDescription, displayName: endpoint.debugDescription)
+    internal func lostEndpoint(_ endpoint: NWEndpoint, identity: PeerIdentity) {
+        guard identity != session.peer.identity else { return }
         endpointsByIdentity.removeValue(forKey: identity)
         browserObserver.value = .lostPeer(Peer(identity: identity, status: .notConnected))
+    }
+
+    fileprivate func identity(from result: NWBrowser.Result) -> PeerIdentity? {
+        guard case .bonjour(let txtRecord) = result.metadata else { return nil }
+        return PeerNetworkDiscoveryInfo(txtRecordDictionary: txtRecord.dictionary)?.identity
     }
 }
 

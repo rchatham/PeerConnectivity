@@ -23,6 +23,52 @@ internal struct PeerNetworkBonjourService : Equatable {
     }
 }
 
+internal struct PeerNetworkDiscoveryInfo : Equatable {
+
+    fileprivate static let identifierKey = "pc-id"
+    fileprivate static let displayNameKey = "pc-name"
+    fileprivate static let protocolVersionKey = "pc-v"
+    fileprivate static let maxIdentifierLength = 180
+    fileprivate static let maxDisplayNameLength = 255
+
+    internal let identity : PeerIdentity
+    internal let protocolVersion : Int
+
+    internal init(identity: PeerIdentity, protocolVersion: Int = PeerNetworkHandshake.currentProtocolVersion) {
+        let identifier = identity.identifier.count <= PeerNetworkDiscoveryInfo.maxIdentifierLength
+            ? identity.identifier
+            : String(identity.identifier.prefix(PeerNetworkDiscoveryInfo.maxIdentifierLength))
+        let displayName = identity.displayName.count <= PeerNetworkDiscoveryInfo.maxDisplayNameLength
+            ? identity.displayName
+            : String(identity.displayName.prefix(PeerNetworkDiscoveryInfo.maxDisplayNameLength))
+        self.identity = PeerIdentity(identifier: identifier, displayName: displayName)
+        self.protocolVersion = protocolVersion
+    }
+
+    internal var txtRecordDictionary : [String:String] {
+        return [
+            PeerNetworkDiscoveryInfo.identifierKey: identity.identifier,
+            PeerNetworkDiscoveryInfo.displayNameKey: identity.displayName,
+            PeerNetworkDiscoveryInfo.protocolVersionKey: String(protocolVersion),
+        ]
+    }
+
+    internal init?(txtRecordDictionary: [String:String]) {
+        guard let identifier = txtRecordDictionary[PeerNetworkDiscoveryInfo.identifierKey],
+            let displayName = txtRecordDictionary[PeerNetworkDiscoveryInfo.displayNameKey],
+            let protocolVersionText = txtRecordDictionary[PeerNetworkDiscoveryInfo.protocolVersionKey],
+            let protocolVersion = Int(protocolVersionText),
+            protocolVersion == PeerNetworkHandshake.currentProtocolVersion,
+            !identifier.isEmpty,
+            !displayName.isEmpty,
+            identifier.count <= PeerNetworkDiscoveryInfo.maxIdentifierLength,
+            displayName.count <= PeerNetworkDiscoveryInfo.maxDisplayNameLength else { return nil }
+
+        self.identity = PeerIdentity(identifier: identifier, displayName: displayName)
+        self.protocolVersion = protocolVersion
+    }
+}
+
 internal struct PeerNetworkHandshake : Codable, Equatable {
 
     internal static let currentProtocolVersion = 1

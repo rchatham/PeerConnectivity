@@ -81,8 +81,9 @@ final class NetworkPeerTransportAdapterTests : XCTestCase {
             browser: browser,
             browserObserver: observer)
         let endpoint = NWEndpoint.hostPort(host: .ipv4(IPv4Address("127.0.0.1")!), port: 12345)
+        let identity = PeerIdentity(identifier: "remote", displayName: "Remote")
 
-        transport.foundEndpoint(endpoint)
+        transport.foundEndpoint(endpoint, identity: identity)
         transport.startBrowsing()
         transport.stopBrowsing()
 
@@ -98,13 +99,14 @@ final class NetworkPeerTransportAdapterTests : XCTestCase {
             browser: MockNetworkPeerBrowser(),
             browserObserver: observer)
         let endpoint = NWEndpoint.hostPort(host: .ipv4(IPv4Address("127.0.0.1")!), port: 23456)
+        let identity = PeerIdentity(identifier: "remote", displayName: "Remote")
         var events : [PeerBrowserEvent] = []
         observer.addObserver { event in
             events.append(event)
         }
 
-        transport.foundEndpoint(endpoint)
-        transport.lostEndpoint(endpoint)
+        transport.foundEndpoint(endpoint, identity: identity)
+        transport.lostEndpoint(endpoint, identity: identity)
 
         XCTAssertEqual(events.count, 3)
         guard case .foundPeer(let foundPeer) = events[1] else {
@@ -116,7 +118,24 @@ final class NetworkPeerTransportAdapterTests : XCTestCase {
             return
         }
         XCTAssertEqual(foundPeer.identity, lostPeer.identity)
-        XCTAssertEqual(foundPeer.displayName, endpoint.debugDescription)
+        XCTAssertEqual(foundPeer.displayName, "Remote")
+    }
+
+    internal func testBrowserTransportIgnoresSelfEndpoint() {
+        guard #available(iOS 13.0, macOS 10.15, *) else { return }
+
+        let observer = Observable<PeerBrowserEvent>(.none)
+        let session = makeSessionTransport()
+        let transport = NetworkPeerBrowserTransport(session: session,
+            browser: MockNetworkPeerBrowser(),
+            browserObserver: observer)
+        let endpoint = NWEndpoint.hostPort(host: .ipv4(IPv4Address("127.0.0.1")!), port: 34567)
+        var events : [PeerBrowserEvent] = []
+        observer.addObserver { event in events.append(event) }
+
+        transport.foundEndpoint(endpoint, identity: session.peer.identity)
+
+        XCTAssertEqual(events.count, 1)
     }
 
     internal func testAdvertiserTransportStartStopIsSafeNoOpBecauseSessionOwnsListener() {
