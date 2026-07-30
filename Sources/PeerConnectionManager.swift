@@ -111,6 +111,9 @@ public class PeerConnectionManager {
      This is exposed for platform-specific helper packages such as `PeerConnectivityUI`.
      */
     public var multipeerSession : MCSession {
+        guard let session = session as? MultipeerSessionTransport else {
+            fatalError("PeerConnectivity: multipeerSession is only available for MultipeerConnectivity transports")
+        }
         return session.multipeerSession
     }
 
@@ -468,7 +471,7 @@ extension PeerConnectionManager {
                 case .didReceiveInvitationFromPeer(peer: let peer, withContext: let context, invitationHandler: let invite):
                     let invitationReceiver = {
                         [weak self] (accept: Bool) -> Void in
-                        guard let session = self?.session else { return }
+                        guard let session = self?.session as? MultipeerSessionTransport else { return }
                         invite(accept, session)
                     }
                     self?.observer.value = .receivedInvitation(peer: peer, withContext: context, invitationHandler: invitationReceiver)
@@ -566,7 +569,8 @@ extension PeerConnectionManager {
                     DispatchQueue.main.async {
                         switch event {
                         case .didReceiveInvitationFromPeer(peer: _, withContext: _, invitationHandler: let handler):
-                            handler(true, self.session)
+                            guard let session = self.session as? MultipeerSessionTransport else { return }
+                            handler(true, session)
                             self.advertiser.stopAdvertising()
                         default: break
                         }

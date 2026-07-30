@@ -11,11 +11,11 @@ import MultipeerConnectivity
 
 internal struct PeerBrowser : PeerBrowserTransport {
     
-    fileprivate let session : PeerSessionTransport
+    fileprivate let session : MultipeerSessionTransport
     fileprivate let browser : MCNearbyServiceBrowser
     fileprivate let eventProducer : PeerBrowserEventProducer
     
-    internal init(session: PeerSessionTransport, serviceType: ServiceType, eventProducer: PeerBrowserEventProducer) {
+    internal init(session: MultipeerSessionTransport, serviceType: ServiceType, eventProducer: PeerBrowserEventProducer) {
         self.session = session
         self.eventProducer = eventProducer
         browser = MCNearbyServiceBrowser(peer: session.peer.peerID, serviceType: serviceType)
