@@ -51,6 +51,25 @@ extension PeerMessage {
 }
 
 /**
+ Backend implementation used by `PeerConnectionManager`.
+
+ The default backend is `.multipeerConnectivity`, preserving existing runtime behavior.
+ The `.networkFramework` backend is an opt-in migration path and does not yet provide
+ full parity for MultipeerConnectivity browser UI, streams, or resource transfer.
+ */
+public enum PeerConnectionBackend : Equatable {
+    /**
+     Use Apple's MultipeerConnectivity framework. This is the default backend.
+     */
+    case multipeerConnectivity
+    /**
+     Use Apple's Network framework. This backend is experimental and currently supports
+     discovery, connection scaffolding, and reliable data transport only.
+     */
+    case networkFramework
+}
+
+/**
  Enum represeting available connection types. `.automatic`, `.inviteOnly`, `.custom`.
  */
 public enum PeerConnectionType : Int {
@@ -92,6 +111,14 @@ public class PeerConnectionManager {
      The connection type for the connection manager. (ex. `.automatic`, `.inviteOnly`, `.custom`)
      */
     public let connectionType : PeerConnectionType
+
+    /**
+     The backend implementation used by this connection manager.
+
+     The default value is `.multipeerConnectivity`. The `.networkFramework` backend is
+     opt-in and does not yet provide browser UI, stream, or resource transfer parity.
+     */
+    public let backend : PeerConnectionBackend
     
     /**
      Access to the local peer representing the user.
@@ -109,6 +136,9 @@ public class PeerConnectionManager {
      The MultipeerConnectivity session used by this connection manager.
 
      This is exposed for platform-specific helper packages such as `PeerConnectivityUI`.
+
+     - Warning: Only available when `backend == .multipeerConnectivity`. Accessing this
+     property with `.networkFramework` is a programmer error.
      */
     public var multipeerSession : MCSession {
         guard let session = session as? MultipeerSessionTransport else {
@@ -164,6 +194,7 @@ public class PeerConnectionManager {
      - parameter serviceType: The requested service type describing the channel on which peers are able to connect.
      - parameter connectionType: Takes a PeerConnectionType case determining the default behavior of the framework.
      - parameter displayName: The local user's display name to other peers.
+     - parameter backend: Backend implementation to use. Defaults to `.multipeerConnectivity`.
      
      - Returns: A fully initialized `PeerConnectionManager`.
      */
@@ -175,11 +206,13 @@ public class PeerConnectionManager {
                     #else
                     return ProcessInfo.processInfo.hostName
                     #endif
-                }()) {
+                }(),
+                backend: PeerConnectionBackend = .multipeerConnectivity) {
         self.init(serviceType: serviceType,
             connectionType: connectionType,
             displayName: displayName,
-            transportFactory: .multipeerConnectivity,
+            backend: backend,
+            transportFactory: PeerConnectionManager.transportFactory(for: backend),
             shouldRegisterSharedManager: true)
     }
 
@@ -190,6 +223,7 @@ public class PeerConnectionManager {
         self.init(serviceType: serviceType,
             connectionType: connectionType,
             displayName: displayName,
+            backend: .multipeerConnectivity,
             transportFactory: transportFactory,
             shouldRegisterSharedManager: false)
     }
@@ -197,9 +231,11 @@ public class PeerConnectionManager {
     fileprivate init(serviceType: ServiceType,
         connectionType: PeerConnectionType,
         displayName: String,
+        backend: PeerConnectionBackend,
         transportFactory: PeerConnectionTransportFactory,
         shouldRegisterSharedManager: Bool) {
         self.connectionType = connectionType
+        self.backend = backend
         self.serviceType = serviceType
         self.peer = Peer(displayName: displayName)
 
@@ -231,6 +267,29 @@ public class PeerConnectionManager {
         removeAllListeners()
         if let existing = PeerConnectionManager.shared[serviceType], existing === self {
             PeerConnectionManager.shared.removeValue(forKey: serviceType)
+        }
+    }
+
+    internal var isUsingMultipeerConnectivityTransport : Bool {
+        return session is MultipeerSessionTransport
+    }
+
+    internal var isUsingNetworkFrameworkTransport : Bool {
+        if #available(iOS 13.0, macOS 10.15, *) {
+            return session is NetworkPeerSessionTransport
+        }
+        return false
+    }
+
+    private static func transportFactory(for backend: PeerConnectionBackend) -> PeerConnectionTransportFactory {
+        switch backend {
+        case .multipeerConnectivity:
+            return .multipeerConnectivity
+        case .networkFramework:
+            if #available(iOS 13.0, macOS 10.15, *) {
+                return .networkFramework
+            }
+            fatalError("PeerConnectivity: Network framework backend requires iOS 13.0 or macOS 10.15")
         }
     }
 }

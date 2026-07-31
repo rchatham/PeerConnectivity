@@ -48,6 +48,7 @@
 		30SYNCBRIDGE2607212 /* SyncObservableBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30SYNCBRIDGE2607211 /* SyncObservableBridge.swift */; };
 		30ASYNCTEST26072102 /* AsyncObservableTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30ASYNCTEST26072101 /* AsyncObservableTests.swift */; };
 		30NETADAPTTEST2607302 /* NetworkPeerTransportAdapterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30NETADAPTTEST2607301 /* NetworkPeerTransportAdapterTests.swift */; };
+		30BACKENDTEST2607302 /* PeerConnectionBackendTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30BACKENDTEST2607301 /* PeerConnectionBackendTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -84,6 +85,7 @@
 		30SYNCBRIDGE2607211 /* SyncObservableBridge.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = SyncObservableBridge.swift; path = Sources/SyncObservableBridge.swift; sourceTree = "<group>"; };
 		30ASYNCTEST26072101 /* AsyncObservableTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AsyncObservableTests.swift; sourceTree = "<group>"; };
 		30NETADAPTTEST2607301 /* NetworkPeerTransportAdapterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkPeerTransportAdapterTests.swift; sourceTree = "<group>"; };
+		30BACKENDTEST2607301 /* PeerConnectionBackendTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeerConnectionBackendTests.swift; sourceTree = "<group>"; };
 		3080C7DB1D80A1D600AF9EA3 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = Sources/Info.plist; sourceTree = "<group>"; };
 		3080C7DC1D80A1D600AF9EA3 /* MultiObservable.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = MultiObservable.swift; path = Sources/MultiObservable.swift; sourceTree = "<group>"; };
 		3080C7DD1D80A1D600AF9EA3 /* Observable.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = Observable.swift; path = Sources/Observable.swift; sourceTree = "<group>"; };
@@ -194,6 +196,7 @@
 				30OBSTEST2607210001 /* ObservableThreadSafetyTests.swift */,
 				30ASYNCTEST26072101 /* AsyncObservableTests.swift */,
 				30NETADAPTTEST2607301 /* NetworkPeerTransportAdapterTests.swift */,
+				30BACKENDTEST2607301 /* PeerConnectionBackendTests.swift */,
 				30PEERMSG2602020000000001 /* PeerMessageTests.swift */,
 				3086CD331D09FB9900E269A3 /* Info.plist */,
 			);
@@ -358,6 +361,7 @@
 				30OBSTEST2607210002 /* ObservableThreadSafetyTests.swift in Sources */,
 				30ASYNCTEST26072102 /* AsyncObservableTests.swift in Sources */,
 				30NETADAPTTEST2607302 /* NetworkPeerTransportAdapterTests.swift in Sources */,
+				30BACKENDTEST2607302 /* PeerConnectionBackendTests.swift in Sources */,
 				30PEERMSG2602020000000002 /* PeerMessageTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
