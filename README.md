@@ -42,6 +42,12 @@ CocoaPods and Carthage are no longer the recommended distribution paths for new 
 
 The staged migration toward Apple's Network framework is tracked in [NetworkFrameworkMigrationPlan.md](NetworkFrameworkMigrationPlan.md), with follow-up PR sequencing in [NetworkMigrationPRPlan.md](NetworkMigrationPRPlan.md).
 
+## Experimental Network framework backend
+
+`PeerConnectionManager` can be explicitly initialized with `backend: .networkFramework` on supported OS versions. This backend is still a migration/testing path: it is currently unencrypted and unauthenticated, lacks stream/resource/UI parity, and must not be used for sensitive data until a future hardening pass adds a production trust model.
+
+The default backend remains `.multipeerConnectivity`.
+
 
 ## Creating/Stopping/Starting
 

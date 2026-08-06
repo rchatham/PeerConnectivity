@@ -102,9 +102,10 @@ internal final class NetworkPeerConnection : NetworkPeerConnectionCancellable {
     }
 
     internal static func parameters() -> NWParameters {
-        // Network transport remains internal scaffolding; before exposing it publicly,
-        // provide app-configurable TLS identity or PSK verification for authenticated sessions.
-        let parameters = NWParameters(tls: NWProtocolTLS.Options(), tcp: NWProtocolTCP.Options())
+        // Network transport remains experimental opt-in scaffolding; a later hardening
+        // pass must provide app-configurable TLS identity or PSK verification before
+        // recommending this backend for production sessions.
+        let parameters = NWParameters.tcp
         parameters.includePeerToPeer = true
         return parameters
     }
@@ -179,7 +180,7 @@ internal final class NetworkPeerBrowser : NetworkPeerBrowsing {
         resultHandler: ResultHandler? = nil,
         stateHandler: StateHandler? = nil) {
         let service = PeerNetworkBonjourService(serviceType: serviceType)
-        let descriptor = NWBrowser.Descriptor.bonjour(type: service.bonjourType, domain: nil)
+        let descriptor = NWBrowser.Descriptor.bonjourWithTXTRecord(type: service.bonjourType, domain: nil)
         browser = NWBrowser(for: descriptor, using: NetworkPeerConnection.parameters())
         self.queue = queue
         self.resultHandler = resultHandler

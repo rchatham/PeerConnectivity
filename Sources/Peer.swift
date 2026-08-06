@@ -73,6 +73,12 @@ public struct Peer {
         identity = PeerIdentity(peerID: peerID)
         status = .currentUser
     }
+
+    internal init(networkDisplayName displayName: String) {
+        peerID = MCPeerID(displayName: displayName)
+        identity = PeerIdentity(identifier: UUID().uuidString, displayName: displayName)
+        status = .currentUser
+    }
 }
 
 extension PeerIdentity {

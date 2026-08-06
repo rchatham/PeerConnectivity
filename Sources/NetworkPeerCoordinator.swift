@@ -52,14 +52,16 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
     }
 
     internal func receiveFrame(_ frame: PeerNetworkFrame, from connection: Connection) {
-        queue.sync {
+        let event : PeerSessionEvent? = queue.sync {
             switch frame.kind {
             case .handshake:
-                receiveHandshake(frame.payload, from: connection)
+                return receiveHandshake(frame.payload, from: connection)
             case .data:
-                receiveData(frame.payload, from: connection)
+                return receiveData(frame.payload, from: connection)
             }
         }
+        guard let event = event else { return }
+        sessionObserver.value = event
     }
 
     internal func sendData(_ data: Data, toPeers peers: [Peer] = []) {
@@ -69,14 +71,16 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
     }
 
     internal func removeConnection(_ connection: Connection) {
-        queue.sync {
+        let event : PeerSessionEvent? = queue.sync {
             let identifier = ObjectIdentifier(connection)
             pendingConnections.removeValue(forKey: identifier)
-            guard let identity = connectionIdentities.removeValue(forKey: identifier) else { return }
-            guard registry.connection(for: identity) === connection else { return }
+            guard let identity = connectionIdentities.removeValue(forKey: identifier) else { return nil }
+            guard registry.connection(for: identity) === connection else { return nil }
             registry.remove(identity: identity)
-            sessionObserver.value = .devicesChanged(peer: Peer(identity: identity, status: .notConnected))
+            return .devicesChanged(peer: Peer(identity: identity, status: .notConnected))
         }
+        guard let event = event else { return }
+        sessionObserver.value = event
     }
 
     internal func cancelAllConnections() {
@@ -89,32 +93,36 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
     }
 
     internal func foundPeer(identity: PeerIdentity) {
-        queue.sync {
-            guard identity != localPeer.identity else { return }
+        let event : PeerBrowserEvent? = queue.sync {
+            guard identity != localPeer.identity else { return nil }
             let peer = Peer(identity: identity, status: .notConnected)
             discoveredPeers[identity] = peer
-            browserObserver.value = .foundPeer(peer)
+            return .foundPeer(peer)
         }
+        guard let event = event else { return }
+        browserObserver.value = event
     }
 
     internal func lostPeer(identity: PeerIdentity) {
-        queue.sync {
-            guard identity != localPeer.identity else { return }
+        let event : PeerBrowserEvent? = queue.sync {
+            guard identity != localPeer.identity else { return nil }
             let peer = discoveredPeers.removeValue(forKey: identity) ?? Peer(identity: identity, status: .notConnected)
-            browserObserver.value = .lostPeer(peer)
+            return .lostPeer(peer)
         }
+        guard let event = event else { return }
+        browserObserver.value = event
     }
 
-    fileprivate func receiveHandshake(_ data: Data, from connection: Connection) {
+    fileprivate func receiveHandshake(_ data: Data, from connection: Connection) -> PeerSessionEvent? {
         guard let handshake = try? JSONDecoder().decode(PeerNetworkHandshake.self, from: data),
             handshake.protocolVersion == PeerNetworkHandshake.currentProtocolVersion else {
             rejectHandshake(from: connection)
-            return
+            return nil
         }
 
         guard handshake.identity != localPeer.identity else {
             rejectHandshake(from: connection)
-            return
+            return nil
         }
 
         let identifier = ObjectIdentifier(connection)
@@ -122,12 +130,12 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
         let direction = pending?.direction ?? NetworkPeerConnectionDirection.inbound
         let wasConnected = registry.connection(for: handshake.identity) != nil
         let isRegistered = registry.register(connection, for: handshake.identity, direction: direction)
-        guard isRegistered else { return }
+        guard isRegistered else { return nil }
 
         removeConnectionIdentity(for: handshake.identity)
         connectionIdentities[identifier] = handshake.identity
-        guard !wasConnected else { return }
-        sessionObserver.value = .devicesChanged(peer: Peer(identity: handshake.identity, status: .connected))
+        guard !wasConnected else { return nil }
+        return .devicesChanged(peer: Peer(identity: handshake.identity, status: .connected))
     }
 
     fileprivate func rejectHandshake(from connection: Connection) {
@@ -139,9 +147,9 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
         connectionIdentities = connectionIdentities.filter { $0.value != identity }
     }
 
-    fileprivate func receiveData(_ data: Data, from connection: Connection) {
-        guard let identity = connectionIdentities[ObjectIdentifier(connection)] else { return }
-        sessionObserver.value = .didReceiveData(peer: Peer(identity: identity, status: .connected), data: data)
+    fileprivate func receiveData(_ data: Data, from connection: Connection) -> PeerSessionEvent? {
+        guard let identity = connectionIdentities[ObjectIdentifier(connection)] else { return nil }
+        return .didReceiveData(peer: Peer(identity: identity, status: .connected), data: data)
     }
 
     fileprivate func sendHandshake(on connection: Connection) {

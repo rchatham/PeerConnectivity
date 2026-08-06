@@ -56,6 +56,8 @@ extension PeerMessage {
  The default backend is `.multipeerConnectivity`, preserving existing runtime behavior.
  The `.networkFramework` backend is an opt-in migration path and does not yet provide
  full parity for MultipeerConnectivity browser UI, streams, or resource transfer.
+ It is currently unencrypted and unauthenticated, and must not be used for sensitive
+ data until a future hardening pass adds a production trust model.
  */
 public enum PeerConnectionBackend : Equatable {
     /**
@@ -64,7 +66,8 @@ public enum PeerConnectionBackend : Equatable {
     case multipeerConnectivity
     /**
      Use Apple's Network framework. This backend is experimental and currently supports
-     discovery, connection scaffolding, and reliable data transport only.
+     discovery, connection scaffolding, and reliable data transport only. It is currently
+     unencrypted and unauthenticated; do not use it for sensitive data.
      */
     case networkFramework
 }
@@ -195,6 +198,7 @@ public class PeerConnectionManager {
      - parameter connectionType: Takes a PeerConnectionType case determining the default behavior of the framework.
      - parameter displayName: The local user's display name to other peers.
      - parameter backend: Backend implementation to use. Defaults to `.multipeerConnectivity`.
+       The `.networkFramework` backend is experimental, unencrypted, and unauthenticated.
      
      - Returns: A fully initialized `PeerConnectionManager`.
      */
@@ -219,11 +223,12 @@ public class PeerConnectionManager {
     internal convenience init(serviceType: ServiceType,
         connectionType: PeerConnectionType = .automatic,
         displayName: String,
+        backend: PeerConnectionBackend = .multipeerConnectivity,
         transportFactory: PeerConnectionTransportFactory) {
         self.init(serviceType: serviceType,
             connectionType: connectionType,
             displayName: displayName,
-            backend: .multipeerConnectivity,
+            backend: backend,
             transportFactory: transportFactory,
             shouldRegisterSharedManager: false)
     }
@@ -237,7 +242,12 @@ public class PeerConnectionManager {
         self.connectionType = connectionType
         self.backend = backend
         self.serviceType = serviceType
-        self.peer = Peer(displayName: displayName)
+        switch backend {
+        case .multipeerConnectivity:
+            self.peer = Peer(displayName: displayName)
+        case .networkFramework:
+            self.peer = Peer(networkDisplayName: displayName)
+        }
 
         session = transportFactory.makeSession(peer, sessionObserver)
         browser = transportFactory.makeBrowser(session, serviceType, browserObserver)

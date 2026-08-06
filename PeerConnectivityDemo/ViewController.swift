@@ -12,13 +12,19 @@ import PeerConnectivity
 class ViewController: UIViewController {
     
     fileprivate lazy var pcm : PeerConnectionManager = {
-        var pcm = PeerConnectionManager(serviceType: "local")
+        let arguments = ProcessInfo.processInfo.arguments
+        let displayName = ViewController.argumentValue(for: "PCDisplayName") ?? ProcessInfo.processInfo.hostName
+        let backend : PeerConnectionBackend = arguments.contains("PCNetworkBackend") ? .networkFramework : .multipeerConnectivity
+        var pcm = PeerConnectionManager(serviceType: "local", displayName: displayName, backend: backend)
         pcm.listenOn({ [weak self] (event) in
             
             switch event {
+            case .foundPeer(let peer):
+                print("PeerConnectivityDemo found peer: \(peer.displayName)")
+
             case .devicesChanged(let peer, let connectedPeers):
                 
-                _ = connectedPeers.map { print($0.displayName) }
+                print("PeerConnectivityDemo devices changed: \(peer.displayName) \(peer.status) connected: \(connectedPeers.map { $0.displayName })")
                 
                 defer {
                     if let origin = self?.userStatusLabel?.frame.origin,
@@ -36,6 +42,8 @@ class ViewController: UIViewController {
                     self?.userStatusLabel?.text = connectedPeers.map { $0.displayName }.reduce("Connected to:") { $0 + "\n" + $1 }
                 }
                 
+            case .started:
+                print("PeerConnectivityDemo started networking")
             default: break
             }
             
@@ -68,11 +76,21 @@ class ViewController: UIViewController {
         let frame = userStatusLabel.frame
         userStatusLabel.frame = frame.offsetBy(dx: 0, dy: frame.size.height*2)
         view.addSubview(userStatusLabel)
+
+        if ProcessInfo.processInfo.arguments.contains("PCAutoStart") {
+            tappedConnectionButton(sender: connectionButton)
+        }
     }
 
     override func didReceiveMemoryWarning() {
         super.didReceiveMemoryWarning()
         // Dispose of any resources that can be recreated.
+    }
+
+    private static func argumentValue(for key: String) -> String? {
+        let arguments = ProcessInfo.processInfo.arguments
+        guard let index = arguments.firstIndex(of: key), arguments.indices.contains(index + 1) else { return nil }
+        return arguments[index + 1]
     }
 
     @objc internal func tappedConnectionButton(sender: UIButton) {
