@@ -310,14 +310,19 @@ class ViewController: UIViewController {
     }
 
     @objc internal func tappedBrowserButton(sender: UIButton) {
+        if !isConnecting {
+            pcm.startAdvertisingOnly()
+            isConnecting = true
+            updateInterfaceForCurrentMode()
+            appendLog("Started advertising for filtered browser")
+        }
+
         guard let browserViewController = pcm.browserViewController({ [weak self] event in
             switch event {
             case .didFinish:
                 self?.appendLog("Browser finished")
-                self?.dismiss(animated: true)
             case .wasCancelled:
                 self?.appendLog("Browser cancelled")
-                self?.dismiss(animated: true)
             default: break
             }
         }, peerFilter: { [weak self] peer, discoveryInfo in
@@ -326,6 +331,10 @@ class ViewController: UIViewController {
             return allowed
         }) else {
             appendLog("Browser is only available in Filtered Browser mode")
+            return
+        }
+        guard presentedViewController == nil else {
+            appendLog("Browser is already open")
             return
         }
         present(browserViewController, animated: true)
