@@ -30,7 +30,7 @@ internal final class NetworkPeerConnection : NetworkPeerConnectionCancellable {
 
     fileprivate let connection : NWConnection
     fileprivate let queue : DispatchQueue
-    fileprivate let stateHandler : StateHandler?
+    fileprivate var stateHandler : StateHandler?
     fileprivate var dataHandler : DataHandler?
     fileprivate var frameDecoder = PeerNetworkFrameDecoder()
 
@@ -57,6 +57,10 @@ internal final class NetworkPeerConnection : NetworkPeerConnectionCancellable {
 
     internal func setDataHandler(_ dataHandler: DataHandler?) {
         self.dataHandler = dataHandler
+    }
+
+    internal func setStateHandler(_ stateHandler: StateHandler?) {
+        self.stateHandler = stateHandler
     }
 
     internal func start() {

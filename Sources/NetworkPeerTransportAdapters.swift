@@ -96,19 +96,13 @@ internal final class NetworkPeerSessionTransport : PeerSessionTransport {
     }
 
     internal func addInboundConnection(_ connection: NetworkPeerConnection) {
-        connection.setDataHandler { [weak self, weak connection] frame in
-            guard let connection = connection else { return }
-            self?.coordinator.receiveFrame(frame, from: connection)
-        }
+        configureConnection(connection)
         coordinator.addPendingConnection(connection, direction: .inbound)
     }
 
     internal func connect(to endpoint: NWEndpoint) {
         let connection = NetworkPeerConnection(endpoint: endpoint, security: security)
-        connection.setDataHandler { [weak self, weak connection] frame in
-            guard let connection = connection else { return }
-            self?.coordinator.receiveFrame(frame, from: connection)
-        }
+        configureConnection(connection)
         coordinator.addPendingConnection(connection, direction: .outbound)
         connection.start()
     }
@@ -119,6 +113,21 @@ internal final class NetworkPeerSessionTransport : PeerSessionTransport {
 
     internal func lostPeer(identity: PeerIdentity) {
         coordinator.lostPeer(identity: identity)
+    }
+
+    fileprivate func configureConnection(_ connection: NetworkPeerConnection) {
+        connection.setDataHandler { [weak self, weak connection] frame in
+            guard let connection = connection else { return }
+            self?.coordinator.receiveFrame(frame, from: connection)
+        }
+        connection.setStateHandler { [weak self, weak connection] state in
+            guard let connection = connection else { return }
+            switch state {
+            case .failed, .cancelled:
+                self?.coordinator.removeConnection(connection)
+            default: break
+            }
+        }
     }
 
     fileprivate static func makeListener(peer: Peer,
@@ -133,6 +142,14 @@ internal final class NetworkPeerSessionTransport : PeerSessionTransport {
                 connection.setDataHandler { [weak coordinator, weak connection] frame in
                     guard let connection = connection else { return }
                     coordinator?.receiveFrame(frame, from: connection)
+                }
+                connection.setStateHandler { [weak coordinator, weak connection] state in
+                    guard let connection = connection else { return }
+                    switch state {
+                    case .failed, .cancelled:
+                        coordinator?.removeConnection(connection)
+                    default: break
+                    }
                 }
                 coordinator.addPendingConnection(connection, direction: .inbound)
             })

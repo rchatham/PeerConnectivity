@@ -138,6 +138,56 @@ final class NetworkPeerCoordinatorTests : XCTestCase {
         XCTAssertTrue(harness.coordinator.connectedPeers.isEmpty)
     }
 
+    internal func testHandshakeTimeoutCancelsPendingConnection() {
+        let harness = makeHarness(policy: NetworkPeerConnectionPolicy(handshakeTimeout: 0.01))
+        let connection = MockCoordinatorConnection()
+
+        harness.coordinator.addPendingConnection(connection, direction: .outbound)
+        RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+
+        XCTAssertEqual(connection.cancelCallCount, 1)
+        XCTAssertTrue(harness.coordinator.connectedPeers.isEmpty)
+    }
+
+    internal func testPendingConnectionLimitCancelsExcessConnection() {
+        let harness = makeHarness(policy: NetworkPeerConnectionPolicy(maxPendingConnections: 1))
+        let first = MockCoordinatorConnection()
+        let second = MockCoordinatorConnection()
+
+        harness.coordinator.addPendingConnection(first, direction: .outbound)
+        harness.coordinator.addPendingConnection(second, direction: .outbound)
+
+        XCTAssertEqual(first.cancelCallCount, 0)
+        XCTAssertEqual(second.cancelCallCount, 1)
+    }
+
+    internal func testConnectedPeerLimitCancelsExcessConnection() {
+        let harness = makeHarness(policy: NetworkPeerConnectionPolicy(maxConnectedPeers: 1))
+        let first = MockCoordinatorConnection()
+        let second = MockCoordinatorConnection()
+
+        harness.coordinator.addPendingConnection(first, direction: .outbound)
+        harness.coordinator.receiveFrame(handshakeFrame(identity("first")), from: first)
+        harness.coordinator.addPendingConnection(second, direction: .outbound)
+
+        XCTAssertEqual(second.cancelCallCount, 1)
+        XCTAssertEqual(harness.coordinator.connectedPeers, [Peer(identity: identity("first"), status: .connected)])
+    }
+
+    internal func testConnectedPeerLimitRejectsHandshakeWhenLimitReached() {
+        let harness = makeHarness(policy: NetworkPeerConnectionPolicy(maxPendingConnections: 2, maxConnectedPeers: 1))
+        let first = MockCoordinatorConnection()
+        let second = MockCoordinatorConnection()
+
+        harness.coordinator.addPendingConnection(first, direction: .outbound)
+        harness.coordinator.addPendingConnection(second, direction: .outbound)
+        harness.coordinator.receiveFrame(handshakeFrame(identity("first")), from: first)
+        harness.coordinator.receiveFrame(handshakeFrame(identity("second")), from: second)
+
+        XCTAssertEqual(second.cancelCallCount, 1)
+        XCTAssertEqual(harness.coordinator.connectedPeers, [Peer(identity: identity("first"), status: .connected)])
+    }
+
     internal func testInvalidHandshakeCancelsPendingConnection() {
         let harness = makeHarness()
         let connection = MockCoordinatorConnection()
@@ -215,8 +265,9 @@ final class NetworkPeerCoordinatorTests : XCTestCase {
         XCTAssertEqual(lostPeer, Peer(identity: remoteIdentity, status: .notConnected))
     }
 
-    private func makeHarness(localIdentifier: String = "local") -> Harness {
-        return Harness(localPeer: Peer(identity: identity(localIdentifier), status: .currentUser))
+    private func makeHarness(localIdentifier: String = "local",
+        policy: NetworkPeerConnectionPolicy = NetworkPeerConnectionPolicy()) -> Harness {
+        return Harness(localPeer: Peer(identity: identity(localIdentifier), status: .currentUser), policy: policy)
     }
 
     private func handshakeFrame(_ identity: PeerIdentity,
@@ -266,7 +317,7 @@ private final class Harness {
     internal private(set) var browserEvents : [PeerBrowserEvent] = []
     internal private(set) var advertiserEvents : [PeerAdvertiserEvent] = []
 
-    internal init(localPeer: Peer) {
+    internal init(localPeer: Peer, policy: NetworkPeerConnectionPolicy = NetworkPeerConnectionPolicy()) {
         let sessionObserver = Observable<PeerSessionEvent>(.none)
         let browserObserver = Observable<PeerBrowserEvent>(.none)
         let advertiserObserver = Observable<PeerAdvertiserEvent>(.none)
@@ -275,7 +326,8 @@ private final class Harness {
             localPeer: localPeer,
             sessionObserver: sessionObserver,
             browserObserver: browserObserver,
-            advertiserObserver: advertiserObserver
+            advertiserObserver: advertiserObserver,
+            policy: policy
         )
 
         sessionObserver.addObserver { [weak self] in self?.sessionEvents.append($0) }
