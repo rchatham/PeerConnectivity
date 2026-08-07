@@ -21,6 +21,13 @@ private struct LargeLoopbackMessage : PeerMessage, Equatable {
 
 final class NetworkPeerLoopbackTests : XCTestCase {
 
+    override func setUpWithError() throws {
+        try super.setUpWithError()
+        guard ProcessInfo.processInfo.environment["CI"] == "true",
+            ProcessInfo.processInfo.environment["PEERCONNECTIVITY_RUN_NETWORK_E2E"] != "1" else { return }
+        throw XCTSkip("Network framework loopback tests run in the focused CI step")
+    }
+
     internal func testNetworkBackendDiscoversConnectsAndExchangesMessage() {
         guard #available(iOS 13.0, macOS 10.15, *) else { return }
 

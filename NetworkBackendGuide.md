@@ -175,6 +175,8 @@ Run the focused Network tests with:
 swift test --filter NetworkPeerLoopbackTests
 ```
 
+In CI, the full Swift/Xcode test steps skip `NetworkPeerLoopbackTests` by default and then run them in focused retryable steps with `PEERCONNECTIVITY_RUN_NETWORK_E2E=1`. This keeps real Bonjour/Network.framework failures isolated from unit-test failures while still requiring the Network E2E checks to pass.
+
 Full local verification for the migration stack:
 
 ```sh
