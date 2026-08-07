@@ -325,10 +325,19 @@ public class PeerConnectionManager {
                                                  withContext: context,
                                                  invitationHandler: completeInvitation)
         case .acceptAll:
+            observer.value = .receivedInvitation(peer: peer,
+                                                 withContext: context,
+                                                 invitationHandler: { _ in })
             completeInvitation(true)
         case .rejectAll:
+            observer.value = .receivedInvitation(peer: peer,
+                                                 withContext: context,
+                                                 invitationHandler: { _ in })
             completeInvitation(false)
         case .custom(let invitationPolicy):
+            observer.value = .receivedInvitation(peer: peer,
+                                                 withContext: context,
+                                                 invitationHandler: { _ in })
             completeInvitation(invitationPolicy(peer, context))
         }
     }

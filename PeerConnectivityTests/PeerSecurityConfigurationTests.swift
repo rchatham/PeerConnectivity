@@ -182,6 +182,31 @@ class PeerSecurityConfigurationTests: XCTestCase {
         manager.stop()
     }
 
+    func testAutomaticAcceptAllInvitationPolicyStillEmitsCompatibilityEvent() {
+        let manager = makeManager(invitationPolicy: .acceptAll)
+        var result: Bool?
+        var receivedPeer: Peer?
+        let expectedContext = "automatic".data(using: .utf8)
+
+        manager.listenOn({ event in
+            switch event {
+            case .receivedInvitation(let peer, let context, let invitationHandler):
+                receivedPeer = peer
+                XCTAssertEqual(context, expectedContext)
+                invitationHandler(false)
+            default: break
+            }
+        }, performListenerInBackground: true, withKey: "automatic-invitation-compatibility")
+
+        manager.handleInvitation(peer: manager.peer, context: expectedContext) { accepted, _ in
+            result = accepted
+        }
+
+        XCTAssertEqual(result, true)
+        XCTAssertEqual(receivedPeer, manager.peer)
+        manager.stop()
+    }
+
     func testCustomInvitationPolicyReceivesPeerAndContextAndControlsAcceptance() {
         var receivedPeer: Peer?
         var receivedContext: Data?

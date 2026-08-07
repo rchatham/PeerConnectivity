@@ -95,6 +95,10 @@ public enum PeerConnectionEvent {
     case nearbyPeersChanged(foundPeers: [Peer])
     /**
      Received invitation from `Peer` with optional context data and invitation handler.
+
+     In `.automatic` mode, invitation decisions are handled by `PeerInvitationPolicy`.
+     For non-manual automatic policies, this event is emitted for observation/API
+     compatibility and the supplied handler does not affect the invitation decision.
      */
     case receivedInvitation(peer: Peer, withContext: Data?, invitationHandler: (Bool)->Void)
 }
