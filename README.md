@@ -44,9 +44,9 @@ The staged migration toward Apple's Network framework is tracked in [NetworkFram
 
 ## Experimental Network framework backend
 
-`PeerConnectionManager` can be explicitly initialized with `backend: .networkFramework` on supported OS versions. This backend is still a migration/testing path and lacks stream/resource/UI parity.
+`PeerConnectionManager` can be explicitly initialized with `backend: .networkFramework` on supported OS versions. The default backend remains `.multipeerConnectivity`.
 
-Use a shared secret to require TLS-PSK authenticated encryption between Network-backed peers:
+Use `.preSharedKey` with high-entropy app-managed key material for authenticated encrypted Network sessions:
 
 ```swift
 let secret = Data("replace-with-an-app-managed-secret".utf8)
@@ -57,41 +57,7 @@ let pcm = PeerConnectionManager(serviceType: "local",
 
 The default `networkSecurity: .unauthenticated` mode is plaintext TCP, remains available only for source compatibility and diagnostics, and must not be used for sensitive data.
 
-The default backend remains `.multipeerConnectivity`.
-
-### Network backend support matrix
-
-| API / behavior | MultipeerConnectivity | Network framework |
-|---|---:|---:|
-| Default backend | ✅ | ❌ opt-in only |
-| `.automatic` discovery/connect | ✅ | ✅ |
-| `.custom` manual `invitePeer` connection | ✅ | ✅ |
-| `.inviteOnly` advertiser assistant / browser UI | ✅ | ❌ use app UI with `.foundPeer` / `.lostPeer` |
-| `sendData` | ✅ | ✅ |
-| `sendMessage` / `observeMessages` | ✅ | ✅ |
-| `sendDataStream` | ✅ | ❌ throws unsupported-operation error |
-| `sendResourceAtURL` | ✅ | ❌ reports unsupported-operation error |
-| `multipeerSession` | ✅ | ❌ programmer error |
-| TLS-PSK transport security | N/A | ✅ with `.preSharedKey` |
-
-For Network-backed peer selection, configure `.preSharedKey` for authenticated encrypted sessions, then observe discovered peers and call `invitePeer` from app-owned UI:
-
-```swift
-pcm.listenOn({ event in
-    switch event {
-    case .foundPeer(let peer):
-        pcm.invitePeer(peer)
-    case .lostPeer(let peer):
-        break
-    default:
-        break
-    }
-}, withKey: "network-browser")
-```
-
-
-`networkSecurity` is used only by `.networkFramework`; MultipeerConnectivity keeps its own `MCSession` security behavior.
-
+See [NetworkBackendGuide.md](NetworkBackendGuide.md) for the full migration guide, security model, support matrix, demo launch arguments, validation coverage, and known limitations.
 
 ## Creating/Stopping/Starting
 
