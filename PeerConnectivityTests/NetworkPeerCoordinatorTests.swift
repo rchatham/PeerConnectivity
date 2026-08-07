@@ -93,10 +93,24 @@ final class NetworkPeerCoordinatorTests : XCTestCase {
         harness.coordinator.receiveFrame(handshakeFrame(remoteIdentity), from: connection)
         harness.coordinator.removeConnection(connection)
 
+        XCTAssertEqual(connection.cancelCallCount, 1)
         XCTAssertTrue(harness.coordinator.connectedPeers.isEmpty)
         let peer = try XCTUnwrap(devicesChangedPeer(from: harness.sessionEvents.last))
         XCTAssertEqual(peer, Peer(identity: remoteIdentity, status: .notConnected))
         XCTAssertEqual(peer.status, .notConnected)
+    }
+
+    internal func testRemovePendingConnectionCancelsWithoutSessionEvent() {
+        let harness = makeHarness()
+        let connection = MockCoordinatorConnection()
+
+        harness.coordinator.addPendingConnection(connection, direction: .outbound)
+        let sessionEventCount = harness.sessionEvents.count
+        harness.coordinator.removeConnection(connection)
+
+        XCTAssertEqual(connection.cancelCallCount, 1)
+        XCTAssertEqual(harness.sessionEvents.count, sessionEventCount)
+        XCTAssertTrue(harness.coordinator.connectedPeers.isEmpty)
     }
 
     internal func testRemovingDuplicateLoserDoesNotRemoveWinningConnection() throws {

@@ -106,14 +106,20 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
     }
 
     internal func removeConnection(_ connection: Connection) {
+        var connectionToCancel : Connection?
         let event : PeerSessionEvent? = queue.sync {
             let identifier = ObjectIdentifier(connection)
-            pendingConnections.removeValue(forKey: identifier)?.timeout.cancel()
+            if let pending = pendingConnections.removeValue(forKey: identifier) {
+                pending.timeout.cancel()
+                connectionToCancel = pending.connection
+            }
             guard let identity = connectionIdentities.removeValue(forKey: identifier) else { return nil }
             guard registry.connection(for: identity) === connection else { return nil }
             registry.remove(identity: identity)
+            connectionToCancel = connection
             return .devicesChanged(peer: Peer(identity: identity, status: .notConnected))
         }
+        connectionToCancel?.cancel()
         guard let event = event else { return }
         sessionObserver.value = event
     }
