@@ -97,19 +97,12 @@ let filteredBrowserViewController = pcm.browserViewController({ _ in }, peerFilt
 })
 ```
 
-## Security Demo App
+## Demo App
 
-The demo app includes selectable modes for exercising the security APIs:
-
-- **Open**: backward-compatible automatic networking with optional encryption.
-- **Encrypted**: required encryption with a custom certificate policy that logs and accepts.
-- **Manual Invite**: automatic discovery with manual incoming invitation approval.
-- **Filtered Browser**: invite-only browsing with a `peerFilter` requiring `discoveryInfo["protocol"] == "2"`.
-- **Reject Cert**: rejects all peer certificates to verify failed session establishment.
-
-Run `PeerConnectivityDemo.xcodeproj` on two simulators or devices, pick the same mode on both,
-and tap **Start networking**. In **Filtered Browser** mode, tap **Open Filtered Browser** after
-starting to test discovery metadata and peer filtering.
+Run `PeerConnectivityDemo.xcodeproj` on two simulators or devices and tap **Start** on both
+to exercise advertising, browsing, connection state, typed messages, raw data, resources,
+and event logging. Discovery metadata events are logged as `peer.found.metadata` when nearby
+peers advertise Bonjour TXT record values.
 
 ## API Compatibility Notes
 
