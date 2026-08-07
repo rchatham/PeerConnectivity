@@ -128,6 +128,10 @@ class PeerConnectivityTests: XCTestCase {
         XCTAssertFalse(PeerConnectionManager.isValidServiceType("Chat"))
         XCTAssertFalse(PeerConnectionManager.isValidServiceType("chat_room"))
         XCTAssertFalse(PeerConnectionManager.isValidServiceType("chat.room"))
+        XCTAssertFalse(PeerConnectionManager.isValidServiceType("-chat"))
+        XCTAssertFalse(PeerConnectionManager.isValidServiceType("chat-"))
+        XCTAssertFalse(PeerConnectionManager.isValidServiceType("ab--c"))
+        XCTAssertFalse(PeerConnectionManager.isValidServiceType("123"))
     }
 
     func testDisplayNameValidationUsesUtf8ByteLength() {

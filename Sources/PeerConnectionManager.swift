@@ -99,25 +99,31 @@ public class PeerConnectionManager {
     /**
      Returns whether a service type satisfies MultipeerConnectivity's documented constraints.
 
-     Valid service types are 1 to 15 characters and contain only ASCII lowercase letters,
-     numbers, and hyphens. Invalid values may cause MultipeerConnectivity objects to fail
-     during initialization.
+     Valid service types are 1 to 15 characters, contain only ASCII lowercase letters,
+     numbers, and hyphens, include at least one letter, do not begin or end with a hyphen,
+     and do not contain consecutive hyphens. Invalid values may cause
+     MultipeerConnectivity objects to fail during initialization.
 
      - parameter serviceType: Service type string to validate.
      - Returns: `true` when the service type matches the supported format.
      */
     public static func isValidServiceType(_ serviceType: ServiceType) -> Bool {
         guard !serviceType.isEmpty && serviceType.count <= 15 else { return false }
+        guard serviceType.first != "-" && serviceType.last != "-" else { return false }
+        guard !serviceType.contains("--") else { return false }
 
+        var containsLetter = false
         for scalar in serviceType.unicodeScalars {
             switch scalar.value {
-            case 45, 48...57, 97...122:
+            case 45, 48...57:
                 continue
+            case 97...122:
+                containsLetter = true
             default:
                 return false
             }
         }
-        return true
+        return containsLetter
     }
     
     // MARK: Properties
