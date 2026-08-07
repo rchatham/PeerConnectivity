@@ -177,6 +177,57 @@ final class NetworkPeerLoopbackTests : XCTestCase {
         bob.stop()
     }
 
+    internal func testNetworkBackendBroadcastsMessageToMultiplePeers() {
+        guard #available(iOS 13.0, macOS 10.15, *) else { return }
+
+        let serviceType = makeServiceType()
+        let security = makeSecurity()
+        let alice = makeManager(serviceType: serviceType, displayName: "Alice", security: security)
+        let bob = makeManager(serviceType: serviceType, displayName: "Bob", security: security)
+        let charlie = makeManager(serviceType: serviceType, displayName: "Charlie", security: security)
+        let aliceConnectedToBob = expectation(description: "Alice connected to Bob")
+        let aliceConnectedToCharlie = expectation(description: "Alice connected to Charlie")
+        let bobReceivedBroadcast = expectation(description: "Bob received Alice broadcast")
+        let charlieReceivedBroadcast = expectation(description: "Charlie received Alice broadcast")
+        let broadcast = LoopbackMessage(text: "broadcast")
+
+        alice.listenOn({ event in
+            switch event {
+            case .devicesChanged(peer: let peer, connectedPeers: let connectedPeers)
+                where peer.displayName == "Bob" && connectedPeers.contains(where: { $0.displayName == "Bob" }):
+                aliceConnectedToBob.fulfill()
+            case .devicesChanged(peer: let peer, connectedPeers: let connectedPeers)
+                where peer.displayName == "Charlie" && connectedPeers.contains(where: { $0.displayName == "Charlie" }):
+                aliceConnectedToCharlie.fulfill()
+            default: break
+            }
+        }, performListenerInBackground: true, withKey: "alice-events")
+
+        bob.observeMessages(ofType: LoopbackMessage.self, forKey: "bob-broadcast") { message, peer in
+            XCTAssertEqual(peer.displayName, "Alice")
+            XCTAssertEqual(message, broadcast)
+            bobReceivedBroadcast.fulfill()
+        }
+
+        charlie.observeMessages(ofType: LoopbackMessage.self, forKey: "charlie-broadcast") { message, peer in
+            XCTAssertEqual(peer.displayName, "Alice")
+            XCTAssertEqual(message, broadcast)
+            charlieReceivedBroadcast.fulfill()
+        }
+
+        charlie.start()
+        bob.start()
+        alice.start()
+
+        wait(for: [aliceConnectedToBob, aliceConnectedToCharlie], timeout: 20)
+        alice.sendMessage(broadcast, toPeers: alice.connectedPeers)
+        wait(for: [bobReceivedBroadcast, charlieReceivedBroadcast], timeout: 10)
+
+        alice.stop()
+        bob.stop()
+        charlie.stop()
+    }
+
     internal func testNetworkBackendRejectsMismatchedPreSharedKeys() {
         guard #available(iOS 13.0, macOS 10.15, *) else { return }
 
