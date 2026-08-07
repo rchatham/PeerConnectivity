@@ -103,8 +103,35 @@ final class PeerConnectionBackendTests : XCTestCase {
             backend: .networkFramework)
 
         XCTAssertEqual(manager.backend, .networkFramework)
+        XCTAssertEqual(manager.networkSecurity, .unauthenticated)
         XCTAssertFalse(manager.isUsingMultipeerConnectivityTransport)
         XCTAssertTrue(manager.isUsingNetworkFrameworkTransport)
+    }
+
+    internal func testNetworkBackendStoresPreSharedKeySecurityWhenAvailable() {
+        guard #available(iOS 13.0, macOS 10.15, *) else { return }
+
+        let security = PeerConnectionNetworkSecurity.preSharedKey(Data("test-secret".utf8))
+        let manager = PeerConnectionManager(serviceType: "backend-network-psk",
+            displayName: "Local",
+            backend: .networkFramework,
+            networkSecurity: security)
+
+        XCTAssertEqual(manager.backend, .networkFramework)
+        XCTAssertEqual(manager.networkSecurity, security)
+        XCTAssertTrue(manager.isUsingNetworkFrameworkTransport)
+    }
+
+    internal func testMultipeerBackendIgnoresNetworkSecurityConfiguration() {
+        let security = PeerConnectionNetworkSecurity.preSharedKey(Data("ignored-secret".utf8))
+        let manager = PeerConnectionManager(serviceType: "backend-mc-sec",
+            displayName: "Local",
+            backend: .multipeerConnectivity,
+            networkSecurity: security)
+
+        XCTAssertEqual(manager.backend, .multipeerConnectivity)
+        XCTAssertEqual(manager.networkSecurity, security)
+        XCTAssertTrue(manager.isUsingMultipeerConnectivityTransport)
     }
 
     internal func testNetworkBackendAutomaticStartUsesNetworkFactoryWhenAvailable() {

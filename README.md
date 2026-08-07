@@ -59,6 +59,39 @@ The default `networkSecurity: .unauthenticated` mode is plaintext TCP, remains a
 
 The default backend remains `.multipeerConnectivity`.
 
+### Network backend support matrix
+
+| API / behavior | MultipeerConnectivity | Network framework |
+|---|---:|---:|
+| Default backend | ✅ | ❌ opt-in only |
+| `.automatic` discovery/connect | ✅ | ✅ |
+| `.custom` manual `invitePeer` connection | ✅ | ✅ |
+| `.inviteOnly` advertiser assistant / browser UI | ✅ | ❌ use app UI with `.foundPeer` / `.lostPeer` |
+| `sendData` | ✅ | ✅ |
+| `sendMessage` / `observeMessages` | ✅ | ✅ |
+| `sendDataStream` | ✅ | ❌ throws unsupported-operation error |
+| `sendResourceAtURL` | ✅ | ❌ reports unsupported-operation error |
+| `multipeerSession` | ✅ | ❌ programmer error |
+| TLS-PSK transport security | N/A | ✅ with `.preSharedKey` |
+
+For Network-backed peer selection, configure `.preSharedKey` for authenticated encrypted sessions, then observe discovered peers and call `invitePeer` from app-owned UI:
+
+```swift
+pcm.listenOn({ event in
+    switch event {
+    case .foundPeer(let peer):
+        pcm.invitePeer(peer)
+    case .lostPeer(let peer):
+        break
+    default:
+        break
+    }
+}, withKey: "network-browser")
+```
+
+
+`networkSecurity` is used only by `.networkFramework`; MultipeerConnectivity keeps its own `MCSession` security behavior.
+
 
 ## Creating/Stopping/Starting
 
@@ -75,7 +108,7 @@ pcm.stop()
 
 // Can join chatrooms using PeerConnectionType.automatic, .inviteOnly, and .custom
 //  - .automatic : automatically searches and joins other devices with the same service type
-//  - .inviteOnly : provides advertiser assistant behavior; import PeerConnectivityUI for browserViewController support
+//  - .inviteOnly : provides MultipeerConnectivity advertiser assistant behavior; Network backend requires app-owned UI using found/lost peer events
 //  - .custom : no default behavior is implemented
 
 // The manager can be initialized with a contructed peer representing the local user
@@ -91,7 +124,7 @@ pcm.start() {
 
 ## Browser UI
 
-UIKit browser view controller support lives in the separate `PeerConnectivityUI` SwiftPM product:
+UIKit browser view controller support lives in the separate `PeerConnectivityUI` SwiftPM product and is available only for the MultipeerConnectivity backend:
 
 ```swift
 import PeerConnectivity

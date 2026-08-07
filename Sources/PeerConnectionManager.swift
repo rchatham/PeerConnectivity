@@ -54,10 +54,11 @@ extension PeerMessage {
  Backend implementation used by `PeerConnectionManager`.
 
  The default backend is `.multipeerConnectivity`, preserving existing runtime behavior.
- The `.networkFramework` backend is an opt-in migration path and does not yet provide
- full parity for MultipeerConnectivity browser UI, streams, or resource transfer.
- Use `networkSecurity: .preSharedKey(_:)` with `.networkFramework` to require an
- authenticated encrypted connection.
+ The `.networkFramework` backend is an opt-in migration path. It supports Bonjour
+ discovery, automatic/custom peer connection, reliable `Data`, and `PeerMessage`
+ exchange. It does not yet support MultipeerConnectivity browser UI, data streams,
+ or resource transfer. Use `networkSecurity: .preSharedKey(_:)` with
+ `.networkFramework` to require an authenticated encrypted connection.
  */
 public enum PeerConnectionBackend : Equatable {
     /**
@@ -66,7 +67,8 @@ public enum PeerConnectionBackend : Equatable {
     case multipeerConnectivity
     /**
      Use Apple's Network framework. This backend is experimental and currently supports
-     discovery, connection scaffolding, and reliable data transport only.
+     discovery, automatic/custom peer connection, reliable data transport, and
+     `PeerMessage` exchange only.
      */
     case networkFramework
 }
@@ -97,6 +99,9 @@ public enum PeerConnectionType : Int {
     case automatic = 0
     /**
      Connection type providing the browser view controller and advertiser assistant giving the user the ability to handle connections with nearby peers.
+
+     With `.networkFramework`, this mode starts without MultipeerConnectivity UI; use
+     `.foundPeer` / `.lostPeer` events and `invitePeer(_:withContext:timeout:)` from app UI.
      */
     case inviteOnly
     /**
@@ -384,7 +389,10 @@ extension PeerConnectionManager {
     }
     
     /**
-     Use to invite peers that have been found locally to join a MultipeerConnectivity session.
+     Use to invite peers that have been found locally to join the current session.
+
+     With `.networkFramework`, `context` and `timeout` are currently ignored and the
+     discovered peer endpoint is connected directly when available.
      
      - parameter peer: `Peer` object to invite to current session.
      - parameter withContext: `Data` object associated with the invitation.
@@ -454,11 +462,14 @@ extension PeerConnectionManager {
 
     /**
      Send a data stream to a connected user. This method throws an error if the stream cannot be established. This method returns the NSOutputStream with which you can send events to the connected users.
+
+     The Network framework backend does not support data streams yet and throws a
+     `PeerConnectivity.NetworkPeerSessionTransport` error.
      
      - parameter streamName: The name of the stream to be established between two users.
      - parameter toPeer: The peer with which to start a data stream
      
-     - Throws: Propagates errors thrown by Apple's MultipeerConnectivity framework.
+     - Throws: Propagates errors thrown by Apple's MultipeerConnectivity framework, or a Network backend unsupported-operation error.
      
      - Returns: The OutputStream for sending information to the specified `Peer` object.
      */
@@ -469,6 +480,10 @@ extension PeerConnectionManager {
     
     /**
      Send a resource with a specified url for retrieval on a connected device. This method can send a resource to multiple peers and returns an Progress associated with each Peer. This method takes an error completion handler if the resource fails to send.
+
+     The Network framework backend does not support resource transfer yet. It returns
+     `nil` progress for each requested peer and calls the completion handler with a
+     `PeerConnectivity.NetworkPeerSessionTransport` error.
      
      - parameter resourceURL: The url that the resource will be passed with for retrieval.
      - parameter withName: The name with which the progress is associated with.
