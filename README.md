@@ -111,6 +111,18 @@ Run `PeerConnectivityDemo.xcodeproj` on two simulators or devices, pick the same
 and tap **Start networking**. In **Filtered Browser** mode, tap **Open Filtered Browser** after
 starting to test discovery metadata and peer filtering.
 
+## API Compatibility Notes
+
+`PeerConnectionEvent.foundPeer(peer:)` is still emitted for existing listeners. When
+advertised discovery metadata is available, PeerConnectivity also emits
+`foundPeerWithDiscoveryInfo(peer:discoveryInfo:)`; listeners should handle one of these
+discovery events to avoid processing the same peer twice. Callers with exhaustive
+switches over `PeerConnectionEvent` need to add the new case or a `default` branch.
+
+In `.automatic` mode, invitation decisions are controlled by `PeerInvitationPolicy`.
+Non-manual automatic policies still emit `.receivedInvitation` for observation/API
+compatibility, but that event's handler is a no-op and does not change the policy decision.
+
 ## Sending Events to Peers
 
 ```swift
