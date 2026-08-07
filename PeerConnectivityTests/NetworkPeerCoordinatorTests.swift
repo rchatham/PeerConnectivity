@@ -149,6 +149,17 @@ final class NetworkPeerCoordinatorTests : XCTestCase {
         XCTAssertTrue(harness.coordinator.connectedPeers.isEmpty)
     }
 
+    internal func testUnsupportedHandshakeVersionCancelsPendingConnection() {
+        let harness = makeHarness()
+        let connection = MockCoordinatorConnection()
+
+        harness.coordinator.addPendingConnection(connection, direction: .outbound)
+        harness.coordinator.receiveFrame(handshakeFrame(identity("remote"), protocolVersion: 999), from: connection)
+
+        XCTAssertEqual(connection.cancelCallCount, 1)
+        XCTAssertTrue(harness.coordinator.connectedPeers.isEmpty)
+    }
+
     internal func testSelfHandshakeCancelsPendingConnection() {
         let harness = makeHarness()
         let connection = MockCoordinatorConnection()
@@ -158,6 +169,27 @@ final class NetworkPeerCoordinatorTests : XCTestCase {
 
         XCTAssertEqual(connection.cancelCallCount, 1)
         XCTAssertTrue(harness.coordinator.connectedPeers.isEmpty)
+    }
+
+    internal func testDuplicateIdentityCannotSpoofRegisteredConnection() {
+        let harness = makeHarness(localIdentifier: "alocal")
+        let registered = MockCoordinatorConnection()
+        let duplicate = MockCoordinatorConnection()
+        let remoteIdentity = identity("remote")
+        let payload = Data([9, 8, 7])
+
+        harness.coordinator.addPendingConnection(registered, direction: .outbound)
+        harness.coordinator.receiveFrame(handshakeFrame(remoteIdentity), from: registered)
+        registered.clearSentFrames()
+        harness.coordinator.addPendingConnection(duplicate, direction: .inbound)
+        harness.coordinator.receiveFrame(handshakeFrame(remoteIdentity), from: duplicate)
+        duplicate.clearSentFrames()
+        harness.coordinator.sendData(payload)
+
+        XCTAssertEqual(duplicate.cancelCallCount, 1)
+        XCTAssertEqual(duplicate.sentFrames, [])
+        XCTAssertEqual(registered.sentFrames, [PeerNetworkFrame(kind: .data, payload: payload)])
+        XCTAssertEqual(harness.coordinator.connectedPeers, [Peer(identity: remoteIdentity, status: .connected)])
     }
 
     internal func testSelfDiscoveryIsIgnored() {
@@ -187,8 +219,9 @@ final class NetworkPeerCoordinatorTests : XCTestCase {
         return Harness(localPeer: Peer(identity: identity(localIdentifier), status: .currentUser))
     }
 
-    private func handshakeFrame(_ identity: PeerIdentity) -> PeerNetworkFrame {
-        let handshake = PeerNetworkHandshake(identity: identity)
+    private func handshakeFrame(_ identity: PeerIdentity,
+        protocolVersion: Int = PeerNetworkHandshake.currentProtocolVersion) -> PeerNetworkFrame {
+        let handshake = PeerNetworkHandshake(identity: identity, protocolVersion: protocolVersion)
         let payload = try! JSONEncoder().encode(handshake)
         return PeerNetworkFrame(kind: .handshake, payload: payload)
     }

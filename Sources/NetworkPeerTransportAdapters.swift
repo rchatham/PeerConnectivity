@@ -14,39 +14,47 @@ internal final class NetworkPeerSessionTransport : PeerSessionTransport {
 
     internal let peer : Peer
     fileprivate let coordinator : NetworkPeerCoordinator<NetworkPeerConnection>
+    fileprivate let security : PeerConnectionNetworkSecurity
     fileprivate var listener : NetworkPeerListening
 
     internal var connectedPeers : [Peer] {
         return coordinator.connectedPeers
     }
 
-    internal convenience init(peer: Peer, sessionObserver: Observable<PeerSessionEvent>) {
+    internal convenience init(peer: Peer,
+        sessionObserver: Observable<PeerSessionEvent>,
+        security: PeerConnectionNetworkSecurity = .unauthenticated) {
         let browserObserver = Observable<PeerBrowserEvent>(.none)
         let advertiserObserver = Observable<PeerAdvertiserEvent>(.none)
         self.init(peer: peer,
             sessionObserver: sessionObserver,
             browserObserver: browserObserver,
-            advertiserObserver: advertiserObserver)
+            advertiserObserver: advertiserObserver,
+            security: security)
     }
 
     internal init(peer: Peer,
         sessionObserver: Observable<PeerSessionEvent>,
         browserObserver: Observable<PeerBrowserEvent>,
-        advertiserObserver: Observable<PeerAdvertiserEvent>) {
+        advertiserObserver: Observable<PeerAdvertiserEvent>,
+        security: PeerConnectionNetworkSecurity = .unauthenticated) {
         self.peer = peer
         let coordinator = NetworkPeerCoordinator<NetworkPeerConnection>(localPeer: peer,
             sessionObserver: sessionObserver,
             browserObserver: browserObserver,
             advertiserObserver: advertiserObserver)
         self.coordinator = coordinator
+        self.security = security
         self.listener = FailedNetworkPeerListener()
     }
 
     internal init(peer: Peer,
         coordinator: NetworkPeerCoordinator<NetworkPeerConnection>,
-        listener: NetworkPeerListening) {
+        listener: NetworkPeerListening,
+        security: PeerConnectionNetworkSecurity = .unauthenticated) {
         self.peer = peer
         self.coordinator = coordinator
+        self.security = security
         self.listener = listener
     }
 
@@ -57,7 +65,8 @@ internal final class NetworkPeerSessionTransport : PeerSessionTransport {
     internal func configureListener(serviceType: ServiceType) {
         listener = NetworkPeerSessionTransport.makeListener(peer: peer,
             coordinator: coordinator,
-            serviceType: serviceType)
+            serviceType: serviceType,
+            security: security)
     }
 
     internal func stopSession() {
@@ -95,7 +104,7 @@ internal final class NetworkPeerSessionTransport : PeerSessionTransport {
     }
 
     internal func connect(to endpoint: NWEndpoint) {
-        let connection = NetworkPeerConnection(endpoint: endpoint)
+        let connection = NetworkPeerConnection(endpoint: endpoint, security: security)
         connection.setDataHandler { [weak self, weak connection] frame in
             guard let connection = connection else { return }
             self?.coordinator.receiveFrame(frame, from: connection)
@@ -114,9 +123,13 @@ internal final class NetworkPeerSessionTransport : PeerSessionTransport {
 
     fileprivate static func makeListener(peer: Peer,
         coordinator: NetworkPeerCoordinator<NetworkPeerConnection>,
-        serviceType: ServiceType) -> NetworkPeerListening {
+        serviceType: ServiceType,
+        security: PeerConnectionNetworkSecurity) -> NetworkPeerListening {
         do {
-            return try NetworkPeerListener(serviceType: serviceType, identity: peer.identity, connectionHandler: { connection in
+            return try NetworkPeerListener(serviceType: serviceType,
+                identity: peer.identity,
+                security: security,
+                connectionHandler: { connection in
                 connection.setDataHandler { [weak coordinator, weak connection] frame in
                     guard let connection = connection else { return }
                     coordinator?.receiveFrame(frame, from: connection)
@@ -140,8 +153,9 @@ internal final class NetworkPeerBrowserTransport : PeerBrowserTransport {
 
     internal convenience init(session: NetworkPeerSessionTransport,
         serviceType: ServiceType,
-        browserObserver: Observable<PeerBrowserEvent>) {
-        let browser = NetworkPeerBrowser(serviceType: serviceType)
+        browserObserver: Observable<PeerBrowserEvent>,
+        security: PeerConnectionNetworkSecurity = .unauthenticated) {
+        let browser = NetworkPeerBrowser(serviceType: serviceType, security: security)
         self.init(session: session,
             browser: browser,
             browserObserver: browserObserver)

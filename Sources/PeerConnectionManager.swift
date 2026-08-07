@@ -56,8 +56,8 @@ extension PeerMessage {
  The default backend is `.multipeerConnectivity`, preserving existing runtime behavior.
  The `.networkFramework` backend is an opt-in migration path and does not yet provide
  full parity for MultipeerConnectivity browser UI, streams, or resource transfer.
- It is currently unencrypted and unauthenticated, and must not be used for sensitive
- data until a future hardening pass adds a production trust model.
+ Use `networkSecurity: .preSharedKey(_:)` with `.networkFramework` to require an
+ authenticated encrypted connection.
  */
 public enum PeerConnectionBackend : Equatable {
     /**
@@ -66,10 +66,25 @@ public enum PeerConnectionBackend : Equatable {
     case multipeerConnectivity
     /**
      Use Apple's Network framework. This backend is experimental and currently supports
-     discovery, connection scaffolding, and reliable data transport only. It is currently
-     unencrypted and unauthenticated; do not use it for sensitive data.
+     discovery, connection scaffolding, and reliable data transport only.
      */
     case networkFramework
+}
+
+/**
+ Security configuration for Network framework connections.
+ */
+public enum PeerConnectionNetworkSecurity : Equatable {
+    /**
+     Use plaintext TCP with no authentication. This mode is available only as migration
+     scaffolding and must not be used for sensitive data.
+     */
+    case unauthenticated
+    /**
+     Use TLS with a pre-shared key. Peers must be initialized with the same non-empty key
+     to connect successfully.
+     */
+    case preSharedKey(Data)
 }
 
 /**
@@ -122,6 +137,13 @@ public class PeerConnectionManager {
      opt-in and does not yet provide browser UI, stream, or resource transfer parity.
      */
     public let backend : PeerConnectionBackend
+
+    /**
+     Security configuration used by Network framework connections.
+
+     This value is ignored by the MultipeerConnectivity backend.
+     */
+    public let networkSecurity : PeerConnectionNetworkSecurity
     
     /**
      Access to the local peer representing the user.
@@ -198,7 +220,9 @@ public class PeerConnectionManager {
      - parameter connectionType: Takes a PeerConnectionType case determining the default behavior of the framework.
      - parameter displayName: The local user's display name to other peers.
      - parameter backend: Backend implementation to use. Defaults to `.multipeerConnectivity`.
-       The `.networkFramework` backend is experimental, unencrypted, and unauthenticated.
+     - parameter networkSecurity: Security configuration for `.networkFramework`. Defaults to
+       `.unauthenticated` for source compatibility; use `.preSharedKey(_:)` for authenticated
+       encrypted Network framework sessions.
      
      - Returns: A fully initialized `PeerConnectionManager`.
      */
@@ -211,12 +235,14 @@ public class PeerConnectionManager {
                     return ProcessInfo.processInfo.hostName
                     #endif
                 }(),
-                backend: PeerConnectionBackend = .multipeerConnectivity) {
+                backend: PeerConnectionBackend = .multipeerConnectivity,
+                networkSecurity: PeerConnectionNetworkSecurity = .unauthenticated) {
         self.init(serviceType: serviceType,
             connectionType: connectionType,
             displayName: displayName,
             backend: backend,
-            transportFactory: PeerConnectionManager.transportFactory(for: backend),
+            networkSecurity: networkSecurity,
+            transportFactory: PeerConnectionManager.transportFactory(for: backend, networkSecurity: networkSecurity),
             shouldRegisterSharedManager: true)
     }
 
@@ -224,11 +250,13 @@ public class PeerConnectionManager {
         connectionType: PeerConnectionType = .automatic,
         displayName: String,
         backend: PeerConnectionBackend = .multipeerConnectivity,
+        networkSecurity: PeerConnectionNetworkSecurity = .unauthenticated,
         transportFactory: PeerConnectionTransportFactory) {
         self.init(serviceType: serviceType,
             connectionType: connectionType,
             displayName: displayName,
             backend: backend,
+            networkSecurity: networkSecurity,
             transportFactory: transportFactory,
             shouldRegisterSharedManager: false)
     }
@@ -237,10 +265,12 @@ public class PeerConnectionManager {
         connectionType: PeerConnectionType,
         displayName: String,
         backend: PeerConnectionBackend,
+        networkSecurity: PeerConnectionNetworkSecurity,
         transportFactory: PeerConnectionTransportFactory,
         shouldRegisterSharedManager: Bool) {
         self.connectionType = connectionType
         self.backend = backend
+        self.networkSecurity = networkSecurity
         self.serviceType = serviceType
         switch backend {
         case .multipeerConnectivity:
@@ -291,13 +321,14 @@ public class PeerConnectionManager {
         return false
     }
 
-    private static func transportFactory(for backend: PeerConnectionBackend) -> PeerConnectionTransportFactory {
+    private static func transportFactory(for backend: PeerConnectionBackend,
+        networkSecurity: PeerConnectionNetworkSecurity) -> PeerConnectionTransportFactory {
         switch backend {
         case .multipeerConnectivity:
             return .multipeerConnectivity
         case .networkFramework:
             if #available(iOS 13.0, macOS 10.15, *) {
-                return .networkFramework
+                return .networkFramework(security: networkSecurity)
             }
             fatalError("PeerConnectivity: Network framework backend requires iOS 13.0 or macOS 10.15")
         }

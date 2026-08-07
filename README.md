@@ -44,7 +44,18 @@ The staged migration toward Apple's Network framework is tracked in [NetworkFram
 
 ## Experimental Network framework backend
 
-`PeerConnectionManager` can be explicitly initialized with `backend: .networkFramework` on supported OS versions. This backend is still a migration/testing path: it is currently unencrypted and unauthenticated, lacks stream/resource/UI parity, and must not be used for sensitive data until a future hardening pass adds a production trust model.
+`PeerConnectionManager` can be explicitly initialized with `backend: .networkFramework` on supported OS versions. This backend is still a migration/testing path and lacks stream/resource/UI parity.
+
+Use a shared secret to require TLS-PSK authenticated encryption between Network-backed peers:
+
+```swift
+let secret = Data("replace-with-an-app-managed-secret".utf8)
+let pcm = PeerConnectionManager(serviceType: "local",
+    backend: .networkFramework,
+    networkSecurity: .preSharedKey(secret))
+```
+
+The default `networkSecurity: .unauthenticated` mode is plaintext TCP, remains available only for source compatibility and diagnostics, and must not be used for sensitive data.
 
 The default backend remains `.multipeerConnectivity`.
 
