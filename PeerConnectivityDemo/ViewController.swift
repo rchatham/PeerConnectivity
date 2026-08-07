@@ -517,6 +517,9 @@ private extension ViewController {
         case .foundPeer(let peer):
             checkedItems.insert(.peerDiscovered)
             appendLog(kind: "peer.found", detail: peer.displayName, peers: [peer])
+        case .foundPeerWithDiscoveryInfo(let peer, let discoveryInfo):
+            checkedItems.insert(.peerDiscovered)
+            appendLog(kind: "peer.found.metadata", detail: "\(peer.displayName): \(discoveryInfo ?? [:])", peers: [peer])
         case .lostPeer(let peer):
             appendLog(kind: "peer.lost", detail: peer.displayName, peers: [peer])
         case .nearbyPeersChanged(let peers):

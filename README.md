@@ -86,6 +86,36 @@ let browserViewController = pcm.browserViewController { event in
 }
 ```
 
+Use the optional `peerFilter` to hide nearby peers before they are presented by
+`MCBrowserViewController`. Discovery info is public, unauthenticated metadata, so
+only use it for non-secret values such as protocol versions, public capabilities,
+or non-secret room labels.
+
+```swift
+let filteredBrowserViewController = pcm.browserViewController({ _ in }, peerFilter: { peer, discoveryInfo in
+    return discoveryInfo?["protocol"] == "2"
+})
+```
+
+## Demo App
+
+Run `PeerConnectivityDemo.xcodeproj` on two simulators or devices and tap **Start** on both
+to exercise advertising, browsing, connection state, typed messages, raw data, resources,
+and event logging. Discovery metadata events are logged as `peer.found.metadata` when nearby
+peers advertise Bonjour TXT record values.
+
+## API Compatibility Notes
+
+`PeerConnectionEvent.foundPeer(peer:)` is still emitted for existing listeners. When
+advertised discovery metadata is available, PeerConnectivity also emits
+`foundPeerWithDiscoveryInfo(peer:discoveryInfo:)`; listeners should handle one of these
+discovery events to avoid processing the same peer twice. Callers with exhaustive
+switches over `PeerConnectionEvent` need to add the new case or a `default` branch.
+
+In `.automatic` mode, invitation decisions are controlled by `PeerInvitationPolicy`.
+Non-manual automatic policies still emit `.receivedInvitation` for observation/API
+compatibility, but that event's handler is a no-op and does not change the policy decision.
+
 ## Sending Events to Peers
 
 ```swift
