@@ -650,7 +650,8 @@ extension PeerConnectionManager {
 
         sessionObserver.addObserver { [weak self] event in
             DispatchQueue.main.async {
-                guard let peerCount = self?.connectedPeers.count else { return }
+                guard self?.backend == .multipeerConnectivity,
+                    let peerCount = self?.connectedPeers.count else { return }
 
                 switch event {
                 case .devicesChanged(peer: let peer) where peerCount <= 0:

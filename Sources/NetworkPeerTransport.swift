@@ -102,7 +102,10 @@ internal final class NetworkPeerConnection : NetworkPeerConnectionCancellable {
                     self?.dataHandler?(frame)
                 }
             }
-            guard error == nil, !isComplete else { return }
+            guard error == nil, !isComplete else {
+                self?.stateHandler?(.cancelled)
+                return
+            }
             self?.receiveNextFrame()
         }
     }

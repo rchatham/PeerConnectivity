@@ -190,6 +190,8 @@ final class NetworkPeerLoopbackTests : XCTestCase {
         let bobReceivedBroadcast = expectation(description: "Bob received Alice broadcast")
         let charlieReceivedBroadcast = expectation(description: "Charlie received Alice broadcast")
         let broadcast = LoopbackMessage(text: "broadcast")
+        bobReceivedBroadcast.assertForOverFulfill = false
+        charlieReceivedBroadcast.assertForOverFulfill = false
 
         alice.listenOn({ event in
             switch event {
@@ -220,12 +222,65 @@ final class NetworkPeerLoopbackTests : XCTestCase {
         alice.start()
 
         wait(for: [aliceConnectedToBob, aliceConnectedToCharlie], timeout: 20)
-        alice.sendMessage(broadcast, toPeers: alice.connectedPeers)
+        for _ in 0..<3 {
+            alice.sendMessage(broadcast, toPeers: alice.connectedPeers)
+            RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+        }
         wait(for: [bobReceivedBroadcast, charlieReceivedBroadcast], timeout: 10)
 
         alice.stop()
         bob.stop()
         charlie.stop()
+    }
+
+    internal func testNetworkBackendReconnectsAfterPeerRestarts() {
+        guard #available(iOS 13.0, macOS 10.15, *) else { return }
+
+        let serviceType = makeServiceType()
+        let security = makeSecurity()
+        let alice = makeManager(serviceType: serviceType, displayName: "Alice", security: security)
+        let firstBob = makeManager(serviceType: serviceType, displayName: "Bob", security: security)
+        let aliceConnectedToFirstBob = expectation(description: "Alice connected to first Bob")
+        let aliceDisconnectedFromFirstBob = expectation(description: "Alice disconnected from first Bob")
+        let aliceConnectedToRestartedBob = expectation(description: "Alice connected to restarted Bob")
+        let stateLock = NSLock()
+        var didConnectFirstBob = false
+        var didDisconnectFirstBob = false
+        var didConnectRestartedBob = false
+
+        alice.listenOn({ event in
+            switch event {
+            case .devicesChanged(peer: let peer, connectedPeers: let connectedPeers) where peer.displayName == "Bob":
+                let isConnected = connectedPeers.contains(where: { $0.displayName == "Bob" })
+                stateLock.lock()
+                defer { stateLock.unlock() }
+                if isConnected && !didConnectFirstBob {
+                    didConnectFirstBob = true
+                    aliceConnectedToFirstBob.fulfill()
+                } else if !isConnected && didConnectFirstBob && !didDisconnectFirstBob {
+                    didDisconnectFirstBob = true
+                    aliceDisconnectedFromFirstBob.fulfill()
+                } else if isConnected && didDisconnectFirstBob && !didConnectRestartedBob {
+                    didConnectRestartedBob = true
+                    aliceConnectedToRestartedBob.fulfill()
+                }
+            default: break
+            }
+        }, performListenerInBackground: true, withKey: "alice-events")
+
+        firstBob.start()
+        alice.start()
+        wait(for: [aliceConnectedToFirstBob], timeout: 15)
+
+        firstBob.stop()
+        wait(for: [aliceDisconnectedFromFirstBob], timeout: 15)
+
+        let restartedBob = makeManager(serviceType: serviceType, displayName: "Bob", security: security)
+        restartedBob.start()
+        wait(for: [aliceConnectedToRestartedBob], timeout: 20)
+
+        alice.stop()
+        restartedBob.stop()
     }
 
     internal func testNetworkBackendRejectsMismatchedPreSharedKeys() {
