@@ -68,27 +68,18 @@ Supported. Peers advertise and browse for the same service type, then attempt to
 
 ### `.custom`
 
-Supported for app-owned peer selection. Observe `.foundPeer` and `.lostPeer`, then call `invitePeer` for the selected peer:
+Supported for app-owned peer selection. Use `PeerBrowserModel` to track discovered peers, render them in app UI, then call `invitePeer` for the selected peer:
 
 ```swift
-var discoveredPeers : [Peer] = []
+let browserModel = PeerBrowserModel(manager: manager) { discoveredPeers in
+    // Called on the main queue; render `discoveredPeers` in app UI.
+}
 
-manager.listenOn({ event in
-    switch event {
-    case .foundPeer(let peer):
-        // Add `peer` to app UI.
-        discoveredPeers.append(peer)
-    case .lostPeer(let peer):
-        // Remove `peer` from app UI.
-        discoveredPeers.removeAll { $0 == peer }
-    default:
-        break
-    }
-}, withKey: "network-browser")
+browserModel.startObserving()
 
 // Later, after user/app approval:
-if let selectedPeer = discoveredPeers.first {
-    manager.invitePeer(selectedPeer)
+if let selectedPeer = browserModel.discoveredPeers.first {
+    browserModel.invitePeer(selectedPeer)
 }
 ```
 
