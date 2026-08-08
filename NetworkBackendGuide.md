@@ -155,6 +155,20 @@ PCNetworkBackend PCAutoStart PCDisplayName Bob
 
 The demo path is intended for local validation while the backend remains opt-in.
 
+## Connection policy defaults
+
+Network connection lifecycle policy is intentionally fixed and internal while the backend remains opt-in:
+
+| Policy | Current value | Why it is internal for now |
+|---|---:|---|
+| Handshake timeout | 10 seconds | Bounds unauthenticated/pre-registration connection lifetime without committing to public tuning semantics. |
+| Maximum pending connections | 16 | Limits inbound/outbound handshakes before peer identity is validated. |
+| Maximum connected peers | 8 | Keeps the experimental mesh small while local Network.framework behavior is still being validated. |
+
+These defaults are covered by coordinator tests and may change before the Network backend becomes stable/default. Apps that need custom limits cannot tune them yet; they should validate whether the fixed policy fits their topology before shipping `.networkFramework` broadly, or keep using the default MultipeerConnectivity backend.
+
+A future release can add public configuration once the project has enough device/CI evidence to know which knobs are necessary and how they should interact with peer discovery, reconnection, and browser UI.
+
 ## Current validation coverage
 
 The Network backend currently has local loopback tests for:
@@ -189,7 +203,7 @@ xcodebuild test -project PeerConnectivity.xcodeproj \
 
 ## Known follow-ups
 
-- Decide whether connection policy values such as handshake timeout, maximum pending connections, and maximum connected peers should become public configuration.
+- Revisit public Network connection policy configuration after more device and CI validation.
 - Add a Network-native peer browser UI/model for apps that need built-in selection UI.
 - Decide whether to implement Network equivalents for streams and resource transfer or document them as MultipeerConnectivity-only long term.
 - Strengthen identity binding beyond shared-key group membership for apps that require per-peer authentication.
