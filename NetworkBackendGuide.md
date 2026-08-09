@@ -131,20 +131,24 @@ Resource transfer and stream APIs are intentionally unsupported for the Network 
 
 ## Demo app
 
-The demo app can be launched with arguments to exercise the Network backend:
+The demo shows the active backend and lets you choose **Multipeer** or **Network** before starting. The default remains MultipeerConnectivity. In Network mode, the manager uses `.custom`, discovered rows come from `PeerBrowserModel`, and the **Invite selected peer** and **Send typed ping** actions exercise manual invitation and `PeerMessage` delivery.
 
-- `PCNetworkBackend` — use `.networkFramework` instead of the default MultipeerConnectivity backend.
+The same path can be selected with launch arguments:
+
+- `PCNetworkBackend` — select `.networkFramework` instead of the default MultipeerConnectivity backend.
 - `PCAutoStart` — start the manager on launch.
 - `PCDisplayName <name>` — set a deterministic display name such as `Alice` or `Bob`.
 
-Example simulator launch arguments:
+Example arguments for two simulator or device instances:
 
 ```text
 PCNetworkBackend PCAutoStart PCDisplayName Alice
 PCNetworkBackend PCAutoStart PCDisplayName Bob
 ```
 
-The demo path is intended for local validation while the backend remains opt-in.
+Select a discovered peer, invite it, wait for its status to become **Connected**, then send a typed ping. See [`PeerConnectivityDemo/README.md`](PeerConnectivityDemo/README.md) for the complete walkthrough.
+
+This demo Network path is intentionally unauthenticated, visibly labels that limitation, and is only for non-sensitive local migration validation. Production apps should use app-managed `.preSharedKey` material and an appropriate trust model.
 
 ## Connection policy defaults
 
@@ -195,7 +199,7 @@ xcodebuild test -project PeerConnectivity.xcodeproj \
 ## Known follow-ups
 
 - Revisit public Network connection policy configuration after more device and CI validation.
-- Add a Network-native peer browser UI/model for apps that need built-in selection UI.
+- Evaluate a reusable Network-native browser component after app-owned `PeerBrowserModel` usage is validated.
 - Decide whether to implement Network equivalents for streams and resource transfer or document them as MultipeerConnectivity-only long term.
 - Strengthen identity binding beyond shared-key group membership for apps that require per-peer authentication.
 - Continue monitoring Bonjour/Network.framework E2E behavior in CI and split or gate slow tests if they become flaky.
