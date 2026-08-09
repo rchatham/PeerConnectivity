@@ -24,7 +24,7 @@ Create the manager with `backend: .networkFramework`:
 import Foundation
 import PeerConnectivity
 
-let secret = Data("replace-with-an-app-managed-secret".utf8)
+let secret : Data = loadProvisionedNetworkPSK() // At least 32 random bytes; app-defined provisioning.
 let manager = PeerConnectionManager(serviceType: "local",
     connectionType: .automatic,
     displayName: "Alice",
@@ -47,18 +47,22 @@ let manager = PeerConnectionManager(serviceType: "local",
     networkSecurity: security)
 ```
 
-`PeerConnectionNetworkSecurity.preSharedKey(_:)` configures TLS with a pre-shared key. Peers must use the same non-empty key to complete the TLS handshake.
+`PeerConnectionNetworkSecurity.preSharedKey(_:)` configures TLS with a pre-shared key. Peers must use the same non-empty key to complete the TLS handshake. This authenticates each endpoint only as a member of the key-sharing group, not as a particular person, device, account, or installation.
 
 Guidance for app-managed secrets:
 
-- Use high-entropy key material, not a human-readable demo string.
-- Store and rotate the secret according to your app's threat model.
-- Use the same secret only for peers that should be allowed into the same local mesh.
+- Generate at least 256 random bits (32 bytes) with a cryptographically secure random-number generator. Do not use a password, passphrase, display name, service name, UUID text, predictable token, or demo string.
+- Provision the key over an authenticated channel; keep it out of source, logs, Bonjour metadata, and the application bundle; store it with platform-appropriate protection.
+- Scope the key to one app/environment and authorization group. Do not reuse it across unrelated protocols or groups.
+- Rotate the key when membership changes or compromise is suspected.
+- Treat every holder of the shared key as equally authorized under this mode.
 - Treat Bonjour TXT metadata (`pc-id`, `pc-name`, `pc-v`) as routing/discovery metadata only. It is not a trust assertion.
 
 `.unauthenticated` is plaintext TCP. It remains available only for migration compatibility and diagnostics and must not be used for sensitive data.
 
-Current limitation: TLS-PSK authenticates membership in the shared-key group; it does not yet bind a long-term public peer identity to a certificate or pinned key. If multiple devices share the same PSK, any member of that group can advertise a display name. Apps that need stronger identity guarantees should keep the Network backend opt-in until a stricter trust model is added.
+Current limitation: TLS-PSK authenticates membership in the shared-key group; it does not bind the self-asserted handshake identifier or display name to an individual credential. Any member can claim another member's display name or identifier, so apps must not use `Peer.displayName` or the internal transport identifier as an authorization principal or trustworthy audit identity. Apps that need stronger identity guarantees should keep the Network backend opt-in until a stricter trust model is added.
+
+See [NetworkTrustModelPlan.md](NetworkTrustModelPlan.md) for the insider spoofing threat model, exact PSK requirements, and future options including HKDF-derived scoped/pairwise keys, signed per-peer identity binding, certificate/pinning mode, and an app-provided verifier.
 
 ## Connection modes
 
@@ -225,5 +229,5 @@ xcodebuild test -project PeerConnectivity.xcodeproj \
 - Revisit public Network connection policy configuration after more device and CI validation.
 - Reconsider a reusable Network-native browser component only after app-owned `PeerBrowserModel` integrations establish common UI requirements.
 - Revisit stream or file transfer only as a separately scoped future feature; these APIs remain MultipeerConnectivity-only for the current Network backend.
-- Strengthen identity binding beyond shared-key group membership for apps that require per-peer authentication.
+- Implement an individually authenticated identity mode only after the design and gates in [NetworkTrustModelPlan.md](NetworkTrustModelPlan.md) receive focused security review.
 - Continue monitoring Bonjour/Network.framework E2E behavior in CI and split or gate slow tests if they become flaky.

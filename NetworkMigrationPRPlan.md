@@ -64,7 +64,7 @@ Acceptance criteria:
 - Complete bidirectional reliable data parity for `PeerMessage` use cases.
 - Add handshake timeout, idle timeout, connection caps, and discovery caps.
 - Keep policy values internal until their defaults are validated across CI and device testing.
-- Keep TLS enabled and add app-configurable identity or PSK verification before public Network use.
+- Keep TLS enabled. Treat TLS-PSK as group-membership authentication only, and follow [NetworkTrustModelPlan.md](NetworkTrustModelPlan.md) before claiming individual peer identity.
 - Add malformed-frame, oversized-frame, timeout, and cap tests.
 
 ### PR 6: Public API migration and deprecations
@@ -103,6 +103,14 @@ Acceptance criteria:
 - Record the current parity boundary: Network supports reliable `Data`/`PeerMessage` transport, while stream/resource send APIs and receive events remain MultipeerConnectivity-only.
 - Prepare versioning notes for the deployment-target bump and Network backend opt-in.
 
+### Future security slice: individual peer identity
+
+- Select one trust mode from [NetworkTrustModelPlan.md](NetworkTrustModelPlan.md) only after focused security and platform review.
+- Keep authenticated principal, stable transport identifier, and mutable display name distinct.
+- Bind the accepted principal to the connection before connected/data events or duplicate resolution trust that identity.
+- Add spoofing, mismatch, replay, revocation, downgrade, and verifier-failure tests in the same implementation PR.
+- Do not combine this work with a default-backend change or a general public policy API.
+
 ## Required Security Gates
 
 Security review is mandatory for PRs that change:
@@ -113,4 +121,4 @@ Security review is mandatory for PRs that change:
 - Reusable browser input, peer selection, or invite flows.
 - Public backend selection or default backend behavior.
 
-Before the Network backend is publicly selectable, peer authentication must be explicit rather than relying on self-asserted display names or unauthenticated handshakes.
+The Network backend is already publicly selectable as an experimental opt-in. Before it is described as production-ready or made the default, individual peer authentication must be explicit rather than relying on a group PSK, self-asserted display names, or unauthenticated handshakes; follow the gates in [NetworkTrustModelPlan.md](NetworkTrustModelPlan.md).

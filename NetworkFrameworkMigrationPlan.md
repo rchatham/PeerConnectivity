@@ -78,7 +78,7 @@ Relevant Network framework APIs:
   - `NSBonjourServices`
 - Network framework is connection-oriented, not an `MCSession`-style symmetric mesh abstraction.
 - Peer-to-peer Wi-Fi/Bluetooth/AWDL behavior requires `NWParameters.includePeerToPeer = true` and on-device testing.
-- Network-backed transports must keep TLS enabled before any public backend selection is exposed; peer identities remain self-asserted until a later authentication/trust model binds them to TLS identity or app-provided verification.
+- Network TLS-PSK authenticates shared-key group membership, not an individual peer. Peer identities remain self-asserted until the [Network trust model plan](NetworkTrustModelPlan.md) binds them to pairwise key material, a certificate/pinned key, a signed credential, or app-provided verification.
 - Network coordinator state must be serialized and bounded; current wiring keeps handshake timeout and connection caps internal until defaults are validated across CI and device testing. Discovery caps and idle timeouts remain production-hardening follow-ups before accepting untrusted inbound traffic at scale.
 - Public `multipeerSession: MCSession` prevents completely removing MultipeerConnectivity without a breaking API change; a source-compatible transition release requires dual backend support.
 - `MCBrowserViewController` has no Network framework equivalent.
@@ -260,7 +260,7 @@ xcodebuild test -workspace PeerConnectivity.xcworkspace \
 3. Is preserving `multipeerSession: MCSession` required for a transition release?
 4. Should unreliable send semantics be preserved, deprecated, or documented as best-effort?
 5. What service type naming convention should be required for Bonjour compatibility?
-6. What authentication model should be default: no TLS identity, PSK, certificate identity, or app-provided verifier?
+6. Which individually authenticated mode from [NetworkTrustModelPlan.md](NetworkTrustModelPlan.md) should graduate the Network backend from experimental status: pairwise derived keys, signed per-peer identity, certificate/pinning, or app-provided verification?
 7. When should Network connection policy values become public configuration instead of fixed internal defaults?
 
 ## Immediate Next Step
