@@ -209,7 +209,7 @@ final class NetworkPeerCoordinatorTests : XCTestCase {
 
     private func foundPeer(from event: PeerBrowserEvent?) -> Peer? {
         switch event {
-        case .foundPeer(let peer): return peer
+        case .foundPeer(let peer, _): return peer
         default: return nil
         }
     }
