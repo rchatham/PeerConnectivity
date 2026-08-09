@@ -135,7 +135,7 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
             guard identity != localPeer.identity else { return nil }
             let peer = Peer(identity: identity, status: .notConnected)
             discoveredPeers[identity] = peer
-            return .foundPeer(peer)
+            return .foundPeer(peer, discoveryInfo: nil)
         }
         guard let event = event else { return }
         browserObserver.value = event
