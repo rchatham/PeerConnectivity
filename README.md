@@ -118,10 +118,12 @@ let filteredBrowserViewController = pcm.browserViewController({ _ in }, peerFilt
 
 ## Demo App
 
-Run `PeerConnectivityDemo.xcodeproj` on two simulators or devices and tap **Start** on both
-to exercise advertising, browsing, connection state, typed messages, raw data, resources,
-and event logging. Discovery metadata events are logged as `peer.found.metadata` when nearby
-peers advertise Bonjour TXT record values.
+Run `PeerConnectivityDemo.xcodeproj` on two simulators or devices. The default **Multipeer**
+mode retains automatic invitations; the opt-in **Network** mode uses `PeerBrowserModel` and
+visible manual invite actions. Both modes retain advertising and browsing controls, connection
+state, typed message history, raw data and resource exercises, structured event logging,
+troubleshooting guidance, and the physical-test checklist. Discovery metadata events are logged
+as `peer.found.metadata` when nearby peers advertise Bonjour TXT record values.
 
 ## API Compatibility Notes
 
