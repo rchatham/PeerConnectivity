@@ -48,10 +48,10 @@ final class NetworkPeerTransportAdapterTests : XCTestCase {
         let browserObserver = Observable<PeerBrowserEvent>(.none)
         let advertiserObserver = Observable<PeerAdvertiserEvent>(.none)
         let assistantObserver = Observable<PeerAdvertiserAssisstantEvent>(.none)
-        let session = PeerConnectionTransportFactory.networkFramework.makeSession(peer, sessionObserver)
+        let session = PeerConnectionTransportFactory.networkFramework.makeSession(peer, .default, sessionObserver)
         let browser = PeerConnectionTransportFactory.networkFramework.makeBrowser(session, "test-service", browserObserver)
-        let advertiser = PeerConnectionTransportFactory.networkFramework.makeAdvertiser(session, "test-service", advertiserObserver)
-        let assistant = PeerConnectionTransportFactory.networkFramework.makeAdvertiserAssisstant(session, "test-service", assistantObserver)
+        let advertiser = PeerConnectionTransportFactory.networkFramework.makeAdvertiser(session, "test-service", nil, advertiserObserver)
+        let assistant = PeerConnectionTransportFactory.networkFramework.makeAdvertiserAssisstant(session, "test-service", nil, assistantObserver)
 
         XCTAssertTrue(session is NetworkPeerSessionTransport)
         XCTAssertTrue(browser is NetworkPeerBrowserTransport)
@@ -109,7 +109,7 @@ final class NetworkPeerTransportAdapterTests : XCTestCase {
         transport.lostEndpoint(endpoint, identity: identity)
 
         XCTAssertEqual(events.count, 3)
-        guard case .foundPeer(let foundPeer) = events[1] else {
+        guard case .foundPeer(let foundPeer, _) = events[1] else {
             XCTFail("Expected found peer event")
             return
         }
