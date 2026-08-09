@@ -1,5 +1,13 @@
 # Changelog
 
+* **Unreleased** Add peer security configuration
+  - New: `PeerSecurityConfiguration`, `PeerCertificatePolicy`, and `PeerInvitationPolicy` for explicit session security and invitation handling
+  - New: `PeerDiscoveryInfo` support for advertised discovery metadata
+  - New: `foundPeerWithDiscoveryInfo` event case in `PeerConnectionEvent`; callers with exhaustive switches should handle this case or include `default`
+  - New: `PeerConnectivityUI` browser peer filtering with discovery metadata
+  - Compatibility: `foundPeer` remains emitted alongside `foundPeerWithDiscoveryInfo`, so listeners should handle one discovery event to avoid processing the same peer twice
+  - Compatibility: automatic non-manual invitation policies still emit `.receivedInvitation` for observation, but the event handler is a no-op and policy decisions remain authoritative
+
 * **0.7.0** Fixed deprecated NSKeyedUnarchiver and added modern type-safe messaging API
   - Fixed: Replaced deprecated `NSKeyedUnarchiver.unarchiveObject(with:)` with secure coding API
   - New: `PeerMessage` protocol for type-safe, Codable-based messaging

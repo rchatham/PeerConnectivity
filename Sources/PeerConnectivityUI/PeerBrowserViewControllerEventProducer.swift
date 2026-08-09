@@ -8,6 +8,7 @@
 
 import Foundation
 import MultipeerConnectivity
+import PeerConnectivity
 #if canImport(UIKit)
 import UIKit
 
@@ -25,21 +26,35 @@ public enum PeerBrowserViewControllerEvent {
     case didFinish
     /// The user did cancel their interaction with the browser view controller.
     case wasCancelled
-
-//    case shouldPresentNearbyPeer
 }
+
+/**
+ Synchronous filter used by `MCBrowserViewController` before presenting a nearby peer.
+
+ Discovery info is advertised before a session is established and should be treated as
+ public, unauthenticated metadata. Use this only for non-secret filtering, such as protocol
+ versions, public capability flags, or non-secret room labels.
+ */
+public typealias PeerBrowserViewControllerPeerFilter = (Peer, PeerDiscoveryInfo?) -> Bool
 
 internal final class PeerBrowserViewControllerEventProducer: NSObject, MCBrowserViewControllerDelegate {
 
     fileprivate let callback: (PeerBrowserViewControllerEvent) -> Void
+    fileprivate let peerFilter: PeerBrowserViewControllerPeerFilter?
 
-    internal init(callback: @escaping (PeerBrowserViewControllerEvent) -> Void) {
+    internal init(callback: @escaping (PeerBrowserViewControllerEvent) -> Void,
+                  peerFilter: PeerBrowserViewControllerPeerFilter? = nil) {
         self.callback = callback
+        self.peerFilter = peerFilter
     }
 
-//    func browserViewController(browserViewController: MCBrowserViewController, shouldPresentNearbyPeer peerID: MCPeerID, withDiscoveryInfo info: [String : String]?) -> Bool {
-//        return true
-//    }
+    internal func browserViewController(_ browserViewController: MCBrowserViewController,
+                                        shouldPresentNearbyPeer peerID: MCPeerID,
+                                        withDiscoveryInfo info: [String : String]?) -> Bool {
+        guard let peerFilter = peerFilter else { return true }
+        let peer = Peer(peerID: peerID, status: .notConnected)
+        return peerFilter(peer, info)
+    }
 
     internal func browserViewControllerDidFinish(_ browserViewController: MCBrowserViewController) {
 
