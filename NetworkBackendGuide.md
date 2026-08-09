@@ -6,7 +6,7 @@ PeerConnectivity is migrating toward Apple's Network framework while preserving 
 
 The Network backend is not the default runtime path yet. Treat it as an experimental/beta backend for apps that can validate behavior in their own topology and OS/device matrix.
 
-Use it when you need to evaluate the Network framework migration path for reliable local peer messaging. Continue using the default MultipeerConnectivity backend when you need browser UI, stream transfer, resource transfer, or proven production parity.
+Use it when you need to evaluate the Network framework migration path for reliable local peer messaging. Continue using the default MultipeerConnectivity backend when you need the system-provided browser UI, stream transfer, resource transfer, or proven production parity.
 
 ## Requirements
 
@@ -68,20 +68,29 @@ Supported. Peers advertise and browse for the same service type, then attempt to
 
 ### `.custom`
 
-Supported for app-owned peer selection. Use `PeerBrowserModel` to track discovered peers, render them in app UI, then call `invitePeer` for the selected peer:
+Supported for app-owned peer selection. `PeerBrowserModel` is the supported Network replacement foundation for `MCBrowserViewController` during this migration phase. It tracks discovered peers and connection status without prescribing UIKit or SwiftUI presentation.
+
+For example, an app-owned table view controller can bind the model to its own state and invite only after selection:
 
 ```swift
-let browserModel = PeerBrowserModel(manager: manager) { discoveredPeers in
-    // Called on the main queue; render `discoveredPeers` in app UI.
+private var discoveredPeers : [Peer] = []
+private lazy var browserModel = PeerBrowserModel(manager: manager) { [weak self] peers in
+    self?.discoveredPeers = peers
+    self?.tableView.reloadData() // Callback is delivered on the main queue.
 }
 
-browserModel.startObserving()
+override func viewDidLoad() {
+    super.viewDidLoad()
+    browserModel.startObserving()
+    manager.start()
+}
 
-// Later, after user/app approval:
-if let selectedPeer = browserModel.discoveredPeers.first {
-    browserModel.invitePeer(selectedPeer)
+override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+    browserModel.invitePeer(discoveredPeers[indexPath.row])
 }
 ```
+
+Own selection, empty/error states, accessibility, styling, and the model lifecycle in the app. Call `stopObserving()` when observation should end; the model also stops observing on deinitialization.
 
 For Network-backed managers, `invitePeer(_:withContext:timeout:)` uses the discovered peer endpoint. The `context` and `timeout` parameters are currently ignored.
 
@@ -90,6 +99,12 @@ For Network-backed managers, `invitePeer(_:withContext:timeout:)` uses the disco
 The built-in MultipeerConnectivity advertiser assistant/browser UI is not available for the Network backend. Network-backed apps should provide their own UI using `.foundPeer`, `.lostPeer`, and `invitePeer`.
 
 `PeerConnectivityUI.browserViewController` returns `nil` for Network-backed managers.
+
+## Browser UI decision
+
+A reusable SwiftUI or UIKit Network browser is intentionally deferred. Peer selection is product-specific, and the migration does not yet have enough app usage to establish stable shared behavior for selection, cancellation, connection progress, errors, accessibility, or presentation. Adding that surface now would increase UI and compatibility scope while the Network backend remains opt-in.
+
+`PeerBrowserModel` is therefore the supported app-owned UI foundation for this phase. The MultipeerConnectivity-only `MCBrowserViewController` compatibility path remains unchanged, and no backend default changes as part of this decision. A reusable component can be reconsidered after app-owned integrations validate common requirements.
 
 ## API support matrix
 
@@ -199,7 +214,7 @@ xcodebuild test -project PeerConnectivity.xcodeproj \
 ## Known follow-ups
 
 - Revisit public Network connection policy configuration after more device and CI validation.
-- Evaluate a reusable Network-native browser component after app-owned `PeerBrowserModel` usage is validated.
+- Reconsider a reusable Network-native browser component only after app-owned `PeerBrowserModel` integrations establish common UI requirements.
 - Decide whether to implement Network equivalents for streams and resource transfer or document them as MultipeerConnectivity-only long term.
 - Strengthen identity binding beyond shared-key group membership for apps that require per-peer authentication.
 - Continue monitoring Bonjour/Network.framework E2E behavior in CI and split or gate slow tests if they become flaky.

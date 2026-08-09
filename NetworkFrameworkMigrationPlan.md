@@ -58,7 +58,7 @@ Most public event types are already framework-neutral, which makes an incrementa
 | `MCSession.send` | `NWConnection.send` + message framing | Network does not preserve message boundaries automatically. |
 | Resource transfer | Custom protocol over `NWConnection` | Later slice; potentially file chunks/progress messages. |
 | Stream transfer | Custom stream abstraction or compatibility shim | Later slice; no one-to-one replacement. |
-| `MCBrowserViewController` | Custom PeerConnectivityUI browser | Required for UI package. |
+| `MCBrowserViewController` | `PeerBrowserModel` + app-owned UI | Reusable PeerConnectivityUI replacement deferred pending app validation. |
 
 Relevant Network framework APIs:
 
@@ -193,22 +193,22 @@ Acceptance criteria:
 - MC-specific public API is marked deprecated before removal.
 - Migration guide explains breaking changes and fallback behavior.
 
-### Phase 6 — PeerConnectivityUI replacement
+### Phase 6 — App-owned browser UI foundation
 
-Objective: replace `MCBrowserViewController` usage.
+Objective: support Network peer selection without prematurely standardizing reusable UI behavior.
 
-Tasks:
+Decision:
 
-1. Build a custom browser UI backed by framework-neutral discovery events.
-2. Rework `PeerConnectionManager+UI.swift` so browser UI no longer requires direct `multipeerSession` access for Network-backed managers.
-3. Preserve existing PeerConnectivityUI product structure.
-4. Add iOS-only tests where feasible.
-5. Deprecate or remove MC browser assistant after replacement exists.
+- Use the framework-neutral `PeerBrowserModel` as the supported replacement foundation for Network-backed apps.
+- Keep rendering, selection, cancellation, progress, errors, accessibility, and presentation app-owned.
+- Preserve the existing `MCBrowserViewController` path for the MultipeerConnectivity backend.
+- Defer a reusable SwiftUI or UIKit browser until app integrations establish common requirements.
 
 Acceptance criteria:
 
-- UI package no longer depends on `MCBrowserViewController` for Network backend.
-- Existing apps can browse/select peers with Network implementation.
+- Network-backed apps can observe discovered peers and connection status, then invite an app-approved peer through `PeerBrowserModel`.
+- Documentation includes an app-owned UI example and clearly states that reusable browser UI is deferred.
+- No default backend or MultipeerConnectivity browser behavior changes.
 
 ## Testing Plan
 

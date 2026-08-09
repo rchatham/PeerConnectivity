@@ -105,6 +105,22 @@ let browserViewController = pcm.browserViewController { event in
 }
 ```
 
+The Network backend does not have an `MCBrowserViewController` equivalent. During this migration phase, `PeerBrowserModel` is the supported foundation for app-owned UIKit or SwiftUI peer-selection UI:
+
+```swift
+let browserModel = PeerBrowserModel(manager: pcm) { peers in
+    // Update app-owned UI; this callback runs on the main queue.
+}
+
+browserModel.startObserving()
+
+if let approvedPeer = browserModel.discoveredPeers.first {
+    browserModel.invitePeer(approvedPeer)
+}
+```
+
+A reusable Network browser view is intentionally deferred until app-owned integrations establish common UI requirements. See [NetworkBackendGuide.md](NetworkBackendGuide.md#browser-ui-decision) for the decision and lifecycle guidance.
+
 ## Sending Events to Peers
 
 ```swift

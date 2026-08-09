@@ -80,18 +80,18 @@ Acceptance criteria:
 - Require a clear justification for any new layer that remains.
 - Prefer net LOC reduction unless tests or docs intentionally increase coverage.
 
-### PR 8: SwiftUI browser replacement
+### PR 8: App-owned browser UI foundation
 
-- Add `PeerBrowserView` and `PeerBrowserModel` driven by framework-neutral discovery and connection events.
-- Use SwiftUI as the primary browser implementation.
-- Provide UIKit bridging through `UIHostingController` or representable wrappers where compatibility requires it.
-- Retain and deprecate old `MCBrowserViewController`-specific paths as compatibility shims only.
-- Add SwiftUI/UI tests for peer listing, selection, cancellation, and connection state updates.
+- Use `PeerBrowserModel`, driven by framework-neutral discovery and connection events, as the supported Network browser foundation.
+- Document a concise integration pattern for app-owned peer lists and approval flows.
+- Defer a reusable `PeerBrowserView` and UIKit bridge until app integrations establish shared requirements.
+- Retain the existing `MCBrowserViewController` path for the MultipeerConnectivity backend.
+- Do not change the default backend or add transport/trust behavior in this UI decision.
 
-### PR 9: End-to-end automation and UI testing
+### PR 9: End-to-end automation and demo testing
 
 - Add a loopback/local integration harness where possible.
-- Add XCUITest coverage for the SwiftUI browser and demo app smoke paths.
+- Add UI smoke coverage for the demo's app-owned browser flow when stable automation is practical.
 - Add CI automation for stable smoke tests.
 - Document manual device checks for Bonjour and Local Network privacy prompts.
 
@@ -108,7 +108,7 @@ Security review is mandatory for PRs that change:
 - Network listener/connection setup.
 - TLS identity, PSK, trust evaluation, or handshake payloads.
 - Untrusted input parsing, frame decoding, or peer identity validation.
-- SwiftUI browser input, peer selection, or invite flows.
+- Reusable browser input, peer selection, or invite flows.
 - Public backend selection or default backend behavior.
 
 Before the Network backend is publicly selectable, peer authentication must be explicit rather than relying on self-asserted display names or unauthenticated handshakes.
