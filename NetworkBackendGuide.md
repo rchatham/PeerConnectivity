@@ -8,13 +8,34 @@ The Network backend is not the default runtime path yet. Treat it as an experime
 
 Use it when you need to evaluate the Network framework migration path for reliable local peer messaging. Continue using the default MultipeerConnectivity backend when you need the system-provided browser UI, stream transfer, resource transfer, stream/resource receive events, or proven production parity.
 
-## Requirements
+## Production app setup
 
-- `.networkFramework` requires iOS 13.0+ or macOS 10.15+.
-- iOS apps that use Bonjour/local-network discovery should include local network privacy entries in `Info.plist`:
-  - `NSLocalNetworkUsageDescription`
-  - `NSBonjourServices`, including the DNS-SD form of your service type, for example `_local._tcp`.
-- Service types passed to `PeerConnectionManager` remain bare PeerConnectivity service names such as `"local"`; the Network backend maps them to Bonjour service names internally.
+`.networkFramework` requires iOS 13.0+ or macOS 10.15+. Before distributing an app that selects this backend, add the local-network privacy declarations to the **app target's built `Info.plist`**. Adding them to the package or framework plist does not configure an adopting app.
+
+For a manager created with `serviceType: "local"`, use:
+
+```xml
+<key>NSLocalNetworkUsageDescription</key>
+<string>Discover and connect to nearby devices running this app.</string>
+<key>NSBonjourServices</key>
+<array>
+    <string>_local._tcp</string>
+</array>
+```
+
+Write a purpose string that accurately describes the app's user-facing feature. Declare every service type the app passes to a Network-backed manager. The current conversion is:
+
+| `PeerConnectionManager` service type | Bonjour type to declare in `NSBonjourServices` |
+|---|---|
+| `"local"` | `_local._tcp` |
+| `"test-service"` | `_test-service._tcp` |
+| `"_test-service._tcp"` | `_test-service._tcp` |
+
+Prefer the bare form, such as `"local"`, because it is compatible with the existing MultipeerConnectivity API. The Network backend adds the leading underscore and `._tcp` suffix. It uses TCP only, so do not add a corresponding `._udp` entry unless the adopting app separately advertises or browses that UDP service. The demo's complete example is in [`PeerConnectivityDemo/Info.plist`](PeerConnectivityDemo/Info.plist).
+
+These values are app metadata, not entitlements. This backend's Bonjour-over-TCP implementation does not send custom multicast or broadcast packets, so it does not itself require the restricted multicast networking entitlement.
+
+On systems that enforce local-network privacy, starting Bonjour discovery can present the system prompt using `NSLocalNetworkUsageDescription`. The user can deny access, and the app must treat unavailable discovery as a real runtime state rather than assuming that an empty peer list means no peers exist.
 
 ## Opt in
 
@@ -178,6 +199,35 @@ Select a discovered peer, invite it, wait for its status to become **Connected**
 
 This demo Network path is intentionally unauthenticated, visibly labels that limitation, and is only for non-sensitive local migration validation. Production apps should use app-managed `.preSharedKey` material and an appropriate trust model.
 
+## Network path and device caveats
+
+PeerConnectivity sets `NWParameters.includePeerToPeer = true` on the parameters used by its Network listener, browser, and connections. Apple documents this as opting in to peer-to-peer link technologies, and more specifically describes the Network framework path as Apple peer-to-peer Wi-Fi. This is an opt-in, not a request for a particular interface or a guarantee that a peer-to-peer path will be selected.
+
+Plan around these boundaries:
+
+- Two devices on the same infrastructure Wi-Fi can communicate locally without internet access, provided the network permits client-to-client traffic and Bonjour. Guest-network isolation, managed-network policy, VPNs, and firewalls can prevent discovery or connection.
+- Keep Wi-Fi enabled when validating peer-to-peer operation. Do not describe this backend as Bluetooth-only or as a Bluetooth LE transport; it has no Core Bluetooth API or explicit Bluetooth transport selection.
+- AWDL is commonly used as shorthand for an Apple peer-to-peer Wi-Fi implementation detail. The public API used here exposes only `includePeerToPeer`; apps cannot require AWDL, select it, or infer from that flag which interface carried a connection.
+- Radio state, device/OS combinations, network policy, and nearby interference can affect results. Enabling `includePeerToPeer` does not promise discovery under every topology.
+- Stop managers, browsers, and connections when the feature is no longer in use. Apple notes that peer-to-peer Wi-Fi operation can affect network performance.
+
+The simulator is useful for API flow, UI, and loopback automation, and it may discover local Bonjour services through the Mac's networking environment. It is not a production validation substitute: simulator privacy behavior and interfaces differ from a physical device, and it cannot establish confidence in on-device peer-to-peer Wi-Fi, radio-state, or Local Network permission behavior.
+
+## Manual physical-device validation
+
+Complete this checklist on the release build (or an equivalently signed build) before shipping the Network backend:
+
+- [ ] Confirm the built app's `Info.plist` contains the intended `NSLocalNetworkUsageDescription` and every required `NSBonjourServices` value, such as `_local._tcp` for `serviceType: "local"`.
+- [ ] Install cleanly on two supported physical devices so permission state is known; start networking and verify the Local Network prompt presents with the intended copy.
+- [ ] Allow access on both devices, then verify discovery, invitation/automatic connection as applicable, bidirectional typed messages, disconnect, and reconnect.
+- [ ] Deny Local Network access on one device and verify the app shows an actionable unavailable/permission state rather than hanging, crashing, or claiming no peers exist. Restore access in Settings and retest.
+- [ ] Verify two devices on the supported infrastructure Wi-Fi topology, including the production router or managed network when relevant. Confirm the feature does not depend on internet reachability.
+- [ ] Separately validate the product's required nearby peer-to-peer scenario with Wi-Fi enabled and without relying on the infrastructure path. Record device models and OS versions; do not infer the selected interface from success alone.
+- [ ] Exercise app background/foreground transitions and stopping/restarting networking; confirm stale peers disappear and resources are released.
+- [ ] Repeat the security checks with production-equivalent `.preSharedKey` provisioning: matching keys connect, mismatched keys do not, and no key material appears in logs, Bonjour metadata, or the app bundle.
+
+If the product requires a specific topology (for example, a managed venue network or operation away from an access point), test that exact topology across the supported physical-device and OS matrix. A simulator-only pass is not a release gate.
+
 ## Connection policy defaults
 
 Network connection lifecycle policy is intentionally fixed and internal while the backend remains opt-in:
@@ -214,7 +264,7 @@ swift test --filter NetworkPeerLoopbackTests
 
 In CI, the full Swift/Xcode test steps skip `NetworkPeerLoopbackTests` by default and then run them in focused retryable steps with `PEERCONNECTIVITY_RUN_NETWORK_E2E=1`. This keeps real Bonjour/Network.framework failures isolated from unit-test failures while still requiring the Network E2E checks to pass.
 
-Full local verification for the migration stack:
+Full local automated verification for the migration stack (in addition to the physical-device checklist above):
 
 ```sh
 swift test
@@ -223,6 +273,13 @@ xcodebuild test -project PeerConnectivity.xcodeproj \
   -destination 'platform=iOS Simulator,name=iPhone 16,OS=18.3.1' \
   -configuration Debug
 ```
+
+## Apple references
+
+- [`NSLocalNetworkUsageDescription`](https://developer.apple.com/documentation/bundleresources/information-property-list/nslocalnetworkusagedescription) — Apple requires a purpose string for apps that access the local network directly or through Bonjour.
+- [TN3151: Choosing the right networking API](https://developer.apple.com/documentation/technotes/tn3151-choosing-the-right-networking-api) — Bonjour, local-network privacy, and peer-to-peer Wi-Fi guidance.
+- [Local Network Privacy FAQ-14](https://developer.apple.com/forums/thread/663814) — Apple's mapping from a bare Multipeer Connectivity service type to `_service._tcp` in `NSBonjourServices`.
+- [`NWListener.service`](https://developer.apple.com/documentation/network/nwlistener/service-swift.property) — the Bonjour service advertised by a Network listener.
 
 ## Known follow-ups
 

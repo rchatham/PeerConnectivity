@@ -57,7 +57,20 @@ let pcm = PeerConnectionManager(serviceType: "local",
 
 The default `networkSecurity: .unauthenticated` mode is plaintext TCP, remains available only for source compatibility and diagnostics, and must not be used for sensitive data.
 
-See [NetworkBackendGuide.md](NetworkBackendGuide.md) for the full migration guide, support matrix, demo launch arguments, validation coverage, and known limitations. See [NetworkTrustModelPlan.md](NetworkTrustModelPlan.md) for the current group-membership boundary, display-name spoofing threat model, and future individual-identity options.
+Network adopters must add local-network privacy metadata to the **app target**, not the package or framework plist. For the service type above, the minimum declarations are:
+
+```xml
+<key>NSLocalNetworkUsageDescription</key>
+<string>Discover and connect to nearby devices running this app.</string>
+<key>NSBonjourServices</key>
+<array>
+    <string>_local._tcp</string>
+</array>
+```
+
+The backend maps the bare `serviceType: "local"` to the TCP Bonjour type `_local._tcp`; declare every service type the app uses. It does not advertise `_local._udp`. Physical-device testing is required to validate the Local Network permission flow and the app's supported Wi-Fi/peer-to-peer topologies; simulator success is not sufficient for production readiness.
+
+See [NetworkBackendGuide.md](NetworkBackendGuide.md) for the complete production setup, service-type mapping, physical-device checklist, support matrix, demo launch arguments, and known limitations. See [NetworkTrustModelPlan.md](NetworkTrustModelPlan.md) for the current group-membership boundary, display-name spoofing threat model, and future individual-identity options.
 
 ### Stream and resource APIs
 
