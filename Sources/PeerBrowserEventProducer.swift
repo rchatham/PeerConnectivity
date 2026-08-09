@@ -12,7 +12,7 @@ import MultipeerConnectivity
 internal enum PeerBrowserEvent {
     case none
     case didNotStartBrowsingForPeers(Error)
-    case foundPeer(Peer)
+    case foundPeer(Peer, discoveryInfo: PeerDiscoveryInfo?)
     case lostPeer(Peer)
 }
 
@@ -38,7 +38,7 @@ extension PeerBrowserEventProducer: MCNearbyServiceBrowserDelegate {
         NSLog("%@", "foundPeer: \(peerID)")
         
         let peer = Peer(peerID: peerID, status: .notConnected)
-        let event : PeerBrowserEvent = .foundPeer(peer)
+        let event : PeerBrowserEvent = .foundPeer(peer, discoveryInfo: info)
         self.observer.value = event
     }
     
