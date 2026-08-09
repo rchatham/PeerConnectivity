@@ -4,6 +4,8 @@
 
 Begin migrating PeerConnectivity away from direct MultipeerConnectivity dependence toward Apple's Network framework while preserving public API compatibility where practical.
 
+> Status: this is the original staged architecture plan. The Network backend is now implemented as an experimental opt-in. Use [NetworkMigrationReadinessAudit.md](NetworkMigrationReadinessAudit.md) for the authoritative checklist governing stable status, a default switch, and MultipeerConnectivity removal.
+
 > Note: the iOS 27 MultipeerConnectivity deprecation claim has not yet been verified against Apple SDK headers or release notes. Treat Network framework migration as proactive risk reduction until confirmed.
 
 ## Current State
@@ -253,22 +255,14 @@ xcodebuild test -workspace PeerConnectivity.xcworkspace \
 - Backend selection/deprecation notes.
 - Known limitations vs MultipeerConnectivity.
 
-## Open Questions
+## Resolved decisions and remaining gates
 
-1. Should Network framework be introduced as an opt-in backend first, or should it replace MC internally once stable?
-2. What is the minimum supported OS after migration?
-3. Is preserving `multipeerSession: MCSession` required for a transition release?
-4. Should unreliable send semantics be preserved, deprecated, or documented as best-effort?
-5. What service type naming convention should be required for Bonjour compatibility?
-6. Which individually authenticated mode from [NetworkTrustModelPlan.md](NetworkTrustModelPlan.md) should graduate the Network backend from experimental status: pairwise derived keys, signed per-peer identity, certificate/pinning, or app-provided verification?
-7. When should Network connection policy values become public configuration instead of fixed internal defaults?
+- Network was introduced as an explicit opt-in; MultipeerConnectivity remains the default.
+- Minimum deployment targets are iOS 13 and macOS 10.15.
+- `multipeerSession` remains available during dual-backend transition and must be deprecated before MC removal.
+- Bare service types map to `_<service>._tcp`; already-qualified TCP Bonjour types are preserved.
+- Stream/resource parity is intentionally outside this migration stack; those APIs remain MC-only.
+- Connection policy remains fixed/internal until device and load evidence demonstrates a need for public tuning.
+- Individual peer authentication remains unresolved and is required before stable/default status.
 
-## Immediate Next Step
-
-Implement Phase 1's transport seam and mock-backed tests in this branch:
-
-```text
-feature/network-framework-migration
-```
-
-Keep this first commit behavior-preserving and small so later Network framework work can build on a stable abstraction layer.
+The next work is not another unconditional migration phase. Select follow-ups according to [NetworkMigrationReadinessAudit.md](NetworkMigrationReadinessAudit.md): security identity, error observability, resource bounds, and physical-device evidence come before stable status; default switching and MC removal have later, separate gates.
