@@ -66,7 +66,7 @@ private final class PeerBrowserModelHarness {
 
     internal var factory : PeerConnectionTransportFactory {
         return PeerConnectionTransportFactory(
-            makeSession: { [weak self] peer, observer in
+            makeSession: { [weak self] peer, _, observer in
                 self?.sessionObserver = observer
                 return BrowserModelMockSessionTransport(peer: peer)
             },
@@ -74,10 +74,10 @@ private final class PeerBrowserModelHarness {
                 self?.browserObserver = observer
                 return self!.browser
             },
-            makeAdvertiser: { _, _, _ in
+            makeAdvertiser: { _, _, _, _ in
                 return BrowserModelNoOpAdvertiserTransport()
             },
-            makeAdvertiserAssisstant: { _, _, _ in
+            makeAdvertiserAssisstant: { _, _, _, _ in
                 return BrowserModelNoOpAdvertiserAssisstantTransport()
             }
         )
@@ -104,7 +104,7 @@ final class PeerBrowserModelTests : XCTestCase {
 
         model.startObserving()
         manager.startBrowsingOnly()
-        harness.browserObserver?.value = .foundPeer(peer)
+        harness.browserObserver?.value = .foundPeer(peer, discoveryInfo: nil)
         wait(for: [foundExpectation], timeout: 1)
         XCTAssertEqual(model.discoveredPeers, [peer])
 
@@ -130,13 +130,13 @@ final class PeerBrowserModelTests : XCTestCase {
 
         model.startObserving()
         manager.startBrowsingOnly()
-        harness.browserObserver?.value = .foundPeer(foundPeer)
+        harness.browserObserver?.value = .foundPeer(foundPeer, discoveryInfo: nil)
         harness.sessionObserver?.value = .devicesChanged(peer: connectedPeer)
 
         waitForExpectations(timeout: 1)
         XCTAssertEqual(model.discoveredPeers.first?.status, .connected)
 
-        harness.browserObserver?.value = .foundPeer(otherPeer)
+        harness.browserObserver?.value = .foundPeer(otherPeer, discoveryInfo: nil)
         RunLoop.current.run(until: Date().addingTimeInterval(0.1))
         XCTAssertEqual(model.discoveredPeers.first?.status, .connected)
     }
@@ -161,7 +161,7 @@ final class PeerBrowserModelTests : XCTestCase {
         model.startObserving()
         manager.startBrowsingOnly()
         model.stopObserving()
-        harness.browserObserver?.value = .foundPeer(peer)
+        harness.browserObserver?.value = .foundPeer(peer, discoveryInfo: nil)
 
         RunLoop.current.run(until: Date().addingTimeInterval(0.1))
         XCTAssertTrue(model.discoveredPeers.isEmpty)
