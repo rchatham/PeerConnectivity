@@ -11,16 +11,25 @@ import MultipeerConnectivity
 
 /**
  The service type describing the channel over which connections are made.
+
+ MultipeerConnectivity service types must be short Bonjour-style identifiers. Use
+ `PeerConnectionManager.isValidServiceType(_:)` to validate caller-provided values.
  */
 public typealias ServiceType = String
 
 /**
+ Discovery metadata advertised over Bonjour TXT records.
+
+ Treat discovery info as public, unauthenticated metadata. Do not include secrets, tokens,
+ emails, stable user IDs, or sensitive device information. Prefer non-secret values such as
+ protocol versions, capability flags, or non-secret room/session labels.
+ */
+public typealias PeerDiscoveryInfo = [String:String]
+
+/**
  Struct representing specified keys for configuring a connection manager.
  */
-public struct PeerConnectivityKeys {
-    static fileprivate let CertificateListener = "CertificateRecievedListener"
-}
-
+public struct PeerConnectivityKeys {}
 
 // MARK: - Modern Type-Safe Messaging API
 
@@ -129,6 +138,36 @@ public class PeerConnectionManager {
      Access to shared connection managers by their service type.
      */
     public fileprivate(set) static var shared : [ServiceType:PeerConnectionManager] = [:]
+
+    /**
+     Returns whether a service type satisfies MultipeerConnectivity's documented constraints.
+
+     Valid service types are 1 to 15 characters, contain only ASCII lowercase letters,
+     numbers, and hyphens, include at least one letter, do not begin or end with a hyphen,
+     and do not contain consecutive hyphens. Invalid values may cause
+     MultipeerConnectivity objects to fail during initialization.
+
+     - parameter serviceType: Service type string to validate.
+     - Returns: `true` when the service type matches the supported format.
+     */
+    public static func isValidServiceType(_ serviceType: ServiceType) -> Bool {
+        guard !serviceType.isEmpty && serviceType.count <= 15 else { return false }
+        guard serviceType.first != "-" && serviceType.last != "-" else { return false }
+        guard !serviceType.contains("--") else { return false }
+
+        var containsLetter = false
+        for scalar in serviceType.unicodeScalars {
+            switch scalar.value {
+            case 45, 48...57:
+                continue
+            case 97...122:
+                containsLetter = true
+            default:
+                return false
+            }
+        }
+        return containsLetter
+    }
     
     // MARK: Properties
     /**
@@ -156,6 +195,27 @@ public class PeerConnectionManager {
      Access to the local peer representing the user.
      */
     public let peer : Peer
+
+    /**
+     Security settings used to create the underlying MultipeerConnectivity session.
+     */
+    public let securityConfiguration : PeerSecurityConfiguration
+
+    /**
+     Public discovery metadata advertised to nearby browsers.
+
+     This metadata is unauthenticated and visible to nearby peers. Do not include secrets,
+     tokens, emails, stable user IDs, or sensitive device information.
+     */
+    public let discoveryInfo : PeerDiscoveryInfo?
+
+    /**
+     Policy used to decide whether incoming invitations are accepted in `.automatic` mode.
+
+     Invitation context is unauthenticated metadata received before session establishment.
+     Do not treat it as trusted or include raw secrets.
+     */
+    public let invitationPolicy : PeerInvitationPolicy
     
     /**
      Returns the peers that are connected on the current session.
@@ -223,9 +283,12 @@ public class PeerConnectionManager {
     /**
      Initializer for a connection manager. Requires the requested service type. If the connectionType and displayName are not specified the connection manager defaults to .Automatic and using the localized host name where available, falling back to the process host name. The `PeerConnectivityUI` product provides an iOS convenience initializer that uses the current device name.
      
-     - parameter serviceType: The requested service type describing the channel on which peers are able to connect.
+     - parameter serviceType: The requested service type describing the channel on which peers are able to connect. Use `isValidServiceType(_:)` to validate caller-provided values before initialization.
      - parameter connectionType: Takes a PeerConnectionType case determining the default behavior of the framework.
-     - parameter displayName: The local user's display name to other peers.
+     - parameter displayName: The local user's display name to other peers. Display names are visible to nearby peers and must be no more than 63 bytes when UTF-8 encoded.
+     - parameter securityConfiguration: Security settings used to create the underlying MultipeerConnectivity session.
+     - parameter discoveryInfo: Public, unauthenticated metadata advertised to nearby browsers.
+     - parameter invitationPolicy: Policy used to decide whether incoming invitations are accepted in `.automatic` mode.
      - parameter backend: Backend implementation to use. Defaults to `.multipeerConnectivity`.
      - parameter networkSecurity: Security configuration for `.networkFramework`. Defaults to
        `.unauthenticated` for source compatibility; use `.preSharedKey(_:)` for authenticated
@@ -242,11 +305,17 @@ public class PeerConnectionManager {
                     return ProcessInfo.processInfo.hostName
                     #endif
                 }(),
+                securityConfiguration: PeerSecurityConfiguration = .default,
+                discoveryInfo: PeerDiscoveryInfo? = nil,
+                invitationPolicy: PeerInvitationPolicy = .acceptAll,
                 backend: PeerConnectionBackend = .multipeerConnectivity,
                 networkSecurity: PeerConnectionNetworkSecurity = .unauthenticated) {
         self.init(serviceType: serviceType,
             connectionType: connectionType,
             displayName: displayName,
+            securityConfiguration: securityConfiguration,
+            discoveryInfo: discoveryInfo,
+            invitationPolicy: invitationPolicy,
             backend: backend,
             networkSecurity: networkSecurity,
             transportFactory: PeerConnectionManager.transportFactory(for: backend, networkSecurity: networkSecurity),
@@ -256,12 +325,18 @@ public class PeerConnectionManager {
     internal convenience init(serviceType: ServiceType,
         connectionType: PeerConnectionType = .automatic,
         displayName: String,
+        securityConfiguration: PeerSecurityConfiguration = .default,
+        discoveryInfo: PeerDiscoveryInfo? = nil,
+        invitationPolicy: PeerInvitationPolicy = .acceptAll,
         backend: PeerConnectionBackend = .multipeerConnectivity,
         networkSecurity: PeerConnectionNetworkSecurity = .unauthenticated,
         transportFactory: PeerConnectionTransportFactory) {
         self.init(serviceType: serviceType,
             connectionType: connectionType,
             displayName: displayName,
+            securityConfiguration: securityConfiguration,
+            discoveryInfo: discoveryInfo,
+            invitationPolicy: invitationPolicy,
             backend: backend,
             networkSecurity: networkSecurity,
             transportFactory: transportFactory,
@@ -271,6 +346,9 @@ public class PeerConnectionManager {
     fileprivate init(serviceType: ServiceType,
         connectionType: PeerConnectionType,
         displayName: String,
+        securityConfiguration: PeerSecurityConfiguration,
+        discoveryInfo: PeerDiscoveryInfo?,
+        invitationPolicy: PeerInvitationPolicy,
         backend: PeerConnectionBackend,
         networkSecurity: PeerConnectionNetworkSecurity,
         transportFactory: PeerConnectionTransportFactory,
@@ -285,23 +363,22 @@ public class PeerConnectionManager {
         case .networkFramework:
             self.peer = Peer(networkDisplayName: displayName)
         }
+        self.securityConfiguration = securityConfiguration
+        self.discoveryInfo = discoveryInfo
+        self.invitationPolicy = invitationPolicy
 
-        session = transportFactory.makeSession(peer, sessionObserver)
+        session = transportFactory.makeSession(peer, securityConfiguration, sessionObserver)
         browser = transportFactory.makeBrowser(session, serviceType, browserObserver)
-        advertiser = transportFactory.makeAdvertiser(session, serviceType, advertiserObserver)
-        advertiserAssisstant = transportFactory.makeAdvertiserAssisstant(session, serviceType, advertiserAssisstantObserver)
+        advertiser = transportFactory.makeAdvertiser(session, serviceType, discoveryInfo, advertiserObserver)
+        advertiserAssisstant = transportFactory.makeAdvertiserAssisstant(session,
+                                                                         serviceType,
+                                                                         discoveryInfo,
+                                                                         advertiserAssisstantObserver)
 
         responder = PeerConnectionResponder(observer: observer)
 
-        responder.addListener({ (event) in
-            switch event {
-            case .receivedCertificate(peer: _, certificate: _, handler: let handler):
-                handler(true)
-            default: break
-            }
-        }, forKey: PeerConnectivityKeys.CertificateListener)
-
         guard shouldRegisterSharedManager else { return }
+        // Prevent mingling signals from the same device
         if let existing = PeerConnectionManager.shared[serviceType] {
             existing.stop()
             existing.removeAllListeners()
@@ -338,6 +415,63 @@ public class PeerConnectionManager {
                 return .networkFramework(security: networkSecurity)
             }
             fatalError("PeerConnectivity: Network framework backend requires iOS 13.0 or macOS 10.15")
+        }
+    }
+
+    internal func handleCertificate(peer: Peer, certificate: [Any]?, handler: @escaping (Bool) -> Void) {
+        switch securityConfiguration.certificatePolicy {
+        case .acceptAll:
+            handler(true)
+        case .rejectAll:
+            handler(false)
+        case .requireCertificate:
+            handler(certificate?.isEmpty == false)
+        case .custom(let certificateHandler):
+            certificateHandler(peer, certificate, handler)
+        }
+
+        observer.value = .receivedCertificate(peer: peer, certificate: certificate, handler: { _ in })
+    }
+
+    internal func handleInvitation(peer: Peer,
+                                   context: Data?,
+                                   invitationHandler: @escaping (Bool, MultipeerSessionTransport) -> Void) {
+        let completeInvitation = { [weak self] (accept: Bool) -> Void in
+            guard let strongSelf = self,
+                  let session = strongSelf.session as? MultipeerSessionTransport else { return }
+            invitationHandler(accept, session)
+            if accept && strongSelf.connectionType == .automatic {
+                strongSelf.advertiser.stopAdvertising()
+            }
+        }
+
+        guard connectionType == .automatic else {
+            observer.value = .receivedInvitation(peer: peer,
+                                                 withContext: context,
+                                                 invitationHandler: completeInvitation)
+            return
+        }
+
+        switch invitationPolicy {
+        case .manual:
+            observer.value = .receivedInvitation(peer: peer,
+                                                 withContext: context,
+                                                 invitationHandler: completeInvitation)
+        case .acceptAll:
+            observer.value = .receivedInvitation(peer: peer,
+                                                 withContext: context,
+                                                 invitationHandler: { _ in })
+            completeInvitation(true)
+        case .rejectAll:
+            observer.value = .receivedInvitation(peer: peer,
+                                                 withContext: context,
+                                                 invitationHandler: { _ in })
+            completeInvitation(false)
+        case .custom(let invitationPolicy):
+            observer.value = .receivedInvitation(peer: peer,
+                                                 withContext: context,
+                                                 invitationHandler: { _ in })
+            completeInvitation(invitationPolicy(peer, context))
         }
     }
 }
@@ -573,8 +707,9 @@ extension PeerConnectionManager {
         if includeBrowserObservers {
             browserObserver.addObserver { [weak self] event in
                 switch event {
-                case .foundPeer(let peer):
+                case .foundPeer(let peer, let discoveryInfo):
                     self?.observer.value = .foundPeer(peer: peer)
+                    self?.observer.value = .foundPeerWithDiscoveryInfo(peer: peer, discoveryInfo: discoveryInfo)
                 case .lostPeer(let peer):
                     self?.observer.value = .lostPeer(peer: peer)
                 case .didNotStartBrowsingForPeers(let error):
@@ -588,12 +723,7 @@ extension PeerConnectionManager {
             advertiserObserver.addObserver { [weak self] event in
                 switch event {
                 case .didReceiveInvitationFromPeer(peer: let peer, withContext: let context, invitationHandler: let invite):
-                    let invitationReceiver = {
-                        [weak self] (accept: Bool) -> Void in
-                        guard let session = self?.session as? MultipeerSessionTransport else { return }
-                        invite(accept, session)
-                    }
-                    self?.observer.value = .receivedInvitation(peer: peer, withContext: context, invitationHandler: invitationReceiver)
+                    self?.handleInvitation(peer: peer, context: context, invitationHandler: invite)
                 case .didNotStartAdvertisingPeer(let error):
                     self?.observer.value = .error(error)
                 default: break
@@ -625,7 +755,7 @@ extension PeerConnectionManager {
                 ) as? [String: Any] else { return }
                 self?.observer.value = .receivedEvent(peer: peer, eventInfo: eventInfo)
             case .didReceiveCertificate(peer: let peer, certificate: let certificate, handler: let handler):
-                self?.observer.value = .receivedCertificate(peer: peer, certificate: certificate, handler: handler)
+                self?.handleCertificate(peer: peer, certificate: certificate, handler: handler)
             case .didReceiveStream(peer: let peer, stream: let stream, name: let name):
                 self?.observer.value = .receivedStream(peer: peer, stream: stream, name: name)
             case .startedReceivingResource(peer: let peer, name: let name, progress: let progress):
@@ -640,7 +770,7 @@ extension PeerConnectionManager {
             browserObserver.addObserver { [weak self] event in
                 DispatchQueue.main.async {
                     switch event {
-                    case .foundPeer(let peer):
+                    case .foundPeer(let peer, _):
                         guard let peers = self?.foundPeers , !peers.contains(peer) else { break }
                         self?.foundPeers.append(peer)
                     case .lostPeer(let peer):
@@ -677,21 +807,8 @@ extension PeerConnectionManager {
                 browserObserver.addObserver { [unowned self] event in
                     DispatchQueue.main.async {
                         switch event {
-                        case .foundPeer(let peer):
+                        case .foundPeer(let peer, _):
                             self.browser.invitePeer(peer)
-                        default: break
-                        }
-                    }
-                }
-            }
-            if shouldAdvertise {
-                advertiserObserver.addObserver { [unowned self] event in
-                    DispatchQueue.main.async {
-                        switch event {
-                        case .didReceiveInvitationFromPeer(peer: _, withContext: _, invitationHandler: let handler):
-                            guard let session = self.session as? MultipeerSessionTransport else { return }
-                            handler(true, session)
-                            self.advertiser.stopAdvertising()
                         default: break
                         }
                     }
