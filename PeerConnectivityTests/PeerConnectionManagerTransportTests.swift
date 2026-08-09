@@ -113,7 +113,7 @@ private final class PeerConnectionTransportHarness {
 
     internal var factory : PeerConnectionTransportFactory {
         return PeerConnectionTransportFactory(
-            makeSession: { [weak self] peer, observer in
+            makeSession: { [weak self] peer, _, observer in
                 let session = MockPeerSessionTransport(peer: peer)
                 self?.session = session
                 self?.sessionObserver = observer
@@ -123,11 +123,11 @@ private final class PeerConnectionTransportHarness {
                 self?.browserObserver = observer
                 return self!.browser
             },
-            makeAdvertiser: { [weak self] _, _, observer in
+            makeAdvertiser: { [weak self] _, _, _, observer in
                 self?.advertiserObserver = observer
                 return self!.advertiser
             },
-            makeAdvertiserAssisstant: { [weak self] _, _, _ in
+            makeAdvertiserAssisstant: { [weak self] _, _, _, _ in
                 return self!.advertiserAssisstant
             }
         )
@@ -211,7 +211,7 @@ final class PeerConnectionManagerTransportTests : XCTestCase {
         }, performListenerInBackground: true, withKey: "found-peer")
 
         manager.startBrowsingOnly()
-        harness.browserObserver?.value = .foundPeer(manager.peer)
+        harness.browserObserver?.value = .foundPeer(manager.peer, discoveryInfo: nil)
 
         waitForExpectations(timeout: 1)
     }
