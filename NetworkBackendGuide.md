@@ -146,7 +146,7 @@ Resource transfer and stream APIs are intentionally unsupported for the Network 
 
 ## Demo app
 
-The demo shows the active backend and lets you choose **Multipeer** or **Network** before starting. The default remains MultipeerConnectivity. In Network mode, the manager uses `.custom`, discovered rows come from `PeerBrowserModel`, and the **Invite selected peer** and **Send typed ping** actions exercise manual invitation and `PeerMessage` delivery.
+The expanded demo shows the active backend and lets you choose **Multipeer** or **Network** before starting. The default remains MultipeerConnectivity. In Network mode, the manager uses `.custom`, manual **Invite _peer name_** actions come from `PeerBrowserModel`, and **Send Typed Message** exercises `PeerMessage` delivery while preserving message history, structured logging, troubleshooting, and the test checklist.
 
 The same path can be selected with launch arguments:
 
@@ -161,7 +161,7 @@ PCNetworkBackend PCAutoStart PCDisplayName Alice
 PCNetworkBackend PCAutoStart PCDisplayName Bob
 ```
 
-Select a discovered peer, invite it, wait for its status to become **Connected**, then send a typed ping. See [`PeerConnectivityDemo/README.md`](PeerConnectivityDemo/README.md) for the complete walkthrough.
+Tap the enabled invite action for a discovered peer, wait for its status to become **Connected**, then enter and send a typed message or ping. See [`PeerConnectivityDemo/README.md`](PeerConnectivityDemo/README.md) for the complete walkthrough.
 
 This demo Network path is intentionally unauthenticated, visibly labels that limitation, and is only for non-sensitive local migration validation. Production apps should use app-managed `.preSharedKey` material and an appropriate trust model.
 

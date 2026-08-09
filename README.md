@@ -105,6 +105,17 @@ let browserViewController = pcm.browserViewController { event in
 }
 ```
 
+Use the optional `peerFilter` to hide nearby peers before they are presented by
+`MCBrowserViewController`. Discovery info is public, unauthenticated metadata, so
+only use it for non-secret values such as protocol versions, public capabilities,
+or non-secret room labels.
+
+```swift
+let filteredBrowserViewController = pcm.browserViewController({ _ in }, peerFilter: { peer, discoveryInfo in
+    return discoveryInfo?["protocol"] == "2"
+})
+```
+
 The Network backend does not have an `MCBrowserViewController` equivalent. During this migration phase, `PeerBrowserModel` is the supported foundation for app-owned UIKit or SwiftUI peer-selection UI:
 
 ```swift
@@ -120,6 +131,27 @@ if let approvedPeer = browserModel.discoveredPeers.first {
 ```
 
 A reusable Network browser view is intentionally deferred until app-owned integrations establish common UI requirements. See [NetworkBackendGuide.md](NetworkBackendGuide.md#browser-ui-decision) for the decision and lifecycle guidance.
+
+## Demo App
+
+Run `PeerConnectivityDemo.xcodeproj` on two simulators or devices. The default **Multipeer**
+mode retains automatic invitations; the opt-in **Network** mode uses `PeerBrowserModel` and
+visible manual invite actions. Both modes retain advertising and browsing controls, connection
+state, typed message history, raw data and resource exercises, structured event logging,
+troubleshooting guidance, and the physical-test checklist. Discovery metadata events are logged
+as `peer.found.metadata` when nearby peers advertise Bonjour TXT record values.
+
+## API Compatibility Notes
+
+`PeerConnectionEvent.foundPeer(peer:)` is still emitted for existing listeners. When
+advertised discovery metadata is available, PeerConnectivity also emits
+`foundPeerWithDiscoveryInfo(peer:discoveryInfo:)`; listeners should handle one of these
+discovery events to avoid processing the same peer twice. Callers with exhaustive
+switches over `PeerConnectionEvent` need to add the new case or a `default` branch.
+
+In `.automatic` mode, invitation decisions are controlled by `PeerInvitationPolicy`.
+Non-manual automatic policies still emit `.receivedInvitation` for observation/API
+compatibility, but that event's handler is a no-op and does not change the policy decision.
 
 ## Sending Events to Peers
 
