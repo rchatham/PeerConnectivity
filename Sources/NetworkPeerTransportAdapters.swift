@@ -185,7 +185,7 @@ internal final class NetworkPeerBrowserTransport : PeerBrowserTransport {
     internal func foundEndpoint(_ endpoint: NWEndpoint) {
         let identity = PeerIdentity(identifier: endpoint.debugDescription, displayName: endpoint.debugDescription)
         endpointsByIdentity[identity] = endpoint
-        browserObserver.value = .foundPeer(Peer(identity: identity, status: .notConnected))
+        browserObserver.value = .foundPeer(Peer(identity: identity, status: .notConnected), discoveryInfo: nil)
     }
 
     internal func lostEndpoint(_ endpoint: NWEndpoint) {

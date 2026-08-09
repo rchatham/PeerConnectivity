@@ -29,14 +29,16 @@ extension PeerConnectionManager {
      Returns a browser view controller if the connectionType was set to `.InviteOnly` or returns `nil` if not.
 
      - parameter callback: Events sent back with cases `.DidFinish` and `.DidCancel`.
+     - parameter peerFilter: Optional synchronous filter used before nearby peers are presented.
 
      - Returns: A browser view controller for inviting available peers nearby if connection type is `.InviteOnly` or `nil` otherwise.
      */
-    public func browserViewController(_ callback: @escaping (PeerBrowserViewControllerEvent)->Void) -> UIViewController? {
+    public func browserViewController(_ callback: @escaping (PeerBrowserViewControllerEvent)->Void,
+                                      peerFilter: PeerBrowserViewControllerPeerFilter? = nil) -> UIViewController? {
         switch connectionType {
         case .inviteOnly:
             let browserAssisstant = PeerBrowserAssisstant(session: multipeerSession, serviceType: peerServiceType)
-            return browserAssisstant.peerBrowserViewController(callback)
+            return browserAssisstant.peerBrowserViewController(callback, peerFilter: peerFilter)
         default: return nil
         }
     }
