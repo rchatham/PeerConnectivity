@@ -56,8 +56,9 @@ extension PeerMessage {
  The default backend is `.multipeerConnectivity`, preserving existing runtime behavior.
  The `.networkFramework` backend is an opt-in migration path. It supports Bonjour
  discovery, automatic/custom peer connection, reliable `Data`, and `PeerMessage`
- exchange. It does not yet support MultipeerConnectivity browser UI, data streams,
- or resource transfer. Use `networkSecurity: .preSharedKey(_:)` with
+ exchange. MultipeerConnectivity browser UI, data streams, resource transfer, and
+ their receive events remain MultipeerConnectivity-only in the current migration.
+ Use `networkSecurity: .preSharedKey(_:)` with
  `.networkFramework` to require an authenticated encrypted connection.
  */
 public enum PeerConnectionBackend : Equatable {
@@ -139,7 +140,8 @@ public class PeerConnectionManager {
      The backend implementation used by this connection manager.
 
      The default value is `.multipeerConnectivity`. The `.networkFramework` backend is
-     opt-in and does not yet provide browser UI, stream, or resource transfer parity.
+     opt-in; browser UI, stream/resource sends, and stream/resource receive events remain
+     MultipeerConnectivity-only in the current migration.
      */
     public let backend : PeerConnectionBackend
 
@@ -463,8 +465,9 @@ extension PeerConnectionManager {
     /**
      Send a data stream to a connected user. This method throws an error if the stream cannot be established. This method returns the NSOutputStream with which you can send events to the connected users.
 
-     The Network framework backend does not support data streams yet and throws a
-     `PeerConnectivity.NetworkPeerSessionTransport` error.
+     This API is MultipeerConnectivity-only in the current migration. The Network
+     framework backend throws a `PeerConnectivity.NetworkPeerSessionTransport`
+     unsupported-operation error.
      
      - parameter streamName: The name of the stream to be established between two users.
      - parameter toPeer: The peer with which to start a data stream
@@ -481,9 +484,10 @@ extension PeerConnectionManager {
     /**
      Send a resource with a specified url for retrieval on a connected device. This method can send a resource to multiple peers and returns an Progress associated with each Peer. This method takes an error completion handler if the resource fails to send.
 
-     The Network framework backend does not support resource transfer yet. It returns
-     `nil` progress for each requested peer and calls the completion handler with a
-     `PeerConnectivity.NetworkPeerSessionTransport` error.
+     This API is MultipeerConnectivity-only in the current migration. The Network
+     framework backend returns `nil` progress for each requested peer and calls the
+     completion handler with a `PeerConnectivity.NetworkPeerSessionTransport`
+     unsupported-operation error.
      
      - parameter resourceURL: The url that the resource will be passed with for retrieval.
      - parameter withName: The name with which the progress is associated with.

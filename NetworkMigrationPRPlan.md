@@ -70,7 +70,8 @@ Acceptance criteria:
 ### PR 6: Public API migration and deprecations
 
 - Add framework-neutral public accessors where MC types currently leak through.
-- Deprecate MC-specific APIs that block a complete migration, including `multipeerSession`, stream APIs, resource APIs, and browser-controller APIs where needed.
+- Deprecate MC-specific APIs only where they block source-compatible Network-backed operation, such as `multipeerSession` or browser-controller APIs where needed.
+- Keep `sendDataStream`, `sendResourceAtURL`, and their receive events available for MultipeerConnectivity consumers; document them as unsupported by the current Network backend rather than deprecating them.
 - Document replacement paths and compatibility behavior.
 
 ### PR 7: Simplification/refactor pass
@@ -99,6 +100,7 @@ Acceptance criteria:
 
 - Update README, migration guide, Info.plist notes, backend-selection docs, and CHANGELOG.
 - Document unsupported or deprecated MC-specific APIs.
+- Record the current parity boundary: Network supports reliable `Data`/`PeerMessage` transport, while stream/resource send APIs and receive events remain MultipeerConnectivity-only.
 - Prepare versioning notes for the deployment-target bump and Network backend opt-in.
 
 ## Required Security Gates

@@ -6,7 +6,7 @@ PeerConnectivity is migrating toward Apple's Network framework while preserving 
 
 The Network backend is not the default runtime path yet. Treat it as an experimental/beta backend for apps that can validate behavior in their own topology and OS/device matrix.
 
-Use it when you need to evaluate the Network framework migration path for reliable local peer messaging. Continue using the default MultipeerConnectivity backend when you need the system-provided browser UI, stream transfer, resource transfer, or proven production parity.
+Use it when you need to evaluate the Network framework migration path for reliable local peer messaging. Continue using the default MultipeerConnectivity backend when you need the system-provided browser UI, stream transfer, resource transfer, stream/resource receive events, or proven production parity.
 
 ## Requirements
 
@@ -119,9 +119,10 @@ A reusable SwiftUI or UIKit Network browser is intentionally deferred. Peer sele
 | Large framed messages | ✅ via MC | ✅ via TCP framing |
 | Multi-peer broadcast | ✅ | ✅ bounded local E2E coverage |
 | Disconnect/reconnect after peer restart | ✅ | ✅ bounded local E2E coverage |
-| `sendDataStream` | ✅ | ❌ unsupported-operation error |
-| `sendResourceAtURL` | ✅ | ❌ unsupported-operation error |
-| Stream/resource receive events | ✅ | ❌ not implemented |
+| `sendDataStream` | ✅ | ❌ MultipeerConnectivity-only; throws unsupported-operation error |
+| `sendResourceAtURL` | ✅ | ❌ MultipeerConnectivity-only; returns `nil` progress and reports an unsupported-operation error |
+| `.receivedStream` | ✅ | ❌ MultipeerConnectivity-only; never emitted |
+| `.startedReceivingResource` / `.finishedReceivingResource` | ✅ | ❌ MultipeerConnectivity-only; never emitted |
 | `multipeerSession` | ✅ | ❌ programmer error |
 | TLS-PSK transport security | MC-managed | ✅ with `.preSharedKey` |
 
@@ -142,7 +143,15 @@ let message = ChatMessage(text: "hello")
 manager.sendMessage(message, toPeers: manager.connectedPeers)
 ```
 
-Resource transfer and stream APIs are intentionally unsupported for the Network backend in the current migration stack. Calls fail explicitly instead of silently degrading behavior.
+## Stream and resource compatibility decision
+
+`sendDataStream`, `sendResourceAtURL`, `.receivedStream`, `.startedReceivingResource`, and `.finishedReceivingResource` remain MultipeerConnectivity-only APIs for the current Network backend. They are not deprecated because they remain supported when using `.multipeerConnectivity`, but selecting `.networkFramework` does not provide alternate stream or resource semantics.
+
+This migration stack will not add a custom stream or file-transfer protocol. Network framework has no direct equivalents for the MultipeerConnectivity APIs, and emulating them would require new framing, flow-control, progress, cancellation, persistence, and protocol-versioning contracts beyond the reliable `Data` and `PeerMessage` transport being migrated.
+
+Network-backed `sendDataStream` calls throw an unsupported-operation error. Network-backed `sendResourceAtURL` calls return `nil` progress for each requested peer and invoke the completion handler with an unsupported-operation error. The Network backend never emits the stream or resource receive events. Calls fail explicitly rather than silently changing transport behavior.
+
+Apps that need to exchange bounded in-memory payloads should use `sendData` or `sendMessage`. Apps that require stream or resource transfer must keep those sessions on `.multipeerConnectivity`. A future, separately scoped feature may revisit file or streaming transport, but it is not a parity requirement for the current Network migration.
 
 ## Demo app
 
@@ -215,6 +224,6 @@ xcodebuild test -project PeerConnectivity.xcodeproj \
 
 - Revisit public Network connection policy configuration after more device and CI validation.
 - Reconsider a reusable Network-native browser component only after app-owned `PeerBrowserModel` integrations establish common UI requirements.
-- Decide whether to implement Network equivalents for streams and resource transfer or document them as MultipeerConnectivity-only long term.
+- Revisit stream or file transfer only as a separately scoped future feature; these APIs remain MultipeerConnectivity-only for the current Network backend.
 - Strengthen identity binding beyond shared-key group membership for apps that require per-peer authentication.
 - Continue monitoring Bonjour/Network.framework E2E behavior in CI and split or gate slow tests if they become flaky.

@@ -59,6 +59,17 @@ The default `networkSecurity: .unauthenticated` mode is plaintext TCP, remains a
 
 See [NetworkBackendGuide.md](NetworkBackendGuide.md) for the full migration guide, security model, support matrix, demo launch arguments, validation coverage, and known limitations.
 
+### Stream and resource APIs
+
+The current Network backend supports reliable `Data` and `PeerMessage` exchange, but it does not implement a custom stream or resource-transfer protocol. The following APIs remain available and supported only when the manager uses `.multipeerConnectivity`:
+
+- `sendDataStream(streamName:toPeer:)`
+- `sendResourceAtURL(_:withName:toPeers:withCompletionHandler:)`
+- `.receivedStream`
+- `.startedReceivingResource` and `.finishedReceivingResource`
+
+With `.networkFramework`, stream sends throw an unsupported-operation error, resource sends return `nil` progress and report an unsupported-operation error, and the corresponding receive events are never emitted. Use `sendData` or `sendMessage` for bounded payloads, or retain the default MultipeerConnectivity backend when stream/resource behavior is required. See [the compatibility decision](NetworkBackendGuide.md#stream-and-resource-compatibility-decision) for rationale and exact behavior.
+
 ## Creating/Stopping/Starting
 
 ```swift

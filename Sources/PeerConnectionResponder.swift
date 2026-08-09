@@ -47,14 +47,20 @@ public enum PeerConnectionEvent {
     case receivedMessage(peer: Peer, messageType: String, data: Data)
     /**
      Data stream received from `Peer`.
+
+     This event is MultipeerConnectivity-only and is not emitted by the current Network backend.
      */
     case receivedStream(peer: Peer, stream: Stream, name: String)
     /**
      Started receiving a resource from `Peer` with name and `NSProgress`.
+
+     This event is MultipeerConnectivity-only and is not emitted by the current Network backend.
      */
     case startedReceivingResource(peer: Peer, name: String, progress: Progress)
     /**
      Finished receiving resource from `Peer` with name at url with optional error.
+
+     This event is MultipeerConnectivity-only and is not emitted by the current Network backend.
      */
     case finishedReceivingResource(peer: Peer, name: String, url: URL?, error: Error?)
     /**
