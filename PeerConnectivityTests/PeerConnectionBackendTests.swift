@@ -38,16 +38,16 @@ private final class BackendSelectorMockSessionTransport : PeerSessionTransport {
 private struct BackendSelectorFactoryHarness {
     internal var factory : PeerConnectionTransportFactory {
         return PeerConnectionTransportFactory(
-            makeSession: { peer, _ in
+            makeSession: { peer, _, _ in
                 return BackendSelectorMockSessionTransport(peer: peer)
             },
             makeBrowser: { _, _, _ in
                 return BackendSelectorNoOpBrowserTransport()
             },
-            makeAdvertiser: { _, _, _ in
+            makeAdvertiser: { _, _, _, _ in
                 return BackendSelectorNoOpAdvertiserTransport()
             },
-            makeAdvertiserAssisstant: { _, _, _ in
+            makeAdvertiserAssisstant: { _, _, _, _ in
                 return BackendSelectorNoOpAdvertiserAssisstantTransport()
             }
         )
