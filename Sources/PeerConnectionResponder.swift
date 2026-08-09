@@ -65,6 +65,10 @@ public enum PeerConnectionEvent {
     case finishedReceivingResource(peer: Peer, name: String, url: URL?, error: Error?)
     /**
      Received security certificate from `Peer` with handler.
+
+     Certificate decisions are handled by `PeerSecurityConfiguration.certificatePolicy`.
+     This event is emitted for observation/API compatibility only. Calling the supplied
+     handler does not affect the certificate decision.
      */
     case receivedCertificate(peer: Peer, certificate: [Any]?, handler: (Bool)->Void)
     /**
@@ -80,6 +84,14 @@ public enum PeerConnectionEvent {
      */
     case foundPeer(peer: Peer)
     /**
+     Found nearby `Peer` with advertised discovery metadata.
+
+     Discovery info is public, unauthenticated Bonjour TXT record metadata. Do not treat it as secret
+     or trusted without additional validation. Callers with exhaustive switches over
+     `PeerConnectionEvent` should handle this case or include a `default` case.
+     */
+    case foundPeerWithDiscoveryInfo(peer: Peer, discoveryInfo: PeerDiscoveryInfo?)
+    /**
      Lost nearby `Peer`.
      */
     case lostPeer(peer: Peer)
@@ -89,6 +101,10 @@ public enum PeerConnectionEvent {
     case nearbyPeersChanged(foundPeers: [Peer])
     /**
      Received invitation from `Peer` with optional context data and invitation handler.
+
+     In `.automatic` mode, invitation decisions are handled by `PeerInvitationPolicy`.
+     For non-manual automatic policies, this event is emitted for observation/API
+     compatibility and the supplied handler does not affect the invitation decision.
      */
     case receivedInvitation(peer: Peer, withContext: Data?, invitationHandler: (Bool)->Void)
 }
