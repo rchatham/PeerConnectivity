@@ -16,16 +16,22 @@ internal struct PeerSession : PeerSessionTransport {
     internal var multipeerSession : MCSession {
         return session
     }
+    internal let securityConfiguration : PeerSecurityConfiguration
     fileprivate let eventProducer: PeerSessionEventProducer
     
     internal var connectedPeers : [Peer] {
         return session.connectedPeers.map { Peer(peerID: $0, status: .connected) }
     }
     
-    internal init(peer: Peer, eventProducer: PeerSessionEventProducer) {
+    internal init(peer: Peer,
+                  securityConfiguration: PeerSecurityConfiguration = .default,
+                  eventProducer: PeerSessionEventProducer) {
         self.peer = peer
+        self.securityConfiguration = securityConfiguration
         self.eventProducer = eventProducer
-        session = MCSession(peer: peer.peerID, securityIdentity: nil, encryptionPreference: .optional)
+        session = MCSession(peer: peer.peerID,
+                            securityIdentity: securityConfiguration.securityIdentity,
+                            encryptionPreference: securityConfiguration.encryptionPreference)
         session.delegate = eventProducer
     }
     

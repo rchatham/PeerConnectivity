@@ -50,27 +50,35 @@ internal protocol PeerAdvertiserAssisstantTransport {
 }
 
 internal struct PeerConnectionTransportFactory {
-    internal let makeSession : (Peer, Observable<PeerSessionEvent>) -> PeerSessionTransport
+    internal let makeSession : (Peer, PeerSecurityConfiguration, Observable<PeerSessionEvent>) -> PeerSessionTransport
     internal let makeBrowser : (PeerSessionTransport, ServiceType, Observable<PeerBrowserEvent>) -> PeerBrowserTransport
-    internal let makeAdvertiser : (PeerSessionTransport, ServiceType, Observable<PeerAdvertiserEvent>) -> PeerAdvertiserTransport
-    internal let makeAdvertiserAssisstant : (PeerSessionTransport, ServiceType, Observable<PeerAdvertiserAssisstantEvent>) -> PeerAdvertiserAssisstantTransport
+    internal let makeAdvertiser : (PeerSessionTransport, ServiceType, PeerDiscoveryInfo?, Observable<PeerAdvertiserEvent>) -> PeerAdvertiserTransport
+    internal let makeAdvertiserAssisstant : (PeerSessionTransport, ServiceType, PeerDiscoveryInfo?, Observable<PeerAdvertiserAssisstantEvent>) -> PeerAdvertiserAssisstantTransport
 
     internal static let multipeerConnectivity = PeerConnectionTransportFactory(
-        makeSession: { peer, observer in
+        makeSession: { peer, securityConfiguration, observer in
             let eventProducer = PeerSessionEventProducer(observer: observer)
-            return PeerSession(peer: peer, eventProducer: eventProducer)
+            return PeerSession(peer: peer,
+                               securityConfiguration: securityConfiguration,
+                               eventProducer: eventProducer)
         },
         makeBrowser: { session, serviceType, observer in
             let eventProducer = PeerBrowserEventProducer(observer: observer)
             return PeerBrowser(session: session, serviceType: serviceType, eventProducer: eventProducer)
         },
-        makeAdvertiser: { session, serviceType, observer in
+        makeAdvertiser: { session, serviceType, discoveryInfo, observer in
             let eventProducer = PeerAdvertiserEventProducer(observer: observer)
-            return PeerAdvertiser(session: session, serviceType: serviceType, eventProducer: eventProducer)
+            return PeerAdvertiser(session: session,
+                                  serviceType: serviceType,
+                                  discoveryInfo: discoveryInfo,
+                                  eventProducer: eventProducer)
         },
-        makeAdvertiserAssisstant: { session, serviceType, observer in
+        makeAdvertiserAssisstant: { session, serviceType, discoveryInfo, observer in
             let eventProducer = PeerAdvertiserAssisstantEventProducer(observer: observer)
-            return PeerAdvertiserAssisstant(session: session, serviceType: serviceType, eventProducer: eventProducer)
+            return PeerAdvertiserAssisstant(session: session,
+                                            serviceType: serviceType,
+                                            discoveryInfo: discoveryInfo,
+                                            eventProducer: eventProducer)
         }
     )
 }
