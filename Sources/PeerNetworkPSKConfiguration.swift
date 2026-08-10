@@ -7,6 +7,9 @@
 //
 
 import Foundation
+#if canImport(PeerConnectivity)
+import PeerConnectivity
+#endif
 
 internal enum PeerNetworkPSKConfiguration {
     /// Maps validated input to TLS-PSK and fails closed for every invalid value.

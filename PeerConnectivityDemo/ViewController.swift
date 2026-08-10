@@ -44,12 +44,25 @@ class ViewController: UIViewController {
         }
     }
 
+    fileprivate enum MultipeerSecurity : String {
+        case compatible = "Compatible"
+        case requireEncryption = "Require Encryption"
+    }
+
+    fileprivate enum NetworkSecurity : String {
+        case unauthenticated = "Unauthenticated"
+        case tlsSharedKey = "TLS Shared Key"
+    }
+
     fileprivate var pcm : PeerConnectionManager!
     fileprivate var browserModel : PeerBrowserModel!
     fileprivate var isNetworking = false
     fileprivate var mode : ConnectionMode = .advertisingAndBrowsing
     fileprivate var multipeerConnectionBehavior : ConnectionBehavior = .automatic
     fileprivate var networkConnectionBehavior : ConnectionBehavior = .requireInvitation
+    fileprivate var multipeerSecurity : MultipeerSecurity = .compatible
+    fileprivate var networkSecurity : NetworkSecurity = .unauthenticated
+    fileprivate var securityValidationMessage : String?
     fileprivate var discoveredPeers : [Peer] = []
     fileprivate var connectedPeers : [Peer] = []
     fileprivate var selectedTargetPeer : Peer?
@@ -73,7 +86,13 @@ class ViewController: UIViewController {
     fileprivate let localPeerLabel = UILabel()
     fileprivate let backendControl = UISegmentedControl(items: ["Multipeer", "Network"])
     fileprivate let connectionBehaviorControl = UISegmentedControl(items: ["Automatic", "Require Invitation"])
+    fileprivate let securityControl = UISegmentedControl()
     fileprivate let backendDetailLabel = UILabel()
+    fileprivate let securityDetailLabel = UILabel()
+    fileprivate let networkPSKStack = UIStackView()
+    fileprivate let networkPSKTextField = UITextField()
+    fileprivate let generateTestKeyButton = UIButton(type: .system)
+    fileprivate let securityErrorLabel = UILabel()
     fileprivate let modeButton = UIButton(type: .system)
     fileprivate let startStopButton = UIButton(type: .system)
     fileprivate let refreshButton = UIButton(type: .system)
@@ -102,9 +121,15 @@ class ViewController: UIViewController {
         backendControl.selectedSegmentIndex = ProcessInfo.processInfo.arguments.contains("PCNetworkBackend") ? 1 : 0
         configureLayout()
         configureActions()
-        configureManager()
+        _ = configureManager()
+        applyDebugNetworkPSKArgument()
+        validateSelectedSecurity()
+        if securityValidationMessage == nil { _ = configureManager() }
         refreshUI()
         appendLog(kind: "app.ready", detail: "Local peer: \(pcm.peer.displayName); backend: \(backendName)")
+        DispatchQueue.main.async { [weak self] in
+            self?.scrollView.setContentOffset(.zero, animated: false)
+        }
         if ProcessInfo.processInfo.arguments.contains("PCAutoStart") {
             startNetworking()
         }
@@ -121,7 +146,12 @@ class ViewController: UIViewController {
 
 extension ViewController : UITextFieldDelegate {
     internal func textFieldShouldReturn(_ textField: UITextField) -> Bool {
-        sendMessage()
+        if textField === networkPSKTextField {
+            textField.resignFirstResponder()
+            validateSelectedSecurity()
+        } else {
+            sendMessage()
+        }
         return true
     }
 }
@@ -145,6 +175,13 @@ private extension ViewController {
         return isNetworkBackend ? "Network.framework" : "MultipeerConnectivity"
     }
 
+    var securitySummary : String {
+        if isNetworkBackend {
+            return networkSecurity == .unauthenticated ? "Network unauthenticated" : "Network TLS shared key"
+        }
+        return multipeerSecurity == .compatible ? "Multipeer compatible encryption" : "Multipeer required encryption"
+    }
+
     var selectedConnectionBehavior : ConnectionBehavior {
         get {
             return isNetworkBackend ? networkConnectionBehavior : multipeerConnectionBehavior
@@ -158,7 +195,32 @@ private extension ViewController {
         }
     }
 
-    func configureManager() {
+    var selectedSecurityIndex : Int {
+        if isNetworkBackend {
+            return networkSecurity == .unauthenticated ? 0 : 1
+        }
+        return multipeerSecurity == .compatible ? 0 : 1
+    }
+
+    var selectedMultipeerSecurityConfiguration : PeerSecurityConfiguration {
+        return multipeerSecurity == .compatible ? .default : .encrypted
+    }
+
+    func selectedNetworkSecurity() -> PeerConnectionNetworkSecurity? {
+        guard isNetworkBackend, networkSecurity == .tlsSharedKey else { return .unauthenticated }
+        switch PeerNetworkPSKConfiguration.networkSecurity(networkPSKTextField.text ?? "") {
+        case .success(let security):
+            return security
+        case .failure(let error):
+            securityValidationMessage = validationMessage(for: error)
+            return nil
+        }
+    }
+
+    @discardableResult
+    func configureManager() -> Bool {
+        guard let selectedNetworkSecurity = selectedNetworkSecurity() else { return false }
+        securityValidationMessage = nil
         browserModel?.stopObserving()
         pcm?.stop()
         pcm?.removeAllListeners()
@@ -168,10 +230,10 @@ private extension ViewController {
             serviceType: "local",
             connectionType: selectedConnectionBehavior.connectionType,
             displayName: displayName,
-            securityConfiguration: .default,
+            securityConfiguration: selectedMultipeerSecurityConfiguration,
             invitationPolicy: .acceptAll,
             backend: selectedBackend,
-            networkSecurity: .unauthenticated
+            networkSecurity: selectedNetworkSecurity
         )
         pcm.listenOn({ [weak self] event in
             self?.handlePeerConnectionEvent(event)
@@ -185,6 +247,29 @@ private extension ViewController {
             self?.refreshUI()
         }
         browserModel.startObserving()
+        return true
+    }
+
+    func validationMessage(for error: PeerNetworkPSKBase64Error) -> String {
+        switch error {
+        case .empty:
+            return "Enter or generate a Base64 shared key before starting."
+        case .containsWhitespace:
+            return "Remove spaces and line breaks; the Base64 key must be entered exactly."
+        case .malformed:
+            return "Enter a valid Base64 shared key."
+        case .tooShort(let actualByteCount, let minimumByteCount):
+            return "Decoded key is \(actualByteCount) bytes; use at least \(minimumByteCount) bytes."
+        }
+    }
+
+    func applyDebugNetworkPSKArgument() {
+        #if DEBUG
+        guard let value = ViewController.argumentValue(for: "PCNetworkPSKBase64") else { return }
+        backendControl.selectedSegmentIndex = 1
+        networkSecurity = .tlsSharedKey
+        networkPSKTextField.text = value
+        #endif
     }
 
     func configureLayout() {
@@ -210,9 +295,15 @@ private extension ViewController {
             contentStack.widthAnchor.constraint(equalTo: scrollView.frameLayoutGuide.widthAnchor),
         ])
 
-        [localPeerLabel, backendDetailLabel, discoveredPeersLabel, connectedPeersLabel, troubleshootingLabel].forEach { $0.numberOfLines = 0 }
-        backendDetailLabel.font = UIFont.preferredFont(forTextStyle: .footnote)
-        backendDetailLabel.textColor = .secondaryLabel
+        [localPeerLabel, backendDetailLabel, securityDetailLabel, securityErrorLabel, discoveredPeersLabel, connectedPeersLabel, troubleshootingLabel].forEach { $0.numberOfLines = 0 }
+        [backendDetailLabel, securityDetailLabel].forEach {
+            $0.font = UIFont.preferredFont(forTextStyle: .footnote)
+            $0.textColor = .secondaryLabel
+        }
+        securityErrorLabel.font = UIFont.preferredFont(forTextStyle: .footnote)
+        securityErrorLabel.textColor = .systemRed
+        networkPSKStack.axis = .vertical
+        networkPSKStack.spacing = 8
         inviteButtonsStack.axis = .vertical
         inviteButtonsStack.spacing = 8
         configureMenuButton(modeButton)
@@ -221,12 +312,28 @@ private extension ViewController {
         configurePrimaryButton(startStopButton, title: "Start")
         configureSecondaryButton(refreshButton, title: "Refresh")
         configureSecondaryButton(resetButton, title: "Reset Demo")
+        configureSecondaryButton(generateTestKeyButton, title: "Generate Test Key")
         configurePrimaryButton(sendButton, title: "Send Typed Message")
         configureSecondaryButton(rawDataButton, title: "Send Raw Data Ping")
         configureSecondaryButton(resourceButton, title: "Send Demo Resource")
         configureSecondaryButton(copyLogsButton, title: "Copy Logs")
         configureSecondaryButton(shareButton, title: "Share Logs")
         configureSecondaryButton(clearLogButton, title: "Clear Logs")
+
+        networkPSKTextField.borderStyle = .roundedRect
+        networkPSKTextField.placeholder = "Base64 shared key (32+ decoded bytes)"
+        networkPSKTextField.isSecureTextEntry = true
+        networkPSKTextField.autocorrectionType = .no
+        networkPSKTextField.spellCheckingType = .no
+        networkPSKTextField.smartDashesType = .no
+        networkPSKTextField.smartQuotesType = .no
+        networkPSKTextField.smartInsertDeleteType = .no
+        networkPSKTextField.textContentType = nil
+        networkPSKTextField.autocapitalizationType = .none
+        networkPSKTextField.returnKeyType = .done
+        networkPSKTextField.delegate = self
+        networkPSKStack.addArrangedSubview(networkPSKTextField)
+        networkPSKStack.addArrangedSubview(generateTestKeyButton)
 
         messageTextField.borderStyle = .roundedRect
         messageTextField.placeholder = "Typed message or ping to selected target"
@@ -244,6 +351,11 @@ private extension ViewController {
         contentStack.addArrangedSubview(backendControl)
         contentStack.addArrangedSubview(connectionBehaviorControl)
         contentStack.addArrangedSubview(backendDetailLabel)
+        contentStack.addArrangedSubview(sectionTitle("Security"))
+        contentStack.addArrangedSubview(securityControl)
+        contentStack.addArrangedSubview(securityDetailLabel)
+        contentStack.addArrangedSubview(networkPSKStack)
+        contentStack.addArrangedSubview(securityErrorLabel)
         contentStack.addArrangedSubview(statusCardRow())
         contentStack.addArrangedSubview(modeButton)
         contentStack.addArrangedSubview(buttonRow([startStopButton, refreshButton]))
@@ -279,10 +391,18 @@ private extension ViewController {
     func configureActions() {
         backendControl.addTarget(self, action: #selector(changedBackend(_:)), for: .valueChanged)
         connectionBehaviorControl.addTarget(self, action: #selector(changedConnectionBehavior(_:)), for: .valueChanged)
+        securityControl.addTarget(self, action: #selector(changedSecurity(_:)), for: .valueChanged)
+        networkPSKTextField.addTarget(self, action: #selector(changedNetworkPSK(_:)), for: .editingChanged)
+        generateTestKeyButton.addTarget(self, action: #selector(tappedGenerateTestKey(_:)), for: .touchUpInside)
         backendControl.accessibilityLabel = "Networking backend"
         backendControl.accessibilityHint = "Selects the transport backend while networking is stopped"
         connectionBehaviorControl.accessibilityLabel = "Connection behavior"
         connectionBehaviorControl.accessibilityHint = "Choose automatic connections or explicit peer invitations while networking is stopped"
+        securityControl.accessibilityLabel = "Transport security"
+        securityControl.accessibilityHint = "Selects security for the current backend while networking is stopped"
+        networkPSKTextField.accessibilityLabel = "Base64 shared key"
+        networkPSKTextField.accessibilityHint = "Secure field requiring at least 32 decoded bytes"
+        generateTestKeyButton.accessibilityHint = "Generates a new in-memory 32-byte test key"
         startStopButton.accessibilityHint = "Starts or stops peer advertising and browsing"
         startStopButton.addTarget(self, action: #selector(tappedStartStop(_:)), for: .touchUpInside)
         refreshButton.addTarget(self, action: #selector(tappedRefresh(_:)), for: .touchUpInside)
@@ -367,13 +487,19 @@ private extension ViewController {
 
         localPeerLabel.text = "Local: \(pcm.peer.displayName)"
         connectionBehaviorControl.selectedSegmentIndex = selectedConnectionBehavior == .automatic ? 0 : 1
-        if selectedConnectionBehavior == .automatic {
-            backendDetailLabel.text = "\(backendName) · automatic discovery and connections\(isNetworkBackend ? " · unauthenticated demo transport" : " · default optional encryption and certificate policy")"
-        } else {
-            backendDetailLabel.text = "\(backendName) · app-owned discovery and explicit invitations via PeerBrowserModel\(isNetworkBackend ? " · unauthenticated demo transport" : "")"
-        }
+        backendDetailLabel.text = selectedConnectionBehavior == .automatic
+            ? "\(backendName) · automatic discovery and connections"
+            : "\(backendName) · app-owned discovery and explicit invitations via PeerBrowserModel"
+        updateSecurityControl()
         backendControl.isEnabled = !isNetworking
         connectionBehaviorControl.isEnabled = !isNetworking
+        securityControl.isEnabled = !isNetworking
+        networkPSKTextField.isEnabled = !isNetworking
+        generateTestKeyButton.isEnabled = !isNetworking
+        networkPSKStack.isHidden = !isNetworkBackend || networkSecurity != .tlsSharedKey
+        securityErrorLabel.text = securityValidationMessage
+        securityErrorLabel.isHidden = securityValidationMessage == nil
+        networkPSKTextField.accessibilityValue = (networkPSKTextField.text ?? "").isEmpty ? "Empty" : "Entered"
         statusBadgeLabel.text = isNetworking ? "Running" : "Stopped"
         advertisingBadgeLabel.text = isNetworking && mode.isAdvertising ? "Advertising" : "Not Advertising"
         browsingBadgeLabel.text = isNetworking && mode.isBrowsing ? "Browsing" : "Not Browsing"
@@ -382,6 +508,7 @@ private extension ViewController {
         rebuildInviteButtons()
         connectedPeersLabel.text = peerList(title: "Connected", peers: connectedPeers)
         startStopButton.configuration?.title = isNetworking ? "Stop" : "Start"
+        startStopButton.isEnabled = isNetworking || securityValidationMessage == nil
         refreshButton.isEnabled = isNetworking
         sendButton.isEnabled = !connectedPeers.isEmpty
         rawDataButton.isEnabled = !connectedPeers.isEmpty
@@ -393,6 +520,39 @@ private extension ViewController {
         updateTargetMenu()
         updateLogFilterMenu()
         rebuildChecklist()
+    }
+
+    func updateSecurityControl() {
+        securityControl.removeAllSegments()
+        if isNetworkBackend {
+            securityControl.insertSegment(withTitle: NetworkSecurity.unauthenticated.rawValue, at: 0, animated: false)
+            securityControl.insertSegment(withTitle: NetworkSecurity.tlsSharedKey.rawValue, at: 1, animated: false)
+            securityDetailLabel.text = networkSecurity == .unauthenticated
+                ? "Plain TCP · non-sensitive local testing only"
+                : "TLS shared-key group membership authentication · not individual peer identity"
+        } else {
+            securityControl.insertSegment(withTitle: MultipeerSecurity.compatible.rawValue, at: 0, animated: false)
+            securityControl.insertSegment(withTitle: MultipeerSecurity.requireEncryption.rawValue, at: 1, animated: false)
+            securityDetailLabel.text = multipeerSecurity == .compatible
+                ? "Optional session encryption · nil identity and accept-all certificates do not authenticate peers"
+                : "Required session encryption · peers remain unauthenticated and MITM-vulnerable with nil identity and accept-all certificates"
+        }
+        securityControl.selectedSegmentIndex = selectedSecurityIndex
+    }
+
+    func validateSelectedSecurity() {
+        guard isNetworkBackend, networkSecurity == .tlsSharedKey else {
+            securityValidationMessage = nil
+            refreshUI()
+            return
+        }
+        switch PeerNetworkPSKBase64.decode(networkPSKTextField.text ?? "") {
+        case .success:
+            securityValidationMessage = nil
+        case .failure(let error):
+            securityValidationMessage = validationMessage(for: error)
+        }
+        refreshUI()
     }
 
     func peerList(title: String, peers: [Peer]) -> String {
@@ -425,9 +585,13 @@ private extension ViewController {
             hints.append("Automatic connects to discovered peers without an app-owned Invite action.")
         }
         if isNetworkBackend {
-            hints.append("Network demo traffic is unauthenticated; do not send sensitive data.")
+            if networkSecurity == .unauthenticated {
+                hints.append("Network traffic is plaintext and unauthenticated; do not send sensitive data.")
+            } else {
+                hints.append("TLS-PSK authenticates shared-key group membership, not an individual peer. Both peers need identical key bytes.")
+            }
         } else {
-            hints.append("Multipeer remains the default backend.")
+            hints.append("Multipeer encryption alone does not authenticate peers; the demo uses a nil identity and accepts all certificates, leaving it vulnerable to MITM attacks.")
         }
         if isNetworking && discoveredPeers.isEmpty && connectedPeers.isEmpty {
             hints.append("No peers yet. Confirm both devices use the same service type, are on the same Wi‑Fi or have Bluetooth enabled, and accepted Local Network permission.")
@@ -446,6 +610,7 @@ private extension ViewController {
     }
 
     func startNetworking() {
+        guard configureManager() else { return }
         switch mode {
         case .advertisingAndBrowsing:
             pcm.startAdvertisingAndBrowsing()
@@ -457,7 +622,7 @@ private extension ViewController {
         isNetworking = true
         if mode.isAdvertising { checkedItems.insert(.deviceAAdvertising) }
         if mode.isBrowsing { checkedItems.insert(.deviceBBrowsing) }
-        appendLog(kind: "session.start.requested", detail: "\(backendName), \(selectedConnectionBehavior.rawValue), \(mode.rawValue)")
+        appendLog(kind: "session.start.requested", detail: "\(backendName), \(selectedConnectionBehavior.rawValue), \(securitySummary), \(mode.rawValue)")
         refreshUI()
     }
 
@@ -817,6 +982,11 @@ private extension ViewController {
         messageHistory = []
         checkedItems = []
         messageTextField.text = ""
+        networkPSKTextField.text = nil
+        multipeerSecurity = .compatible
+        networkSecurity = .unauthenticated
+        securityValidationMessage = nil
+        _ = configureManager()
         logStore.clear()
         appendLog(kind: "demo.reset", detail: "Demo reset; local peer: \(pcm.peer.displayName)")
         appendLog(kind: "app.ready", detail: "Local peer: \(pcm.peer.displayName)")
@@ -827,7 +997,8 @@ private extension ViewController {
         discoveredPeers = []
         connectedPeers = []
         selectedTargetPeer = nil
-        configureManager()
+        validateSelectedSecurity()
+        if securityValidationMessage == nil { _ = configureManager() }
         appendLog(kind: "session.backend.changed", detail: "\(backendName), \(selectedConnectionBehavior.rawValue)")
     }
 
@@ -837,8 +1008,38 @@ private extension ViewController {
         discoveredPeers = []
         connectedPeers = []
         selectedTargetPeer = nil
-        configureManager()
+        if securityValidationMessage == nil { _ = configureManager() }
         appendLog(kind: "session.connection.behavior.changed", detail: "\(backendName), \(selectedConnectionBehavior.rawValue)")
+    }
+
+    @objc func changedSecurity(_ sender: UISegmentedControl) {
+        guard !isNetworking else { return }
+        if isNetworkBackend {
+            networkSecurity = sender.selectedSegmentIndex == 0 ? .unauthenticated : .tlsSharedKey
+        } else {
+            multipeerSecurity = sender.selectedSegmentIndex == 0 ? .compatible : .requireEncryption
+        }
+        validateSelectedSecurity()
+        if securityValidationMessage == nil { _ = configureManager() }
+        appendLog(kind: "session.security.changed", detail: securitySummary)
+    }
+
+    @objc func changedNetworkPSK(_ sender: UITextField) {
+        guard !isNetworking else { return }
+        validateSelectedSecurity()
+    }
+
+    @objc func tappedGenerateTestKey(_ sender: UIButton) {
+        guard !isNetworking else { return }
+        switch PeerNetworkTestKeyGenerator.generateBase64() {
+        case .success(let value):
+            networkPSKTextField.text = value
+            securityValidationMessage = nil
+        case .failure(let error):
+            networkPSKTextField.text = nil
+            securityValidationMessage = "Could not generate a test key (Security status \(error.status)). Try again."
+        }
+        refreshUI()
     }
 
     @objc func tappedStartStop(_ sender: UIButton) {
