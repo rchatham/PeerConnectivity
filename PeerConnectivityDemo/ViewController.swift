@@ -32,10 +32,24 @@ class ViewController: UIViewController {
         }
     }
 
+    fileprivate enum ConnectionBehavior : String {
+        case automatic = "Automatic"
+        case requireInvitation = "Require Invitation"
+
+        fileprivate var connectionType : PeerConnectionType {
+            switch self {
+            case .automatic: return .automatic
+            case .requireInvitation: return .custom
+            }
+        }
+    }
+
     fileprivate var pcm : PeerConnectionManager!
     fileprivate var browserModel : PeerBrowserModel!
     fileprivate var isNetworking = false
     fileprivate var mode : ConnectionMode = .advertisingAndBrowsing
+    fileprivate var multipeerConnectionBehavior : ConnectionBehavior = .automatic
+    fileprivate var networkConnectionBehavior : ConnectionBehavior = .requireInvitation
     fileprivate var discoveredPeers : [Peer] = []
     fileprivate var connectedPeers : [Peer] = []
     fileprivate var selectedTargetPeer : Peer?
@@ -58,6 +72,7 @@ class ViewController: UIViewController {
     fileprivate let connectedBadgeLabel = UILabel()
     fileprivate let localPeerLabel = UILabel()
     fileprivate let backendControl = UISegmentedControl(items: ["Multipeer", "Network"])
+    fileprivate let connectionBehaviorControl = UISegmentedControl(items: ["Automatic", "Require Invitation"])
     fileprivate let backendDetailLabel = UILabel()
     fileprivate let modeButton = UIButton(type: .system)
     fileprivate let startStopButton = UIButton(type: .system)
@@ -130,16 +145,28 @@ private extension ViewController {
         return isNetworkBackend ? "Network.framework" : "MultipeerConnectivity"
     }
 
+    var selectedConnectionBehavior : ConnectionBehavior {
+        get {
+            return isNetworkBackend ? networkConnectionBehavior : multipeerConnectionBehavior
+        }
+        set {
+            if isNetworkBackend {
+                networkConnectionBehavior = newValue
+            } else {
+                multipeerConnectionBehavior = newValue
+            }
+        }
+    }
+
     func configureManager() {
         browserModel?.stopObserving()
         pcm?.stop()
         pcm?.removeAllListeners()
 
         let displayName = ViewController.argumentValue(for: "PCDisplayName") ?? ProcessInfo.processInfo.hostName
-        let connectionType : PeerConnectionType = isNetworkBackend ? .custom : .automatic
         pcm = PeerConnectionManager(
             serviceType: "local",
-            connectionType: connectionType,
+            connectionType: selectedConnectionBehavior.connectionType,
             displayName: displayName,
             securityConfiguration: .default,
             invitationPolicy: .acceptAll,
@@ -215,6 +242,7 @@ private extension ViewController {
         contentStack.addArrangedSubview(sectionTitle("Session"))
         contentStack.addArrangedSubview(localPeerLabel)
         contentStack.addArrangedSubview(backendControl)
+        contentStack.addArrangedSubview(connectionBehaviorControl)
         contentStack.addArrangedSubview(backendDetailLabel)
         contentStack.addArrangedSubview(statusCardRow())
         contentStack.addArrangedSubview(modeButton)
@@ -250,6 +278,12 @@ private extension ViewController {
 
     func configureActions() {
         backendControl.addTarget(self, action: #selector(changedBackend(_:)), for: .valueChanged)
+        connectionBehaviorControl.addTarget(self, action: #selector(changedConnectionBehavior(_:)), for: .valueChanged)
+        backendControl.accessibilityLabel = "Networking backend"
+        backendControl.accessibilityHint = "Selects the transport backend while networking is stopped"
+        connectionBehaviorControl.accessibilityLabel = "Connection behavior"
+        connectionBehaviorControl.accessibilityHint = "Choose automatic connections or explicit peer invitations while networking is stopped"
+        startStopButton.accessibilityHint = "Starts or stops peer advertising and browsing"
         startStopButton.addTarget(self, action: #selector(tappedStartStop(_:)), for: .touchUpInside)
         refreshButton.addTarget(self, action: #selector(tappedRefresh(_:)), for: .touchUpInside)
         resetButton.addTarget(self, action: #selector(tappedReset(_:)), for: .touchUpInside)
@@ -332,10 +366,14 @@ private extension ViewController {
         }
 
         localPeerLabel.text = "Local: \(pcm.peer.displayName)"
-        backendDetailLabel.text = isNetworkBackend
-            ? "Network.framework · manual invitations via PeerBrowserModel · unauthenticated demo transport"
-            : "MultipeerConnectivity · automatic invitations · default optional encryption and certificate policy"
+        connectionBehaviorControl.selectedSegmentIndex = selectedConnectionBehavior == .automatic ? 0 : 1
+        if selectedConnectionBehavior == .automatic {
+            backendDetailLabel.text = "\(backendName) · automatic discovery and connections\(isNetworkBackend ? " · unauthenticated demo transport" : " · default optional encryption and certificate policy")"
+        } else {
+            backendDetailLabel.text = "\(backendName) · app-owned discovery and explicit invitations via PeerBrowserModel\(isNetworkBackend ? " · unauthenticated demo transport" : "")"
+        }
         backendControl.isEnabled = !isNetworking
+        connectionBehaviorControl.isEnabled = !isNetworking
         statusBadgeLabel.text = isNetworking ? "Running" : "Stopped"
         advertisingBadgeLabel.text = isNetworking && mode.isAdvertising ? "Advertising" : "Not Advertising"
         browsingBadgeLabel.text = isNetworking && mode.isBrowsing ? "Browsing" : "Not Browsing"
@@ -381,10 +419,15 @@ private extension ViewController {
         if !isNetworking {
             hints.append("Start networking to advertise, browse, and connect to nearby devices.")
         }
-        if isNetworkBackend {
-            hints.append("Network mode requires a manual Invite action on one discovered peer before messages can be sent. Demo traffic is unauthenticated; do not send sensitive data.")
+        if selectedConnectionBehavior == .requireInvitation {
+            hints.append("Require Invitation waits for an explicit Invite action on a discovered peer before messages can be sent.")
         } else {
-            hints.append("Multipeer mode retains automatic invitation handling and remains the default backend.")
+            hints.append("Automatic connects to discovered peers without an app-owned Invite action.")
+        }
+        if isNetworkBackend {
+            hints.append("Network demo traffic is unauthenticated; do not send sensitive data.")
+        } else {
+            hints.append("Multipeer remains the default backend.")
         }
         if isNetworking && discoveredPeers.isEmpty && connectedPeers.isEmpty {
             hints.append("No peers yet. Confirm both devices use the same service type, are on the same Wi‑Fi or have Bluetooth enabled, and accepted Local Network permission.")
@@ -414,7 +457,7 @@ private extension ViewController {
         isNetworking = true
         if mode.isAdvertising { checkedItems.insert(.deviceAAdvertising) }
         if mode.isBrowsing { checkedItems.insert(.deviceBBrowsing) }
-        appendLog(kind: "session.start.requested", detail: "\(backendName), \(mode.rawValue)")
+        appendLog(kind: "session.start.requested", detail: "\(backendName), \(selectedConnectionBehavior.rawValue), \(mode.rawValue)")
         refreshUI()
     }
 
@@ -660,8 +703,8 @@ private extension ViewController {
             inviteButtonsStack.removeArrangedSubview(view)
             view.removeFromSuperview()
         }
-        inviteButtonsStack.isHidden = !isNetworkBackend
-        guard isNetworkBackend else { return }
+        inviteButtonsStack.isHidden = selectedConnectionBehavior != .requireInvitation
+        guard selectedConnectionBehavior == .requireInvitation else { return }
 
         if discoveredPeers.isEmpty {
             let label = UILabel()
@@ -678,8 +721,9 @@ private extension ViewController {
             configureSecondaryButton(button, title: "Invite \(peer.displayName) — \(statusText(peer.status))")
             button.contentHorizontalAlignment = .leading
             button.isEnabled = isNetworking && peer.status == .notConnected
+            button.accessibilityLabel = "Invite \(peer.displayName)"
             button.accessibilityHint = button.isEnabled
-                ? "Sends a manual Network framework invitation"
+                ? "Sends an explicit \(backendName) invitation"
                 : "This peer is not currently available for invitation"
             button.addAction(UIAction { [weak self] _ in
                 self?.invite(peer)
@@ -689,7 +733,7 @@ private extension ViewController {
     }
 
     func invite(_ peer: Peer) {
-        guard isNetworking, isNetworkBackend, peer.status == .notConnected else { return }
+        guard isNetworking, selectedConnectionBehavior == .requireInvitation, peer.status == .notConnected else { return }
         browserModel.invitePeer(peer)
         appendLog(kind: "invitation.sent", detail: "Invited \(peer.displayName)", peers: [peer], direction: .outbound)
     }
@@ -784,7 +828,17 @@ private extension ViewController {
         connectedPeers = []
         selectedTargetPeer = nil
         configureManager()
-        appendLog(kind: "session.backend.changed", detail: backendName)
+        appendLog(kind: "session.backend.changed", detail: "\(backendName), \(selectedConnectionBehavior.rawValue)")
+    }
+
+    @objc func changedConnectionBehavior(_ sender: UISegmentedControl) {
+        guard !isNetworking else { return }
+        selectedConnectionBehavior = sender.selectedSegmentIndex == 0 ? .automatic : .requireInvitation
+        discoveredPeers = []
+        connectedPeers = []
+        selectedTargetPeer = nil
+        configureManager()
+        appendLog(kind: "session.connection.behavior.changed", detail: "\(backendName), \(selectedConnectionBehavior.rawValue)")
     }
 
     @objc func tappedStartStop(_ sender: UIButton) {
