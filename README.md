@@ -40,7 +40,7 @@ Add the UI helper product only when you need UIKit browser view controller suppo
 
 CocoaPods and Carthage are no longer the recommended distribution paths for new releases.
 
-The staged migration toward Apple's Network framework is tracked in [NetworkFrameworkMigrationPlan.md](NetworkFrameworkMigrationPlan.md), with follow-up PR sequencing in [NetworkMigrationPRPlan.md](NetworkMigrationPRPlan.md) and the stronger identity roadmap in [NetworkTrustModelPlan.md](NetworkTrustModelPlan.md).
+The staged migration toward Apple's Network framework is tracked in [NetworkFrameworkMigrationPlan.md](NetworkFrameworkMigrationPlan.md), with follow-up PR sequencing in [NetworkMigrationPRPlan.md](NetworkMigrationPRPlan.md), the stronger identity roadmap in [NetworkTrustModelPlan.md](NetworkTrustModelPlan.md), and the authoritative stable/default/removal gates in [NetworkMigrationReadinessAudit.md](NetworkMigrationReadinessAudit.md).
 
 ## Experimental Network framework backend
 

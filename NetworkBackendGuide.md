@@ -283,6 +283,8 @@ xcodebuild test -project PeerConnectivity.xcodeproj \
 
 ## Known follow-ups
 
+See [NetworkMigrationReadinessAudit.md](NetworkMigrationReadinessAudit.md) for the authoritative stable/default/removal gates and PR #50+ priority classification.
+
 - Revisit public Network connection policy configuration after more device and CI validation.
 - Reconsider a reusable Network-native browser component only after app-owned `PeerBrowserModel` integrations establish common UI requirements.
 - Revisit stream or file transfer only as a separately scoped future feature; these APIs remain MultipeerConnectivity-only for the current Network backend.

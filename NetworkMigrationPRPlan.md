@@ -103,6 +103,15 @@ Acceptance criteria:
 - Record the current parity boundary: Network supports reliable `Data`/`PeerMessage` transport, while stream/resource send APIs and receive events remain MultipeerConnectivity-only.
 - Prepare versioning notes for the deployment-target bump and Network backend opt-in.
 
+### Final planned PR: migration readiness audit
+
+- Reconcile the implemented stack, accepted non-parity, and remaining production evidence.
+- Define separate gates for stable opt-in, default-backend selection, and MultipeerConnectivity removal.
+- Classify optional follow-ups by the first readiness level that requires them.
+- Record release/versioning constraints and a risk register without changing runtime behavior.
+
+The resulting [NetworkMigrationReadinessAudit.md](NetworkMigrationReadinessAudit.md) is authoritative when this historical sequencing plan and the implemented stack differ. It confirms that no optional implementation is needed to merge the experimental opt-in stack, while individual authentication, error observability, resource bounds, and physical-device evidence are required before stable status.
+
 ### Future security slice: individual peer identity
 
 - Select one trust mode from [NetworkTrustModelPlan.md](NetworkTrustModelPlan.md) only after focused security and platform review.
