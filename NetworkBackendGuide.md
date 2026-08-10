@@ -131,7 +131,7 @@ Resource transfer and stream APIs are intentionally unsupported for the Network 
 
 ## Demo app
 
-The expanded demo shows the active backend and lets you choose **Multipeer** or **Network** before starting. The default remains MultipeerConnectivity. In Network mode, the manager uses `.custom`, manual **Invite _peer name_** actions come from `PeerBrowserModel`, and **Send Typed Message** exercises `PeerMessage` delivery while preserving message history, structured logging, troubleshooting, and the test checklist.
+The expanded demo shows the active backend and lets you choose **Multipeer** or **Network**, plus **Automatic** or **Require Invitation**, before starting. The default backend remains MultipeerConnectivity. Each backend remembers its connection-behavior choice for the demo session, with defaults that preserve prior behavior: Multipeer uses `.automatic`, while Network uses `.custom` for **Require Invitation**. Automatic mode uses each backend's automatic behavior. Require Invitation uses `PeerBrowserModel` for app-owned discovery and exposes manual **Invite _peer name_** actions for either backend. **Send Typed Message** exercises `PeerMessage` delivery while preserving message history, structured logging, troubleshooting, and the test checklist.
 
 The same path can be selected with launch arguments:
 
@@ -146,7 +146,7 @@ PCNetworkBackend PCAutoStart PCDisplayName Alice
 PCNetworkBackend PCAutoStart PCDisplayName Bob
 ```
 
-Tap the enabled invite action for a discovered peer, wait for its status to become **Connected**, then enter and send a typed message or ping. See [`PeerConnectivityDemo/README.md`](PeerConnectivityDemo/README.md) for the complete walkthrough.
+For **Require Invitation**, tap the enabled invite action for a discovered peer, wait for its status to become **Connected**, then enter and send a typed message or ping. The backend and connection-behavior selectors remain disabled until networking is stopped. See [`PeerConnectivityDemo/README.md`](PeerConnectivityDemo/README.md) for the complete walkthrough.
 
 This demo Network path is intentionally unauthenticated, visibly labels that limitation, and is only for non-sensitive local migration validation. Production apps should use app-managed `.preSharedKey` material and an appropriate trust model.
 
