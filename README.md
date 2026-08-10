@@ -40,7 +40,13 @@ Add the UI helper product only when you need UIKit browser view controller suppo
 
 CocoaPods and Carthage are no longer the recommended distribution paths for new releases.
 
-The staged migration toward Apple's Network framework is tracked in [NetworkFrameworkMigrationPlan.md](NetworkFrameworkMigrationPlan.md), with follow-up PR sequencing in [NetworkMigrationPRPlan.md](NetworkMigrationPRPlan.md), the stronger identity roadmap in [NetworkTrustModelPlan.md](NetworkTrustModelPlan.md), and the authoritative stable/default/removal gates in [NetworkMigrationReadinessAudit.md](NetworkMigrationReadinessAudit.md).
+## Migration documentation
+
+- Start with the app-developer [MultipeerConnectivity to Network.framework Migration Guide](MultipeerConnectivityToNetworkMigrationGuide.md).
+- Coding agents can follow the repository-local [`migrate-multipeer-to-network` skill](.agents/skills/migrate-multipeer-to-network/SKILL.md).
+- See the [Network backend guide](NetworkBackendGuide.md) for the current production setup and support matrix.
+- Consult the [readiness audit](NetworkMigrationReadinessAudit.md) for authoritative stable/default/removal gates and the [trust model plan](NetworkTrustModelPlan.md) for the stronger identity roadmap.
+- The original staged architecture and implementation sequence remain in [NetworkFrameworkMigrationPlan.md](NetworkFrameworkMigrationPlan.md) and [NetworkMigrationPRPlan.md](NetworkMigrationPRPlan.md).
 
 ## Experimental Network framework backend
 
