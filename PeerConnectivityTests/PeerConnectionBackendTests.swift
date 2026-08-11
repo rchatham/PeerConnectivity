@@ -93,6 +93,7 @@ final class PeerConnectionBackendTests : XCTestCase {
         XCTAssertTrue(manager.isUsingMultipeerConnectivityTransport)
         XCTAssertFalse(manager.isUsingNetworkFrameworkTransport)
         XCTAssertNotNil(manager.multipeerSession)
+        XCTAssertTrue(manager.availableMultipeerSession === manager.multipeerSession)
     }
 
     internal func testNetworkBackendUsesNetworkTransportFactoryWhenAvailable() {
@@ -106,6 +107,7 @@ final class PeerConnectionBackendTests : XCTestCase {
         XCTAssertEqual(manager.networkSecurity, .unauthenticated)
         XCTAssertFalse(manager.isUsingMultipeerConnectivityTransport)
         XCTAssertTrue(manager.isUsingNetworkFrameworkTransport)
+        XCTAssertNil(manager.availableMultipeerSession)
     }
 
     internal func testNetworkBackendStoresPreSharedKeySecurityWhenAvailable() {

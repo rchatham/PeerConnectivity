@@ -25,24 +25,20 @@ internal final class NetworkPeerSessionTransport : PeerSessionTransport {
         sessionObserver: Observable<PeerSessionEvent>,
         security: PeerConnectionNetworkSecurity = .unauthenticated) {
         let browserObserver = Observable<PeerBrowserEvent>(.none)
-        let advertiserObserver = Observable<PeerAdvertiserEvent>(.none)
         self.init(peer: peer,
             sessionObserver: sessionObserver,
             browserObserver: browserObserver,
-            advertiserObserver: advertiserObserver,
             security: security)
     }
 
     internal init(peer: Peer,
         sessionObserver: Observable<PeerSessionEvent>,
         browserObserver: Observable<PeerBrowserEvent>,
-        advertiserObserver: Observable<PeerAdvertiserEvent>,
         security: PeerConnectionNetworkSecurity = .unauthenticated) {
         self.peer = peer
         let coordinator = NetworkPeerCoordinator<NetworkPeerConnection>(localPeer: peer,
             sessionObserver: sessionObserver,
-            browserObserver: browserObserver,
-            advertiserObserver: advertiserObserver)
+            browserObserver: browserObserver)
         self.coordinator = coordinator
         self.security = security
         self.listener = FailedNetworkPeerListener()
@@ -224,13 +220,13 @@ internal final class NetworkPeerBrowserTransport : PeerBrowserTransport {
     }
 
     internal func foundEndpoint(_ endpoint: NWEndpoint, identity: PeerIdentity) {
-        guard identity != session.peer.identity else { return }
+        guard !isLocalIdentity(identity) else { return }
         endpointsByIdentity[identity] = endpoint
         browserObserver.value = .foundPeer(Peer(identity: identity, status: .notConnected), discoveryInfo: nil)
     }
 
     internal func lostEndpoint(_ endpoint: NWEndpoint, identity: PeerIdentity) {
-        guard identity != session.peer.identity else { return }
+        guard !isLocalIdentity(identity) else { return }
         endpointsByIdentity.removeValue(forKey: identity)
         browserObserver.value = .lostPeer(Peer(identity: identity, status: .notConnected))
     }
@@ -238,6 +234,11 @@ internal final class NetworkPeerBrowserTransport : PeerBrowserTransport {
     fileprivate func identity(from result: NWBrowser.Result) -> PeerIdentity? {
         guard case .bonjour(let txtRecord) = result.metadata else { return nil }
         return PeerNetworkDiscoveryInfo(txtRecordDictionary: txtRecord.dictionary)?.identity
+    }
+
+    fileprivate func isLocalIdentity(_ identity: PeerIdentity) -> Bool {
+        let discoveryIdentity = PeerNetworkDiscoveryInfo(identity: session.peer.identity).identity
+        return identity == session.peer.identity || identity == discoveryIdentity
     }
 }
 
@@ -248,7 +249,7 @@ internal final class NetworkPeerAdvertiserTransport : PeerAdvertiserTransport {
 
     internal init(session: NetworkPeerSessionTransport,
         serviceType: ServiceType,
-        advertiserObserver: Observable<PeerAdvertiserEvent>,
+        advertiserObserver _: Observable<PeerAdvertiserEvent>,
         configureListener: Bool = true) {
         self.session = session
         if configureListener {

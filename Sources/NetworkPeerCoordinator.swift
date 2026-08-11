@@ -39,7 +39,6 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
     fileprivate let queue = DispatchQueue(label: "PeerConnectivity.NetworkPeerCoordinator")
     fileprivate let sessionObserver : Observable<PeerSessionEvent>
     fileprivate let browserObserver : Observable<PeerBrowserEvent>
-    fileprivate let advertiserObserver : Observable<PeerAdvertiserEvent>
     fileprivate let policy : NetworkPeerConnectionPolicy
     fileprivate var pendingConnections : [ObjectIdentifier:PendingConnection] = [:]
     fileprivate var connectionIdentities : [ObjectIdentifier:PeerIdentity] = [:]
@@ -48,14 +47,12 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
     internal init(localPeer: Peer,
         sessionObserver: Observable<PeerSessionEvent>,
         browserObserver: Observable<PeerBrowserEvent>,
-        advertiserObserver: Observable<PeerAdvertiserEvent>,
         policy: NetworkPeerConnectionPolicy = NetworkPeerConnectionPolicy()) {
         self.localPeer = localPeer
         self.registry = NetworkPeerConnectionRegistry(localIdentity: localPeer.identity)
         self.dataSender = NetworkPeerDataSender(registry: registry)
         self.sessionObserver = sessionObserver
         self.browserObserver = browserObserver
-        self.advertiserObserver = advertiserObserver
         self.policy = policy
     }
 

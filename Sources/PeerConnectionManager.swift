@@ -223,18 +223,30 @@ public class PeerConnectionManager {
     }
 
     /**
+     The MultipeerConnectivity session used by this connection manager, when available.
+
+     Use this property to feature-detect APIs that require MultipeerConnectivity. It returns
+     `nil` for the Network framework backend.
+     */
+    public var availableMultipeerSession : MCSession? {
+        return (session as? MultipeerSessionTransport)?.multipeerSession
+    }
+
+    /**
      The MultipeerConnectivity session used by this connection manager.
 
      This is exposed for platform-specific helper packages such as `PeerConnectivityUI`.
+     Existing callers retain the original non-optional API and behavior. New code that can
+     use the Network framework backend should feature-detect with `availableMultipeerSession`.
 
      - Warning: Only available when `backend == .multipeerConnectivity`. Accessing this
      property with `.networkFramework` is a programmer error.
      */
     public var multipeerSession : MCSession {
-        guard let session = session as? MultipeerSessionTransport else {
+        guard let session = availableMultipeerSession else {
             fatalError("PeerConnectivity: multipeerSession is only available for MultipeerConnectivity transports")
         }
-        return session.multipeerSession
+        return session
     }
 
     /**

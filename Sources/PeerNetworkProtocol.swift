@@ -28,19 +28,18 @@ internal struct PeerNetworkDiscoveryInfo : Equatable {
     fileprivate static let identifierKey = "pc-id"
     fileprivate static let displayNameKey = "pc-name"
     fileprivate static let protocolVersionKey = "pc-v"
-    fileprivate static let maxIdentifierLength = 180
-    fileprivate static let maxDisplayNameLength = 255
+    fileprivate static let maxTXTEntryByteLength = 255
+    fileprivate static let maxIdentifierByteLength = 180
+    fileprivate static let maxDisplayNameByteLength = 247
 
     internal let identity : PeerIdentity
     internal let protocolVersion : Int
 
     internal init(identity: PeerIdentity, protocolVersion: Int = PeerNetworkHandshake.currentProtocolVersion) {
-        let identifier = identity.identifier.count <= PeerNetworkDiscoveryInfo.maxIdentifierLength
-            ? identity.identifier
-            : String(identity.identifier.prefix(PeerNetworkDiscoveryInfo.maxIdentifierLength))
-        let displayName = identity.displayName.count <= PeerNetworkDiscoveryInfo.maxDisplayNameLength
-            ? identity.displayName
-            : String(identity.displayName.prefix(PeerNetworkDiscoveryInfo.maxDisplayNameLength))
+        let identifier = PeerNetworkDiscoveryInfo.truncate(identity.identifier,
+            toUTF8ByteCount: PeerNetworkDiscoveryInfo.maxIdentifierByteLength)
+        let displayName = PeerNetworkDiscoveryInfo.truncate(identity.displayName,
+            toUTF8ByteCount: PeerNetworkDiscoveryInfo.maxDisplayNameByteLength)
         self.identity = PeerIdentity(identifier: identifier, displayName: displayName)
         self.protocolVersion = protocolVersion
     }
@@ -61,11 +60,32 @@ internal struct PeerNetworkDiscoveryInfo : Equatable {
             protocolVersion == PeerNetworkHandshake.currentProtocolVersion,
             !identifier.isEmpty,
             !displayName.isEmpty,
-            identifier.count <= PeerNetworkDiscoveryInfo.maxIdentifierLength,
-            displayName.count <= PeerNetworkDiscoveryInfo.maxDisplayNameLength else { return nil }
+            identifier.utf8.count <= PeerNetworkDiscoveryInfo.maxIdentifierByteLength,
+            displayName.utf8.count <= PeerNetworkDiscoveryInfo.maxDisplayNameByteLength,
+            PeerNetworkDiscoveryInfo.isTXTEntryByteSafe(key: PeerNetworkDiscoveryInfo.identifierKey,
+                value: identifier),
+            PeerNetworkDiscoveryInfo.isTXTEntryByteSafe(key: PeerNetworkDiscoveryInfo.displayNameKey,
+                value: displayName),
+            PeerNetworkDiscoveryInfo.isTXTEntryByteSafe(key: PeerNetworkDiscoveryInfo.protocolVersionKey,
+                value: protocolVersionText) else { return nil }
 
         self.identity = PeerIdentity(identifier: identifier, displayName: displayName)
         self.protocolVersion = protocolVersion
+    }
+
+    fileprivate static func isTXTEntryByteSafe(key: String, value: String) -> Bool {
+        return key.utf8.count + 1 + value.utf8.count <= maxTXTEntryByteLength
+    }
+
+    fileprivate static func truncate(_ value: String, toUTF8ByteCount maxByteCount: Int) -> String {
+        guard value.utf8.count > maxByteCount else { return value }
+
+        let utf8 = value.utf8
+        var endIndex = utf8.index(utf8.startIndex, offsetBy: maxByteCount)
+        while endIndex > utf8.startIndex && utf8[endIndex] & 0xC0 == 0x80 {
+            endIndex = utf8.index(before: endIndex)
+        }
+        return String(decoding: utf8[..<endIndex], as: UTF8.self)
     }
 }
 
@@ -158,20 +178,26 @@ internal struct PeerNetworkFrameDecoder {
     internal mutating func append(_ data: Data) -> [PeerNetworkFrame] {
         buffer.append(data)
         var frames : [PeerNetworkFrame] = []
+        var consumedBytes = 0
 
-        while !buffer.isEmpty {
-            switch PeerNetworkFrame.decodeNext(in: buffer) {
-            case .frame(let frame, consumedBytes: let consumedBytes):
+        while consumedBytes < buffer.count {
+            let unreadStart = buffer.index(buffer.startIndex, offsetBy: consumedBytes)
+            switch PeerNetworkFrame.decodeNext(in: buffer[unreadStart...]) {
+            case .frame(let frame, consumedBytes: let frameLength):
                 frames.append(frame)
-                buffer.removeFirst(consumedBytes)
+                consumedBytes += frameLength
             case .incomplete:
+                if consumedBytes > 0 {
+                    buffer.removeFirst(consumedBytes)
+                }
                 return frames
             case .invalid:
-                buffer.removeAll()
+                buffer.removeAll(keepingCapacity: true)
                 return frames
             }
         }
 
+        buffer.removeAll(keepingCapacity: true)
         return frames
     }
 }
