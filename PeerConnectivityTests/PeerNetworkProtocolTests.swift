@@ -7,7 +7,12 @@
 //
 
 import XCTest
+import Network
 @testable import PeerConnectivity
+
+private enum HandshakeEncodingTestError : Error {
+    case failed
+}
 
 final class PeerNetworkProtocolTests : XCTestCase {
 
@@ -34,6 +39,26 @@ final class PeerNetworkProtocolTests : XCTestCase {
 
         XCTAssertEqual(decoded, handshake)
         XCTAssertEqual(decoded.protocolVersion, PeerNetworkHandshake.currentProtocolVersion)
+    }
+
+    @available(iOS 13.0, macOS 10.15, *)
+    internal func testHandshakeEncodingFailureCompletesWithError() {
+        let connection = NetworkPeerConnection(
+            endpoint: .hostPort(host: "localhost", port: 9),
+            handshakeEncoder: { _ in throw HandshakeEncodingTestError.failed }
+        )
+        let handshake = PeerNetworkHandshake(
+            identity: PeerIdentity(identifier: "peer-1", displayName: "Remote Peer")
+        )
+        var receivedError : NWError?
+
+        connection.sendHandshake(handshake) { error in
+            receivedError = error
+        }
+
+        guard case .posix(.EINVAL)? = receivedError else {
+            return XCTFail("Expected EINVAL for a handshake encoding failure")
+        }
     }
 
     internal func testFrameRoundTrip() {
