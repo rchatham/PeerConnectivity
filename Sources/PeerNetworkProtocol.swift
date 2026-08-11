@@ -112,20 +112,26 @@ internal struct PeerNetworkFrameDecoder {
     internal mutating func append(_ data: Data) -> [PeerNetworkFrame] {
         buffer.append(data)
         var frames : [PeerNetworkFrame] = []
+        var consumedBytes = 0
 
-        while !buffer.isEmpty {
-            switch PeerNetworkFrame.decodeNext(in: buffer) {
-            case .frame(let frame, consumedBytes: let consumedBytes):
+        while consumedBytes < buffer.count {
+            let unreadStart = buffer.index(buffer.startIndex, offsetBy: consumedBytes)
+            switch PeerNetworkFrame.decodeNext(in: buffer[unreadStart...]) {
+            case .frame(let frame, consumedBytes: let frameLength):
                 frames.append(frame)
-                buffer.removeFirst(consumedBytes)
+                consumedBytes += frameLength
             case .incomplete:
+                if consumedBytes > 0 {
+                    buffer.removeFirst(consumedBytes)
+                }
                 return frames
             case .invalid:
-                buffer.removeAll()
+                buffer.removeAll(keepingCapacity: true)
                 return frames
             }
         }
 
+        buffer.removeAll(keepingCapacity: true)
         return frames
     }
 }

@@ -120,6 +120,23 @@ final class PeerNetworkProtocolTests : XCTestCase {
         XCTAssertEqual(decoder.append(encoded), [first, second])
     }
 
+    internal func testFrameDecoderHandlesManyCoalescedFramesBeforePartialFrame() {
+        let frames = (0..<10_000).map { index in
+            return PeerNetworkFrame(kind: .data, payload: Data([UInt8(index % 251)]))
+        }
+        let partialFrame = PeerNetworkFrame(kind: .handshake, payload: Data([1, 2, 3, 4]))
+        let partialData = partialFrame.encoded()
+        let splitIndex = partialData.index(partialData.startIndex, offsetBy: 3)
+        var encoded = frames.reduce(into: Data()) { data, frame in
+            data.append(frame.encoded())
+        }
+        encoded.append(partialData[..<splitIndex])
+        var decoder = PeerNetworkFrameDecoder()
+
+        XCTAssertEqual(decoder.append(encoded), frames)
+        XCTAssertEqual(decoder.append(Data(partialData[splitIndex...])), [partialFrame])
+    }
+
     internal func testFrameDecoderPreservesFrameKind() {
         let frame = PeerNetworkFrame(kind: .handshake, payload: Data([7, 8, 9]))
         var decoder = PeerNetworkFrameDecoder()
