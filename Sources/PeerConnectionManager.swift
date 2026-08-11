@@ -225,18 +225,30 @@ public class PeerConnectionManager {
     }
 
     /**
+     The MultipeerConnectivity session used by this connection manager, when available.
+
+     Use this property to feature-detect APIs that require MultipeerConnectivity. It returns
+     `nil` for the Network framework backend.
+     */
+    public var availableMultipeerSession : MCSession? {
+        return (session as? MultipeerSessionTransport)?.multipeerSession
+    }
+
+    /**
      The MultipeerConnectivity session used by this connection manager.
 
      This is exposed for platform-specific helper packages such as `PeerConnectivityUI`.
+     Existing callers retain the original non-optional API and behavior. New code that can
+     use the Network framework backend should feature-detect with `availableMultipeerSession`.
 
      - Warning: Only available when `backend == .multipeerConnectivity`. Accessing this
      property with `.networkFramework` is a programmer error.
      */
     public var multipeerSession : MCSession {
-        guard let session = session as? MultipeerSessionTransport else {
+        guard let session = availableMultipeerSession else {
             fatalError("PeerConnectivity: multipeerSession is only available for MultipeerConnectivity transports")
         }
-        return session.multipeerSession
+        return session
     }
 
     /**
@@ -285,7 +297,7 @@ public class PeerConnectionManager {
      
      - parameter serviceType: The requested service type describing the channel on which peers are able to connect. Use `isValidServiceType(_:)` to validate caller-provided values before initialization.
      - parameter connectionType: Takes a PeerConnectionType case determining the default behavior of the framework.
-     - parameter displayName: The local user's display name to other peers. Display names are visible to nearby peers and must be no more than 63 bytes when UTF-8 encoded.
+     - parameter displayName: The local user's display name to other peers. Display names are visible to nearby peers; empty or overlong values are sanitized to a non-empty maximum of 63 UTF-8 bytes.
      - parameter securityConfiguration: Security settings used to create the underlying MultipeerConnectivity session.
      - parameter discoveryInfo: Public, unauthenticated metadata advertised to nearby browsers.
      - parameter invitationPolicy: Policy used to decide whether incoming invitations are accepted in `.automatic` mode.
@@ -357,11 +369,12 @@ public class PeerConnectionManager {
         self.backend = backend
         self.networkSecurity = networkSecurity
         self.serviceType = serviceType
+        let sanitizedDisplayName = Peer.sanitizedDisplayName(displayName)
         switch backend {
         case .multipeerConnectivity:
-            self.peer = Peer(displayName: displayName)
+            self.peer = Peer(displayName: sanitizedDisplayName)
         case .networkFramework:
-            self.peer = Peer(networkDisplayName: displayName)
+            self.peer = Peer(networkDisplayName: sanitizedDisplayName)
         }
         self.securityConfiguration = securityConfiguration
         self.discoveryInfo = discoveryInfo

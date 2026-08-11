@@ -329,23 +329,19 @@ private final class Harness {
     internal let localPeer : Peer
     internal private(set) var sessionEvents : [PeerSessionEvent] = []
     internal private(set) var browserEvents : [PeerBrowserEvent] = []
-    internal private(set) var advertiserEvents : [PeerAdvertiserEvent] = []
 
     internal init(localPeer: Peer, policy: NetworkPeerConnectionPolicy = NetworkPeerConnectionPolicy()) {
         let sessionObserver = Observable<PeerSessionEvent>(.none)
         let browserObserver = Observable<PeerBrowserEvent>(.none)
-        let advertiserObserver = Observable<PeerAdvertiserEvent>(.none)
         self.localPeer = localPeer
         self.coordinator = NetworkPeerCoordinator<MockCoordinatorConnection>(
             localPeer: localPeer,
             sessionObserver: sessionObserver,
             browserObserver: browserObserver,
-            advertiserObserver: advertiserObserver,
             policy: policy
         )
 
         sessionObserver.addObserver { [weak self] in self?.sessionEvents.append($0) }
         browserObserver.addObserver { [weak self] in self?.browserEvents.append($0) }
-        advertiserObserver.addObserver { [weak self] in self?.advertiserEvents.append($0) }
     }
 }
