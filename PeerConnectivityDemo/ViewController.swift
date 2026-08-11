@@ -34,7 +34,8 @@ class ViewController: UIViewController {
 
     fileprivate lazy var pcm : PeerConnectionManager = {
         let arguments = ProcessInfo.processInfo.arguments
-        let displayName = ViewController.argumentValue(for: "PCDisplayName") ?? ProcessInfo.processInfo.hostName
+        let requestedDisplayName = ViewController.argumentValue(for: "PCDisplayName") ?? ProcessInfo.processInfo.hostName
+        let displayName = Peer.sanitizedDisplayName(requestedDisplayName)
         let backend : PeerConnectionBackend = arguments.contains("PCNetworkBackend") ? .networkFramework : .multipeerConnectivity
         let pcm = PeerConnectionManager(serviceType: "local", displayName: displayName, backend: backend)
         pcm.listenOn({ [weak self] event in

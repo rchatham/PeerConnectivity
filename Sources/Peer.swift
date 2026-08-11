@@ -26,6 +26,31 @@ public struct Peer {
     public static func isValidDisplayName(_ displayName: String) -> Bool {
         return !displayName.isEmpty && displayName.lengthOfBytes(using: .utf8) <= 63
     }
+
+    /**
+     Returns a deterministic display name that satisfies MultipeerConnectivity's constraints.
+
+     Overlong names are truncated to a valid Unicode scalar boundary without exceeding 63 UTF-8 bytes.
+     Empty names use the supplied fallback, which is sanitized by the same rules.
+
+     - parameter displayName: Preferred display name.
+     - parameter fallback: Name to use when `displayName` is empty. Defaults to `"Peer"`.
+     - Returns: A non-empty display name no longer than 63 bytes when UTF-8 encoded.
+     */
+    public static func sanitizedDisplayName(_ displayName: String, fallback: String = "Peer") -> String {
+        let candidate = displayName.isEmpty ? fallback : displayName
+        let nonEmptyCandidate = candidate.isEmpty ? "Peer" : candidate
+        var result = ""
+        var byteCount = 0
+
+        for scalar in nonEmptyCandidate.unicodeScalars {
+            let scalarByteCount = scalar.utf8.count
+            guard byteCount + scalarByteCount <= 63 else { break }
+            result.unicodeScalars.append(scalar)
+            byteCount += scalarByteCount
+        }
+        return result.isEmpty ? "Peer" : result
+    }
     
     /**
      Peer connection status.

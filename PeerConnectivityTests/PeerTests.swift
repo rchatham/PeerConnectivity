@@ -29,6 +29,24 @@ class PeerTests: XCTestCase {
         assertStatus(peer.status, is: .connected)
     }
 
+    func testSanitizedDisplayNamePreservesValidName() {
+        XCTAssertEqual(Peer.sanitizedDisplayName("Local Tester"), "Local Tester")
+    }
+
+    func testSanitizedDisplayNameUsesDeterministicFallbackForEmptyName() {
+        XCTAssertEqual(Peer.sanitizedDisplayName(""), "Peer")
+        XCTAssertEqual(Peer.sanitizedDisplayName("", fallback: ""), "Peer")
+    }
+
+    func testSanitizedDisplayNameTruncatesAtUnicodeScalarBoundary() {
+        let displayName = String(repeating: "a", count: 61) + "é🙂suffix"
+        let sanitized = Peer.sanitizedDisplayName(displayName)
+
+        XCTAssertEqual(sanitized, String(repeating: "a", count: 61) + "é")
+        XCTAssertEqual(sanitized.utf8.count, 63)
+        XCTAssertTrue(Peer.isValidDisplayName(sanitized))
+    }
+
     // MARK: - Equality
 
     func testPeersWithSamePeerIDAreEqualEvenWhenStatusDiffers() {
