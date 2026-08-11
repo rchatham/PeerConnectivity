@@ -26,31 +26,37 @@ internal final class NetworkPeerConnection : NetworkPeerConnectionCancellable {
 
     internal typealias StateHandler = (NWConnection.State) -> Void
     internal typealias DataHandler = (PeerNetworkFrame) -> Void
+    internal typealias HandshakeEncoder = (PeerNetworkHandshake) throws -> Data
 
     fileprivate let connection : NWConnection
     fileprivate let queue : DispatchQueue
     fileprivate let stateHandler : StateHandler?
     fileprivate var dataHandler : DataHandler?
+    fileprivate let handshakeEncoder : HandshakeEncoder
     fileprivate var frameDecoder = PeerNetworkFrameDecoder()
 
     internal init(endpoint: NWEndpoint,
         queue: DispatchQueue = DispatchQueue(label: "PeerConnectivity.NetworkPeerConnection"),
         stateHandler: StateHandler? = nil,
-        dataHandler: DataHandler? = nil) {
+        dataHandler: DataHandler? = nil,
+        handshakeEncoder: @escaping HandshakeEncoder = { try JSONEncoder().encode($0) }) {
         self.connection = NWConnection(to: endpoint, using: NetworkPeerConnection.parameters())
         self.queue = queue
         self.stateHandler = stateHandler
         self.dataHandler = dataHandler
+        self.handshakeEncoder = handshakeEncoder
     }
 
     internal init(connection: NWConnection,
         queue: DispatchQueue = DispatchQueue(label: "PeerConnectivity.NetworkPeerConnection"),
         stateHandler: StateHandler? = nil,
-        dataHandler: DataHandler? = nil) {
+        dataHandler: DataHandler? = nil,
+        handshakeEncoder: @escaping HandshakeEncoder = { try JSONEncoder().encode($0) }) {
         self.connection = connection
         self.queue = queue
         self.stateHandler = stateHandler
         self.dataHandler = dataHandler
+        self.handshakeEncoder = handshakeEncoder
     }
 
     internal func setDataHandler(_ dataHandler: DataHandler?) {
@@ -81,11 +87,11 @@ internal final class NetworkPeerConnection : NetworkPeerConnectionCancellable {
 
     internal func sendHandshake(_ handshake: PeerNetworkHandshake, completion: ((NWError?) -> Void)? = nil) {
         do {
-            let payload = try JSONEncoder().encode(handshake)
+            let payload = try handshakeEncoder(handshake)
             sendFrame(PeerNetworkFrame(kind: .handshake, payload: payload), completion: completion)
         } catch {
             NSLog("PeerConnectivity: Failed to encode Network handshake: \(error.localizedDescription)")
-            completion?(nil)
+            completion?(.posix(.EINVAL))
         }
     }
 
