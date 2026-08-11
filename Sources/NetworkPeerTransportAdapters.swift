@@ -189,13 +189,13 @@ internal final class NetworkPeerBrowserTransport : PeerBrowserTransport {
     }
 
     internal func foundEndpoint(_ endpoint: NWEndpoint, identity: PeerIdentity) {
-        guard identity != session.peer.identity else { return }
+        guard !isLocalIdentity(identity) else { return }
         endpointsByIdentity[identity] = endpoint
         browserObserver.value = .foundPeer(Peer(identity: identity, status: .notConnected), discoveryInfo: nil)
     }
 
     internal func lostEndpoint(_ endpoint: NWEndpoint, identity: PeerIdentity) {
-        guard identity != session.peer.identity else { return }
+        guard !isLocalIdentity(identity) else { return }
         endpointsByIdentity.removeValue(forKey: identity)
         browserObserver.value = .lostPeer(Peer(identity: identity, status: .notConnected))
     }
@@ -203,6 +203,11 @@ internal final class NetworkPeerBrowserTransport : PeerBrowserTransport {
     fileprivate func identity(from result: NWBrowser.Result) -> PeerIdentity? {
         guard case .bonjour(let txtRecord) = result.metadata else { return nil }
         return PeerNetworkDiscoveryInfo(txtRecordDictionary: txtRecord.dictionary)?.identity
+    }
+
+    fileprivate func isLocalIdentity(_ identity: PeerIdentity) -> Bool {
+        let discoveryIdentity = PeerNetworkDiscoveryInfo(identity: session.peer.identity).identity
+        return identity == session.peer.identity || identity == discoveryIdentity
     }
 }
 

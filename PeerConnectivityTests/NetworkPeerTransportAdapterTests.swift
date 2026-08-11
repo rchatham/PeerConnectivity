@@ -138,6 +138,27 @@ final class NetworkPeerTransportAdapterTests : XCTestCase {
         XCTAssertEqual(events.count, 1)
     }
 
+    internal func testBrowserTransportIgnoresTruncatedSelfDiscoveryIdentity() {
+        guard #available(iOS 13.0, macOS 10.15, *) else { return }
+
+        let localIdentity = PeerIdentity(identifier: String(repeating: "a", count: 400),
+            displayName: "Local")
+        let session = makeSessionTransport(peer: Peer(identity: localIdentity, status: .currentUser))
+        let observer = Observable<PeerBrowserEvent>(.none)
+        let transport = NetworkPeerBrowserTransport(session: session,
+            browser: MockNetworkPeerBrowser(),
+            browserObserver: observer)
+        let endpoint = NWEndpoint.hostPort(host: .ipv4(IPv4Address("127.0.0.1")!), port: 34568)
+        let advertisedIdentity = PeerNetworkDiscoveryInfo(identity: localIdentity).identity
+        var events : [PeerBrowserEvent] = []
+        observer.addObserver { event in events.append(event) }
+
+        transport.foundEndpoint(endpoint, identity: advertisedIdentity)
+        transport.lostEndpoint(endpoint, identity: advertisedIdentity)
+
+        XCTAssertEqual(events.count, 1)
+    }
+
     internal func testAdvertiserTransportStartStopIsSafeNoOpBecauseSessionOwnsListener() {
         guard #available(iOS 13.0, macOS 10.15, *) else { return }
 
@@ -178,8 +199,8 @@ final class NetworkPeerTransportAdapterTests : XCTestCase {
     }
 
     @available(iOS 13.0, macOS 10.15, *)
-    private func makeSessionTransport(listener: NetworkPeerListening = MockNetworkPeerListener()) -> NetworkPeerSessionTransport {
-        let peer = Peer(displayName: "Local")
+    private func makeSessionTransport(peer: Peer = Peer(displayName: "Local"),
+        listener: NetworkPeerListening = MockNetworkPeerListener()) -> NetworkPeerSessionTransport {
         let coordinator = NetworkPeerCoordinator<NetworkPeerConnection>(localPeer: peer,
             sessionObserver: Observable<PeerSessionEvent>(.none),
             browserObserver: Observable<PeerBrowserEvent>(.none))

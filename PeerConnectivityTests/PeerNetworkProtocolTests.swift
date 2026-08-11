@@ -50,13 +50,43 @@ final class PeerNetworkProtocolTests : XCTestCase {
         XCTAssertEqual(decoded, discoveryInfo)
     }
 
-    internal func testDiscoveryInfoConstrainsTxtRecordValueLengths() {
+    internal func testDiscoveryInfoConstrainsASCIIValuesToTxtEntryByteLimits() {
         let identity = PeerIdentity(identifier: String(repeating: "a", count: 400),
             displayName: String(repeating: "b", count: 400))
         let discoveryInfo = PeerNetworkDiscoveryInfo(identity: identity)
 
-        XCTAssertLessThanOrEqual(discoveryInfo.identity.identifier.count, 180)
-        XCTAssertLessThanOrEqual(discoveryInfo.identity.displayName.count, 255)
+        XCTAssertEqual(discoveryInfo.identity.identifier.utf8.count, 180)
+        XCTAssertEqual(discoveryInfo.identity.displayName.utf8.count, 247)
+        assertTXTEntriesAreByteSafe(discoveryInfo.txtRecordDictionary)
+    }
+
+    internal func testDiscoveryInfoTruncatesMultibyteValuesAtValidUTF8Boundaries() {
+        let identity = PeerIdentity(identifier: String(repeating: "é", count: 200),
+            displayName: String(repeating: "🙂", count: 100))
+        let discoveryInfo = PeerNetworkDiscoveryInfo(identity: identity)
+
+        XCTAssertEqual(discoveryInfo.identity.identifier.utf8.count, 180)
+        XCTAssertEqual(discoveryInfo.identity.displayName.utf8.count, 244)
+        XCTAssertEqual(discoveryInfo.identity.identifier, String(repeating: "é", count: 90))
+        XCTAssertEqual(discoveryInfo.identity.displayName, String(repeating: "🙂", count: 61))
+        XCTAssertEqual(PeerNetworkDiscoveryInfo(txtRecordDictionary: discoveryInfo.txtRecordDictionary), discoveryInfo)
+        assertTXTEntriesAreByteSafe(discoveryInfo.txtRecordDictionary)
+    }
+
+    internal func testDiscoveryInfoPreservesAndTruncatesDisplayNameAtTxtByteBoundary() {
+        let boundaryName = String(repeating: "b", count: 247)
+        let overBoundaryName = boundaryName + "c"
+
+        let boundaryInfo = PeerNetworkDiscoveryInfo(identity: PeerIdentity(identifier: "peer-1",
+            displayName: boundaryName))
+        let overBoundaryInfo = PeerNetworkDiscoveryInfo(identity: PeerIdentity(identifier: "peer-1",
+            displayName: overBoundaryName))
+
+        XCTAssertEqual(boundaryInfo.identity.displayName, boundaryName)
+        XCTAssertEqual(overBoundaryInfo.identity.displayName, boundaryName)
+        XCTAssertEqual("pc-name=\(boundaryInfo.identity.displayName)".utf8.count, 255)
+        assertTXTEntriesAreByteSafe(boundaryInfo.txtRecordDictionary)
+        assertTXTEntriesAreByteSafe(overBoundaryInfo.txtRecordDictionary)
     }
 
     internal func testDiscoveryInfoRejectsMalformedTxtRecord() {
@@ -69,6 +99,16 @@ final class PeerNetworkProtocolTests : XCTestCase {
         XCTAssertNil(PeerNetworkDiscoveryInfo(txtRecordDictionary: [
             "pc-id": "",
             "pc-name": "Remote Peer",
+            "pc-v": String(PeerNetworkHandshake.currentProtocolVersion),
+        ]))
+        XCTAssertNil(PeerNetworkDiscoveryInfo(txtRecordDictionary: [
+            "pc-id": String(repeating: "a", count: 181),
+            "pc-name": "Remote Peer",
+            "pc-v": String(PeerNetworkHandshake.currentProtocolVersion),
+        ]))
+        XCTAssertNil(PeerNetworkDiscoveryInfo(txtRecordDictionary: [
+            "pc-id": "peer-1",
+            "pc-name": String(repeating: "b", count: 248),
             "pc-v": String(PeerNetworkHandshake.currentProtocolVersion),
         ]))
     }
@@ -177,6 +217,14 @@ final class PeerNetworkProtocolTests : XCTestCase {
 
         XCTAssertEqual(decoded.first?.kind, .handshake)
         XCTAssertEqual(decoded.first?.payload, frame.payload)
+    }
+
+    private func assertTXTEntriesAreByteSafe(_ dictionary: [String:String],
+        file: StaticString = #filePath,
+        line: UInt = #line) {
+        dictionary.forEach { key, value in
+            XCTAssertLessThanOrEqual("\(key)=\(value)".utf8.count, 255, file: file, line: line)
+        }
     }
 
     private func frameHeader(kind: PeerNetworkFrameKind, payloadLength: UInt32) -> Data {
