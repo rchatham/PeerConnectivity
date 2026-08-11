@@ -182,8 +182,7 @@ final class NetworkPeerTransportAdapterTests : XCTestCase {
         let peer = Peer(displayName: "Local")
         let coordinator = NetworkPeerCoordinator<NetworkPeerConnection>(localPeer: peer,
             sessionObserver: Observable<PeerSessionEvent>(.none),
-            browserObserver: Observable<PeerBrowserEvent>(.none),
-            advertiserObserver: Observable<PeerAdvertiserEvent>(.none))
+            browserObserver: Observable<PeerBrowserEvent>(.none))
         return NetworkPeerSessionTransport(peer: peer, coordinator: coordinator, listener: listener)
     }
 }

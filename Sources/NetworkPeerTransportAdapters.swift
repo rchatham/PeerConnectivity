@@ -22,22 +22,18 @@ internal final class NetworkPeerSessionTransport : PeerSessionTransport {
 
     internal convenience init(peer: Peer, sessionObserver: Observable<PeerSessionEvent>) {
         let browserObserver = Observable<PeerBrowserEvent>(.none)
-        let advertiserObserver = Observable<PeerAdvertiserEvent>(.none)
         self.init(peer: peer,
             sessionObserver: sessionObserver,
-            browserObserver: browserObserver,
-            advertiserObserver: advertiserObserver)
+            browserObserver: browserObserver)
     }
 
     internal init(peer: Peer,
         sessionObserver: Observable<PeerSessionEvent>,
-        browserObserver: Observable<PeerBrowserEvent>,
-        advertiserObserver: Observable<PeerAdvertiserEvent>) {
+        browserObserver: Observable<PeerBrowserEvent>) {
         self.peer = peer
         let coordinator = NetworkPeerCoordinator<NetworkPeerConnection>(localPeer: peer,
             sessionObserver: sessionObserver,
-            browserObserver: browserObserver,
-            advertiserObserver: advertiserObserver)
+            browserObserver: browserObserver)
         self.coordinator = coordinator
         self.listener = FailedNetworkPeerListener()
     }
@@ -217,7 +213,7 @@ internal final class NetworkPeerAdvertiserTransport : PeerAdvertiserTransport {
 
     internal init(session: NetworkPeerSessionTransport,
         serviceType: ServiceType,
-        advertiserObserver: Observable<PeerAdvertiserEvent>,
+        advertiserObserver _: Observable<PeerAdvertiserEvent>,
         configureListener: Bool = true) {
         self.session = session
         if configureListener {

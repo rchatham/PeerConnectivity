@@ -21,21 +21,18 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
     fileprivate let queue = DispatchQueue(label: "PeerConnectivity.NetworkPeerCoordinator")
     fileprivate let sessionObserver : Observable<PeerSessionEvent>
     fileprivate let browserObserver : Observable<PeerBrowserEvent>
-    fileprivate let advertiserObserver : Observable<PeerAdvertiserEvent>
     fileprivate var pendingConnections : [ObjectIdentifier:PendingConnection] = [:]
     fileprivate var connectionIdentities : [ObjectIdentifier:PeerIdentity] = [:]
     fileprivate var discoveredPeers : [PeerIdentity:Peer] = [:]
 
     internal init(localPeer: Peer,
         sessionObserver: Observable<PeerSessionEvent>,
-        browserObserver: Observable<PeerBrowserEvent>,
-        advertiserObserver: Observable<PeerAdvertiserEvent>) {
+        browserObserver: Observable<PeerBrowserEvent>) {
         self.localPeer = localPeer
         self.registry = NetworkPeerConnectionRegistry(localIdentity: localPeer.identity)
         self.dataSender = NetworkPeerDataSender(registry: registry)
         self.sessionObserver = sessionObserver
         self.browserObserver = browserObserver
-        self.advertiserObserver = advertiserObserver
     }
 
     internal var connectedPeers : [Peer] {
