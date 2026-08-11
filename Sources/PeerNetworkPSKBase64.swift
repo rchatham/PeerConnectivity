@@ -40,12 +40,16 @@ internal struct PeerNetworkTestKeyGenerationError : Error, Equatable {
 internal enum PeerNetworkTestKeyGenerator {
     internal typealias FillRandomBytes = (UnsafeMutableRawBufferPointer) -> Int32
 
-    /// Generates in-memory Base64 test key material. The caller controls its lifetime.
+    /// Generates at least 32 bytes of in-memory Base64 test key material. The caller controls its lifetime.
     internal static func generateBase64(
         byteCount: Int = PeerNetworkPSKBase64.minimumByteCount,
         fillRandomBytes: FillRandomBytes = { buffer in
-            return SecRandomCopyBytes(kSecRandomDefault, buffer.count, buffer.baseAddress!)
+            guard let baseAddress = buffer.baseAddress else { return errSecParam }
+            return SecRandomCopyBytes(kSecRandomDefault, buffer.count, baseAddress)
         }) -> Result<String, PeerNetworkTestKeyGenerationError> {
+        guard byteCount >= PeerNetworkPSKBase64.minimumByteCount else {
+            return .failure(PeerNetworkTestKeyGenerationError(status: errSecParam))
+        }
         var data = Data(count: byteCount)
         let status = data.withUnsafeMutableBytes(fillRandomBytes)
         guard status == errSecSuccess else {

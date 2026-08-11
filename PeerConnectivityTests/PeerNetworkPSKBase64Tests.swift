@@ -53,8 +53,20 @@ class PeerNetworkPSKBase64Tests : XCTestCase {
             .success(.preSharedKey(data)))
     }
 
-    internal func testGeneratedKeyHasValidThirtyTwoByteShape() {
-        let result = PeerNetworkTestKeyGenerator.generateBase64 { buffer in
+    internal func testGeneratorRejectsZeroByteCountWithoutRequestingRandomBytes() {
+        assertGeneratorRejectsByteCount(0)
+    }
+
+    internal func testGeneratorRejectsNegativeByteCountWithoutRequestingRandomBytes() {
+        assertGeneratorRejectsByteCount(-1)
+    }
+
+    internal func testGeneratorRejectsThirtyOneByteCountWithoutRequestingRandomBytes() {
+        assertGeneratorRejectsByteCount(31)
+    }
+
+    internal func testGeneratorAcceptsThirtyTwoByteCountWithInjectedRandomSuccess() {
+        let result = PeerNetworkTestKeyGenerator.generateBase64(byteCount: 32) { buffer in
             buffer.initializeMemory(as: UInt8.self, repeating: 5)
             return errSecSuccess
         }
@@ -65,5 +77,21 @@ class PeerNetworkPSKBase64Tests : XCTestCase {
     internal func testGeneratorFailureProducesNoKey() {
         let result = PeerNetworkTestKeyGenerator.generateBase64 { _ in -50 }
         XCTAssertEqual(result, .failure(PeerNetworkTestKeyGenerationError(status: -50)))
+    }
+
+    /// Verifies invalid byte counts fail closed before random generation or allocation.
+    private func assertGeneratorRejectsByteCount(_ byteCount: Int, file: StaticString = #file, line: UInt = #line) {
+        var didRequestRandomBytes = false
+        let result = PeerNetworkTestKeyGenerator.generateBase64(byteCount: byteCount) { _ in
+            didRequestRandomBytes = true
+            return errSecSuccess
+        }
+
+        XCTAssertEqual(
+            result,
+            .failure(PeerNetworkTestKeyGenerationError(status: errSecParam)),
+            file: file,
+            line: line)
+        XCTAssertFalse(didRequestRandomBytes, file: file, line: line)
     }
 }
