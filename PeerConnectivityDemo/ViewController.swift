@@ -225,7 +225,8 @@ private extension ViewController {
         pcm?.stop()
         pcm?.removeAllListeners()
 
-        let displayName = ViewController.argumentValue(for: "PCDisplayName") ?? ProcessInfo.processInfo.hostName
+        let requestedDisplayName = ViewController.argumentValue(for: "PCDisplayName") ?? ProcessInfo.processInfo.hostName
+        let displayName = Peer.sanitizedDisplayName(requestedDisplayName)
         pcm = PeerConnectionManager(
             serviceType: "local",
             connectionType: selectedConnectionBehavior.connectionType,

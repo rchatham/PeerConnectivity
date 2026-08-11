@@ -93,6 +93,7 @@ final class PeerConnectionBackendTests : XCTestCase {
         XCTAssertTrue(manager.isUsingMultipeerConnectivityTransport)
         XCTAssertFalse(manager.isUsingNetworkFrameworkTransport)
         XCTAssertNotNil(manager.multipeerSession)
+        XCTAssertTrue(manager.availableMultipeerSession === manager.multipeerSession)
     }
 
     internal func testNetworkBackendUsesNetworkTransportFactoryWhenAvailable() {
@@ -106,6 +107,25 @@ final class PeerConnectionBackendTests : XCTestCase {
         XCTAssertEqual(manager.networkSecurity, .unauthenticated)
         XCTAssertFalse(manager.isUsingMultipeerConnectivityTransport)
         XCTAssertTrue(manager.isUsingNetworkFrameworkTransport)
+        XCTAssertNil(manager.availableMultipeerSession)
+    }
+
+    internal func testManagersSanitizeDisplayNamesForBothBackends() {
+        guard #available(iOS 13.0, macOS 10.15, *) else { return }
+
+        let requestedDisplayName = String(repeating: "🙂", count: 20)
+        let expectedDisplayName = String(repeating: "🙂", count: 15)
+        let multipeerManager = PeerConnectionManager(serviceType: "backend-mc-name",
+            displayName: requestedDisplayName,
+            backend: .multipeerConnectivity)
+        let networkManager = PeerConnectionManager(serviceType: "backend-network-name",
+            displayName: requestedDisplayName,
+            backend: .networkFramework)
+
+        XCTAssertEqual(multipeerManager.peer.displayName, expectedDisplayName)
+        XCTAssertEqual(networkManager.peer.displayName, expectedDisplayName)
+        XCTAssertTrue(Peer.isValidDisplayName(multipeerManager.peer.displayName))
+        XCTAssertTrue(Peer.isValidDisplayName(networkManager.peer.displayName))
     }
 
     internal func testNetworkBackendStoresPreSharedKeySecurityWhenAvailable() {
