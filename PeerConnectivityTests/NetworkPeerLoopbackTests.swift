@@ -70,14 +70,13 @@ final class NetworkPeerLoopbackTests : XCTestCase {
         }
 
         bob.start()
+        defer { bob.stop() }
         alice.start()
+        defer { alice.stop() }
 
         wait(for: [aliceFoundBob, bobFoundAlice, aliceConnected, bobConnected], timeout: 15)
         alice.sendMessage(LoopbackMessage(text: "hello"), toPeers: alice.connectedPeers)
         wait(for: [bobReceivedMessage], timeout: 5)
-
-        alice.stop()
-        bob.stop()
     }
 
     internal func testNetworkBackendExchangesMessagesBidirectionallyAndHandlesLargePayload() {
@@ -124,15 +123,14 @@ final class NetworkPeerLoopbackTests : XCTestCase {
         }
 
         bob.start()
+        defer { bob.stop() }
         alice.start()
+        defer { alice.stop() }
 
         wait(for: [aliceConnected, bobConnected], timeout: 15)
         alice.sendMessage(LargeLoopbackMessage(text: largeText), toPeers: alice.connectedPeers)
         bob.sendMessage(LoopbackMessage(text: "reply"), toPeers: bob.connectedPeers)
         wait(for: [aliceReceivedReply, bobReceivedLargeMessage], timeout: 10)
-
-        alice.stop()
-        bob.stop()
     }
 
     internal func testNetworkBackendIsolatesDifferentServiceTypes() {
@@ -173,15 +171,14 @@ final class NetworkPeerLoopbackTests : XCTestCase {
         }, performListenerInBackground: true, withKey: "bob-events")
 
         bob.start()
+        defer { bob.stop() }
         alice.start()
+        defer { alice.stop() }
 
         wait(for: [unexpectedAliceDiscovery,
             unexpectedBobDiscovery,
             unexpectedAliceConnection,
             unexpectedBobConnection], timeout: 5)
-
-        alice.stop()
-        bob.stop()
     }
 
     internal func testNetworkBackendBroadcastsMessageToMultiplePeers() {
@@ -225,8 +222,11 @@ final class NetworkPeerLoopbackTests : XCTestCase {
         }
 
         charlie.start()
+        defer { charlie.stop() }
         bob.start()
+        defer { bob.stop() }
         alice.start()
+        defer { alice.stop() }
 
         wait(for: [aliceConnectedToBob, aliceConnectedToCharlie], timeout: 20)
         for _ in 0..<3 {
@@ -234,10 +234,6 @@ final class NetworkPeerLoopbackTests : XCTestCase {
             RunLoop.current.run(until: Date().addingTimeInterval(0.5))
         }
         wait(for: [bobReceivedBroadcast, charlieReceivedBroadcast], timeout: 10)
-
-        alice.stop()
-        bob.stop()
-        charlie.stop()
     }
 
     internal func testNetworkBackendReconnectsAfterPeerRestarts() {
@@ -275,19 +271,25 @@ final class NetworkPeerLoopbackTests : XCTestCase {
             }
         }, performListenerInBackground: true, withKey: "alice-events")
 
+        var firstBobIsRunning = true
         firstBob.start()
+        defer {
+            if firstBobIsRunning {
+                firstBob.stop()
+            }
+        }
         alice.start()
+        defer { alice.stop() }
         wait(for: [aliceConnectedToFirstBob], timeout: 15)
 
         firstBob.stop()
+        firstBobIsRunning = false
         wait(for: [aliceDisconnectedFromFirstBob], timeout: 15)
 
         let restartedBob = makeManager(serviceType: serviceType, displayName: "Bob", security: security)
         restartedBob.start()
+        defer { restartedBob.stop() }
         wait(for: [aliceConnectedToRestartedBob], timeout: 20)
-
-        alice.stop()
-        restartedBob.stop()
     }
 
     internal func testNetworkBackendRejectsMismatchedPreSharedKeys() {
@@ -322,12 +324,11 @@ final class NetworkPeerLoopbackTests : XCTestCase {
         }, performListenerInBackground: true, withKey: "bob-events")
 
         bob.start()
+        defer { bob.stop() }
         alice.start()
+        defer { alice.stop() }
 
         wait(for: [unexpectedAliceConnection, unexpectedBobConnection], timeout: 5)
-
-        alice.stop()
-        bob.stop()
     }
 
     private func makeServiceType() -> String {
