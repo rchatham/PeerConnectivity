@@ -10,40 +10,36 @@ import Foundation
 
 internal actor Observable<T> {
     internal typealias Observer = (T) -> Void
+    fileprivate typealias Operation = () async -> Void
 
-    fileprivate enum Command {
-        case addObserver(observer: Observer, key: String)
-        case removeObserver(key: String)
-        case removeAllObservers
-        case update(T)
-        case flush(CheckedContinuation<Void, Never>)
+    internal private(set) var value : T {
+        didSet {
+            observers.values.forEach { observer in
+                observer(value)
+            }
+        }
     }
 
-    fileprivate var storedValue : T
     fileprivate var observers : [String:Observer] = [:]
-    fileprivate let continuation : AsyncStream<Command>.Continuation
+    fileprivate let continuation : AsyncStream<Operation>.Continuation
     fileprivate var eventPump : Task<Void, Never>?
-
-    internal var value : T {
-        return storedValue
-    }
 
     internal var observerCount : Int {
         return observers.count
     }
 
     internal init(_ v: T) {
-        storedValue = v
+        value = v
 
-        var commandContinuation : AsyncStream<Command>.Continuation?
-        let commandStream = AsyncStream<Command> { continuation in
-            commandContinuation = continuation
+        var operationContinuation : AsyncStream<Operation>.Continuation?
+        let operations = AsyncStream<Operation> { continuation in
+            operationContinuation = continuation
         }
-        continuation = commandContinuation!
+        continuation = operationContinuation!
 
-        eventPump = Task { [weak self] in
-            for await command in commandStream {
-                await self?.perform(command)
+        eventPump = Task {
+            for await operation in operations {
+                await operation()
             }
         }
     }
@@ -61,45 +57,51 @@ internal actor Observable<T> {
     }
 
     nonisolated internal func addObserver(_ observer: @escaping Observer, key: String) {
-        continuation.yield(.addObserver(observer: observer, key: key))
+        continuation.yield { [weak self] in
+            await self?.storeObserver(observer, key: key)
+        }
     }
 
     nonisolated internal func removeObserver(forKey key: String) {
-        continuation.yield(.removeObserver(key: key))
+        continuation.yield { [weak self] in
+            await self?.removeStoredObserver(forKey: key)
+        }
     }
 
     nonisolated internal func removeAllObservers() {
-        continuation.yield(.removeAllObservers)
+        continuation.yield { [weak self] in
+            await self?.removeStoredObservers()
+        }
     }
 
     nonisolated internal func update(_ newValue: T) {
-        continuation.yield(.update(newValue))
+        continuation.yield { [weak self] in
+            await self?.setValue(newValue)
+        }
     }
 
     internal func flush() async {
         await withCheckedContinuation { continuation in
-            self.continuation.yield(.flush(continuation))
+            self.continuation.yield {
+                continuation.resume()
+            }
         }
     }
 
-    fileprivate func perform(_ command: Command) {
-        switch command {
-        case .addObserver(let observer, let key):
-            observers[key] = observer
-            observer(storedValue)
-        case .removeObserver(let key):
-            observers.removeValue(forKey: key)
-        case .removeAllObservers:
-            observers.removeAll()
-        case .update(let newValue):
-            storedValue = newValue
-            let currentObservers = Array(observers.values)
+    fileprivate func storeObserver(_ observer: @escaping Observer, key: String) {
+        observers[key] = observer
+        observer(value)
+    }
 
-            currentObservers.forEach { observer in
-                observer(newValue)
-            }
-        case .flush(let continuation):
-            continuation.resume()
-        }
+    fileprivate func removeStoredObserver(forKey key: String) {
+        observers.removeValue(forKey: key)
+    }
+
+    fileprivate func removeStoredObservers() {
+        observers.removeAll()
+    }
+
+    fileprivate func setValue(_ newValue: T) {
+        value = newValue
     }
 }
