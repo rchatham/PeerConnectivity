@@ -190,7 +190,7 @@ final class PeerConnectionManagerTransportTests : XCTestCase {
         }, performListenerInBackground: true, withKey: "received-data")
 
         manager.startBrowsingOnly()
-        await Task.yield()
+        await harness.sessionObserver?.flush()
         harness.sessionObserver?.update(.didReceiveData(peer: manager.peer, data: data))
 
         await fulfillment(of: [expectation], timeout: 1)
@@ -213,9 +213,34 @@ final class PeerConnectionManagerTransportTests : XCTestCase {
         }, performListenerInBackground: true, withKey: "found-peer")
 
         manager.startBrowsingOnly()
-        await Task.yield()
+        await harness.browserObserver?.flush()
         harness.browserObserver?.update(.foundPeer(manager.peer, discoveryInfo: nil))
 
         await fulfillment(of: [expectation], timeout: 1)
+    }
+
+    internal func testTransportEventAfterStopDoesNotEmitReceivedData() async {
+        let harness = PeerConnectionTransportHarness()
+        let manager = PeerConnectionManager(serviceType: "test-service",
+            displayName: "Local",
+            transportFactory: harness.factory)
+        let expectation = self.expectation(description: "Received data event should not be emitted after stop")
+        expectation.isInverted = true
+
+        manager.listenOn({ event in
+            switch event {
+            case .receivedData:
+                expectation.fulfill()
+            default: break
+            }
+        }, performListenerInBackground: true, withKey: "received-data")
+
+        manager.startBrowsingOnly()
+        await harness.sessionObserver?.flush()
+        manager.stop()
+        harness.sessionObserver?.update(.didReceiveData(peer: manager.peer, data: Data([7, 8, 9])))
+        await harness.sessionObserver?.flush()
+
+        await fulfillment(of: [expectation], timeout: 0.1)
     }
 }

@@ -16,6 +16,7 @@ internal actor Observable<T> {
         case removeObserver(key: String)
         case removeAllObservers
         case update(T)
+        case flush(CheckedContinuation<Void, Never>)
     }
 
     fileprivate var storedValue : T
@@ -75,6 +76,12 @@ internal actor Observable<T> {
         continuation.yield(.update(newValue))
     }
 
+    internal func flush() async {
+        await withCheckedContinuation { continuation in
+            self.continuation.yield(.flush(continuation))
+        }
+    }
+
     fileprivate func perform(_ command: Command) {
         switch command {
         case .addObserver(let observer, let key):
@@ -91,6 +98,8 @@ internal actor Observable<T> {
             currentObservers.forEach { observer in
                 observer(newValue)
             }
+        case .flush(let continuation):
+            continuation.resume()
         }
     }
 }

@@ -20,7 +20,7 @@ class ObservableTests: XCTestCase {
         observable.addObserver { value in
             received.append(value)
         }
-        try await waitForObservableDelivery()
+        await observable.flush()
 
         XCTAssertEqual(received, [7])
     }
@@ -33,7 +33,7 @@ class ObservableTests: XCTestCase {
             received.append(value)
         }
         observable.update("updated")
-        try await waitForObservableDelivery()
+        await observable.flush()
 
         XCTAssertEqual(received, ["initial", "updated"])
     }
@@ -50,7 +50,7 @@ class ObservableTests: XCTestCase {
             second.append(value)
         }
         observable.update(1)
-        try await waitForObservableDelivery()
+        await observable.flush()
 
         XCTAssertEqual(first, [0, 1])
         XCTAssertEqual(second, [0, 1])
@@ -63,7 +63,7 @@ class ObservableTests: XCTestCase {
         observable.addObserver({ value in
             received.append(value)
         }, key: "listener")
-        try await waitForObservableDelivery()
+        await observable.flush()
 
         XCTAssertEqual(received, ["ready"])
     }
@@ -80,7 +80,7 @@ class ObservableTests: XCTestCase {
             replacement.append(value)
         }, key: "duplicate")
         observable.update(2)
-        try await waitForObservableDelivery()
+        await observable.flush()
 
         XCTAssertEqual(first, [1])
         XCTAssertEqual(replacement, [1, 2])
@@ -95,12 +95,8 @@ class ObservableTests: XCTestCase {
         }, key: "listener")
         observable.removeObserver(forKey: "listener")
         observable.update(2)
-        try await waitForObservableDelivery()
+        await observable.flush()
 
         XCTAssertEqual(received, [1])
-    }
-
-    private func waitForObservableDelivery() async throws {
-        try await Task.sleep(nanoseconds: 10_000_000)
     }
 }

@@ -210,6 +210,8 @@ public class PeerConnectionManager {
     fileprivate let browser : PeerBrowserTransport
     fileprivate let advertiser : PeerAdvertiserTransport
     fileprivate let advertiserAssisstant : PeerAdvertiserAssisstantTransport
+    fileprivate let transportEventGenerationLock = NSLock()
+    fileprivate var transportEventGeneration = 0
     
     fileprivate let responder : PeerConnectionResponder
     
@@ -531,6 +533,7 @@ extension PeerConnectionManager {
      Stop the current connection manager from listening to delegate callbacks and disconnects from the current session.
      */
     public func stop() {
+        advanceTransportEventGeneration()
         emit(.ended)
         
         session.stopSession()
@@ -569,7 +572,26 @@ extension PeerConnectionManager {
         observer.update(event)
     }
 
+    private func advanceTransportEventGeneration() {
+        transportEventGenerationLock.lock()
+        transportEventGeneration += 1
+        transportEventGenerationLock.unlock()
+    }
+
+    private func currentTransportEventGeneration() -> Int {
+        transportEventGenerationLock.lock()
+        let generation = transportEventGeneration
+        transportEventGenerationLock.unlock()
+        return generation
+    }
+
+    private func isCurrentTransportEventGeneration(_ generation: Int) -> Bool {
+        return currentTransportEventGeneration() == generation
+    }
+
     private func startCurrentMode(_ completion: (() -> Void)? = nil) {
+        advanceTransportEventGeneration()
+
         switch startupMode {
         case .advertisingAndBrowsing:
             prepareForStart(includeBrowserObservers: true, includeAdvertiserObservers: true)
@@ -584,8 +606,12 @@ extension PeerConnectionManager {
     }
 
     private func prepareForStart(includeBrowserObservers: Bool, includeAdvertiserObservers: Bool) {
+        let generation = currentTransportEventGeneration()
+
         if includeBrowserObservers {
             browserObserver.addObserver { [weak self] event in
+                guard self?.isCurrentTransportEventGeneration(generation) == true else { return }
+
                 switch event {
                 case .foundPeer(let peer, let discoveryInfo):
                     self?.emit(.foundPeer(peer: peer))
@@ -601,6 +627,8 @@ extension PeerConnectionManager {
 
         if includeAdvertiserObservers {
             advertiserObserver.addObserver { [weak self] event in
+                guard self?.isCurrentTransportEventGeneration(generation) == true else { return }
+
                 switch event {
                 case .didReceiveInvitationFromPeer(peer: let peer, withContext: let context, invitationHandler: let invite):
                     self?.handleInvitation(peer: peer, context: context, invitationHandler: invite)
@@ -612,6 +640,8 @@ extension PeerConnectionManager {
         }
 
         sessionObserver.addObserver { [weak self] event in
+            guard self?.isCurrentTransportEventGeneration(generation) == true else { return }
+
             switch event {
             case .devicesChanged(peer: let peer):
                 guard let connectedPeers = self?.connectedPeers else { break }
@@ -648,7 +678,11 @@ extension PeerConnectionManager {
 
         if includeBrowserObservers {
             browserObserver.addObserver { [weak self] event in
+                guard self?.isCurrentTransportEventGeneration(generation) == true else { return }
+
                 DispatchQueue.main.async {
+                    guard self?.isCurrentTransportEventGeneration(generation) == true else { return }
+
                     switch event {
                     case .foundPeer(let peer, _):
                         guard let peers = self?.foundPeers , !peers.contains(peer) else { break }
@@ -663,7 +697,10 @@ extension PeerConnectionManager {
         }
 
         sessionObserver.addObserver { [weak self] event in
+            guard self?.isCurrentTransportEventGeneration(generation) == true else { return }
+
             DispatchQueue.main.async {
+                guard self?.isCurrentTransportEventGeneration(generation) == true else { return }
                 guard let peerCount = self?.connectedPeers.count else { return }
 
                 switch event {
@@ -680,11 +717,17 @@ extension PeerConnectionManager {
     }
 
     private func startConfiguredSession(shouldBrowse: Bool, shouldAdvertise: Bool, _ completion: (() -> Void)? = nil) {
+        let generation = currentTransportEventGeneration()
+
         switch connectionType {
         case .automatic:
             if shouldBrowse {
                 browserObserver.addObserver { [weak self] event in
+                    guard self?.isCurrentTransportEventGeneration(generation) == true else { return }
+
                     DispatchQueue.main.async {
+                        guard self?.isCurrentTransportEventGeneration(generation) == true else { return }
+
                         switch event {
                         case .foundPeer(let peer, _):
                             self?.browser.invitePeer(peer)
