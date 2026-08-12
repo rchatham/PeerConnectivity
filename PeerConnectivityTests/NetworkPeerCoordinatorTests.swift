@@ -270,8 +270,6 @@ private final class Harness {
         sessionObserver.addObserver { [weak self] in self?.sessionEvents.append($0) }
         browserObserver.addObserver { [weak self] in self?.browserEvents.append($0) }
         advertiserObserver.addObserver { [weak self] in self?.advertiserEvents.append($0) }
-        await sessionObserver.flush()
-        await browserObserver.flush()
-        await advertiserObserver.flush()
+        try? await Task.sleep(nanoseconds: 10_000_000)
     }
 }

@@ -10,7 +10,6 @@ import Foundation
 
 internal actor Observable<T> {
     internal typealias Observer = (T) -> Void
-    fileprivate typealias Operation = () async -> Void
 
     internal private(set) var value : T {
         didSet {
@@ -21,8 +20,6 @@ internal actor Observable<T> {
     }
 
     fileprivate var observers : [String:Observer] = [:]
-    fileprivate let continuation : AsyncStream<Operation>.Continuation
-    fileprivate var eventPump : Task<Void, Never>?
 
     internal var observerCount : Int {
         return observers.count
@@ -30,23 +27,6 @@ internal actor Observable<T> {
 
     internal init(_ v: T) {
         value = v
-
-        var operationContinuation : AsyncStream<Operation>.Continuation?
-        let operations = AsyncStream<Operation> { continuation in
-            operationContinuation = continuation
-        }
-        continuation = operationContinuation!
-
-        eventPump = Task {
-            for await operation in operations {
-                await operation()
-            }
-        }
-    }
-
-    deinit {
-        continuation.finish()
-        eventPump?.cancel()
     }
 
     @discardableResult
@@ -57,35 +37,19 @@ internal actor Observable<T> {
     }
 
     nonisolated internal func addObserver(_ observer: @escaping Observer, key: String) {
-        continuation.yield { [weak self] in
-            await self?.storeObserver(observer, key: key)
-        }
+        Task { await storeObserver(observer, key: key) }
     }
 
     nonisolated internal func removeObserver(forKey key: String) {
-        continuation.yield { [weak self] in
-            await self?.removeStoredObserver(forKey: key)
-        }
+        Task { await removeStoredObserver(forKey: key) }
     }
 
     nonisolated internal func removeAllObservers() {
-        continuation.yield { [weak self] in
-            await self?.removeStoredObservers()
-        }
+        Task { await removeStoredObservers() }
     }
 
     nonisolated internal func update(_ newValue: T) {
-        continuation.yield { [weak self] in
-            await self?.setValue(newValue)
-        }
-    }
-
-    internal func flush() async {
-        await withCheckedContinuation { continuation in
-            self.continuation.yield {
-                continuation.resume()
-            }
-        }
+        Task { await setValue(newValue) }
     }
 
     fileprivate func storeObserver(_ observer: @escaping Observer, key: String) {

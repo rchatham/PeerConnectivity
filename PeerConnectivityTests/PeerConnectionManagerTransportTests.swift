@@ -190,7 +190,7 @@ final class PeerConnectionManagerTransportTests : XCTestCase {
         }, performListenerInBackground: true, withKey: "received-data")
 
         manager.startBrowsingOnly()
-        await harness.sessionObserver?.flush()
+        try? await Task.sleep(nanoseconds: 10_000_000)
         harness.sessionObserver?.update(.didReceiveData(peer: manager.peer, data: data))
 
         await fulfillment(of: [expectation], timeout: 1)
@@ -213,7 +213,7 @@ final class PeerConnectionManagerTransportTests : XCTestCase {
         }, performListenerInBackground: true, withKey: "found-peer")
 
         manager.startBrowsingOnly()
-        await harness.browserObserver?.flush()
+        try? await Task.sleep(nanoseconds: 10_000_000)
         harness.browserObserver?.update(.foundPeer(manager.peer, discoveryInfo: nil))
 
         await fulfillment(of: [expectation], timeout: 1)
@@ -236,10 +236,10 @@ final class PeerConnectionManagerTransportTests : XCTestCase {
         }, performListenerInBackground: true, withKey: "received-data")
 
         manager.startBrowsingOnly()
-        await harness.sessionObserver?.flush()
+        try? await Task.sleep(nanoseconds: 10_000_000)
         manager.stop()
         harness.sessionObserver?.update(.didReceiveData(peer: manager.peer, data: Data([7, 8, 9])))
-        await harness.sessionObserver?.flush()
+        try? await Task.sleep(nanoseconds: 10_000_000)
 
         await fulfillment(of: [expectation], timeout: 0.1)
     }
