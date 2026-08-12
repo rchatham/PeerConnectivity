@@ -31,7 +31,7 @@ class PeerConnectivityTests: XCTestCase {
         assertStatus(manager.peer.status, is: .currentUser)
     }
 
-    func testListenOnImmediatelyReceivesReadyEventInBackgroundMode() {
+    func testListenOnImmediatelyReceivesReadyEventInBackgroundMode() async throws {
         let manager = PeerConnectionManager(serviceType: "test-listen", displayName: "Listener")
         pcm = manager
         var didReceiveReady = false
@@ -44,11 +44,12 @@ class PeerConnectivityTests: XCTestCase {
                 break
             }
         }, performListenerInBackground: true, withKey: "ready")
+        try await Task.sleep(nanoseconds: 10_000_000)
 
         XCTAssertTrue(didReceiveReady)
     }
 
-    func testRemovedListenerDoesNotReceiveLaterEvents() {
+    func testRemovedListenerDoesNotReceiveLaterEvents() async throws {
         let manager = PeerConnectionManager(serviceType: "test-remove", displayName: "Listener")
         pcm = manager
         var eventCount = 0
@@ -56,13 +57,16 @@ class PeerConnectivityTests: XCTestCase {
         manager.listenOn({ _ in
             eventCount += 1
         }, performListenerInBackground: true, withKey: "removed")
+        try await Task.sleep(nanoseconds: 10_000_000)
         manager.removeListenerForKey("removed")
+        try await Task.sleep(nanoseconds: 10_000_000)
         manager.stop()
+        try await Task.sleep(nanoseconds: 10_000_000)
 
         XCTAssertEqual(eventCount, 1)
     }
 
-    func testRemoveAllListenersRemovesRegisteredListeners() {
+    func testRemoveAllListenersRemovesRegisteredListeners() async throws {
         let manager = PeerConnectionManager(serviceType: "test-all", displayName: "Listener")
         pcm = manager
         var eventCount = 0
@@ -70,8 +74,11 @@ class PeerConnectivityTests: XCTestCase {
         manager.listenOn({ _ in
             eventCount += 1
         }, performListenerInBackground: true, withKey: "removed")
+        try await Task.sleep(nanoseconds: 10_000_000)
         manager.removeAllListeners()
+        try await Task.sleep(nanoseconds: 10_000_000)
         manager.stop()
+        try await Task.sleep(nanoseconds: 10_000_000)
 
         XCTAssertEqual(eventCount, 1)
     }
@@ -124,7 +131,7 @@ class PeerConnectivityTests: XCTestCase {
         XCTAssertEqual(assisstant.discoveryInfo?["capability"], "chat")
     }
 
-    func testBrowserEventPreservesDiscoveryInfo() {
+    func testBrowserEventPreservesDiscoveryInfo() async {
         let observer = Observable<PeerBrowserEvent>(.none)
         let producer = PeerBrowserEventProducer(observer: observer)
         let browser = MCNearbyServiceBrowser(peer: MCPeerID(displayName: "local"), serviceType: "disc-test")
@@ -141,6 +148,7 @@ class PeerConnectivityTests: XCTestCase {
         }
 
         producer.browser(browser, foundPeer: remotePeerID, withDiscoveryInfo: discoveryInfo)
+        await Task.yield()
 
         XCTAssertEqual(receivedDiscoveryInfo?["version"], "1")
         XCTAssertEqual(receivedDiscoveryInfo?["room"], "lobby")

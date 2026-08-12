@@ -136,13 +136,14 @@ private final class PeerConnectionTransportHarness {
 
 final class PeerConnectionManagerTransportTests : XCTestCase {
 
-    internal func testStartBrowsingOnlyUsesInjectedSessionAndBrowser() {
+    internal func testStartBrowsingOnlyUsesInjectedSessionAndBrowser() async {
         let harness = PeerConnectionTransportHarness()
         let manager = PeerConnectionManager(serviceType: "test-service",
             displayName: "Local",
             transportFactory: harness.factory)
 
         manager.startBrowsingOnly()
+        try? await Task.sleep(nanoseconds: 10_000_000)
 
         XCTAssertEqual(harness.session?.startSessionCallCount, 1)
         XCTAssertEqual(harness.browser.startBrowsingCallCount, 1)
@@ -170,7 +171,7 @@ final class PeerConnectionManagerTransportTests : XCTestCase {
         XCTAssertEqual(harness.session?.sentData.first?.peers, [])
     }
 
-    internal func testSessionDataEventForwardsReceivedData() {
+    internal func testSessionDataEventForwardsReceivedData() async {
         let harness = PeerConnectionTransportHarness()
         let manager = PeerConnectionManager(serviceType: "test-service",
             displayName: "Local",
@@ -189,12 +190,13 @@ final class PeerConnectionManagerTransportTests : XCTestCase {
         }, performListenerInBackground: true, withKey: "received-data")
 
         manager.startBrowsingOnly()
-        harness.sessionObserver?.value = .didReceiveData(peer: manager.peer, data: data)
+        await Task.yield()
+        harness.sessionObserver?.update(.didReceiveData(peer: manager.peer, data: data))
 
-        waitForExpectations(timeout: 1)
+        await fulfillment(of: [expectation], timeout: 1)
     }
 
-    internal func testBrowserEventForwardsFoundPeer() {
+    internal func testBrowserEventForwardsFoundPeer() async {
         let harness = PeerConnectionTransportHarness()
         let manager = PeerConnectionManager(serviceType: "test-service",
             displayName: "Local",
@@ -211,8 +213,9 @@ final class PeerConnectionManagerTransportTests : XCTestCase {
         }, performListenerInBackground: true, withKey: "found-peer")
 
         manager.startBrowsingOnly()
-        harness.browserObserver?.value = .foundPeer(manager.peer, discoveryInfo: nil)
+        await Task.yield()
+        harness.browserObserver?.update(.foundPeer(manager.peer, discoveryInfo: nil))
 
-        waitForExpectations(timeout: 1)
+        await fulfillment(of: [expectation], timeout: 1)
     }
 }

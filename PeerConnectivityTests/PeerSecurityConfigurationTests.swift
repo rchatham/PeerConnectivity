@@ -137,7 +137,7 @@ class PeerSecurityConfigurationTests: XCTestCase {
         manager.stop()
     }
 
-    func testCertificatePolicyStillEmitsCompatibilityEvent() {
+    func testCertificatePolicyStillEmitsCompatibilityEvent() async throws {
         let manager = makeManager(policy: .acceptAll)
         var result: Bool?
         var receivedPeer: Peer?
@@ -153,10 +153,12 @@ class PeerSecurityConfigurationTests: XCTestCase {
             default: break
             }
         }, performListenerInBackground: true, withKey: "certificate-compatibility")
+        try await Task.sleep(nanoseconds: 10_000_000)
 
         manager.handleCertificate(peer: manager.peer, certificate: expectedCertificate) { accepted in
             result = accepted
         }
+        try await Task.sleep(nanoseconds: 10_000_000)
 
         XCTAssertEqual(result, true)
         XCTAssertEqual(receivedPeer, manager.peer)
@@ -182,7 +184,7 @@ class PeerSecurityConfigurationTests: XCTestCase {
         manager.stop()
     }
 
-    func testAutomaticAcceptAllInvitationPolicyStillEmitsCompatibilityEvent() {
+    func testAutomaticAcceptAllInvitationPolicyStillEmitsCompatibilityEvent() async throws {
         let manager = makeManager(invitationPolicy: .acceptAll)
         var result: Bool?
         var receivedPeer: Peer?
@@ -197,10 +199,12 @@ class PeerSecurityConfigurationTests: XCTestCase {
             default: break
             }
         }, performListenerInBackground: true, withKey: "automatic-invitation-compatibility")
+        try await Task.sleep(nanoseconds: 10_000_000)
 
         manager.handleInvitation(peer: manager.peer, context: expectedContext) { accepted, _ in
             result = accepted
         }
+        try await Task.sleep(nanoseconds: 10_000_000)
 
         XCTAssertEqual(result, true)
         XCTAssertEqual(receivedPeer, manager.peer)
@@ -225,7 +229,7 @@ class PeerSecurityConfigurationTests: XCTestCase {
         manager.stop()
     }
 
-    func testManualInvitationPolicyPreservesReceivedInvitationEvent() {
+    func testManualInvitationPolicyPreservesReceivedInvitationEvent() async throws {
         let manager = makeManager(invitationPolicy: .manual)
         var receivedPeer: Peer?
         var receivedContext: Data?
@@ -240,8 +244,13 @@ class PeerSecurityConfigurationTests: XCTestCase {
             default: break
             }
         }, performListenerInBackground: true, withKey: "manual-invitation")
+        try await Task.sleep(nanoseconds: 10_000_000)
 
-        let result = evaluateInvitationPolicy(manager: manager, context: expectedContext)
+        var result: Bool?
+        manager.handleInvitation(peer: manager.peer, context: expectedContext) { accepted, _ in
+            result = accepted
+        }
+        try await Task.sleep(nanoseconds: 10_000_000)
 
         XCTAssertEqual(result, false)
         XCTAssertEqual(receivedPeer, manager.peer)
@@ -249,7 +258,7 @@ class PeerSecurityConfigurationTests: XCTestCase {
         manager.stop()
     }
 
-    func testCustomConnectionTypePreservesReceivedInvitationEvent() {
+    func testCustomConnectionTypePreservesReceivedInvitationEvent() async throws {
         let manager = makeManager(invitationPolicy: .acceptAll, connectionType: .custom)
         var receivedInvitation = false
 
@@ -261,8 +270,13 @@ class PeerSecurityConfigurationTests: XCTestCase {
             default: break
             }
         }, performListenerInBackground: true, withKey: "custom-invitation")
+        try await Task.sleep(nanoseconds: 10_000_000)
 
-        let result = evaluateInvitationPolicy(manager: manager, context: nil)
+        var result: Bool?
+        manager.handleInvitation(peer: manager.peer, context: nil) { accepted, _ in
+            result = accepted
+        }
+        try await Task.sleep(nanoseconds: 10_000_000)
 
         XCTAssertEqual(receivedInvitation, true)
         XCTAssertEqual(result, false)

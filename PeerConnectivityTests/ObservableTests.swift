@@ -13,30 +13,32 @@ class ObservableTests: XCTestCase {
 
     // MARK: - Observable
 
-    func testObservableImmediatelyNotifiesNewObserver() {
+    func testObservableImmediatelyNotifiesNewObserver() async throws {
         let observable = Observable<Int>(7)
         var received : [Int] = []
 
         observable.addObserver { value in
             received.append(value)
         }
+        try await waitForObservableDelivery()
 
         XCTAssertEqual(received, [7])
     }
 
-    func testObservableNotifiesObserversWhenValueChanges() {
+    func testObservableNotifiesObserversWhenValueChanges() async throws {
         let observable = Observable<String>("initial")
         var received : [String] = []
 
         observable.addObserver { value in
             received.append(value)
         }
-        observable.value = "updated"
+        observable.update("updated")
+        try await waitForObservableDelivery()
 
         XCTAssertEqual(received, ["initial", "updated"])
     }
 
-    func testObservableSupportsMultipleObservers() {
+    func testObservableSupportsMultipleObservers() async throws {
         let observable = Observable<Int>(0)
         var first : [Int] = []
         var second : [Int] = []
@@ -47,27 +49,27 @@ class ObservableTests: XCTestCase {
         observable.addObserver { value in
             second.append(value)
         }
-        observable.value = 1
+        observable.update(1)
+        try await waitForObservableDelivery()
 
         XCTAssertEqual(first, [0, 1])
         XCTAssertEqual(second, [0, 1])
     }
 
-    // MARK: - MultiObservable
-
-    func testMultiObservableImmediatelyNotifiesNewObserver() {
-        let observable = MultiObservable<String>("ready")
+    func testObservableImmediatelyNotifiesKeyedObserver() async throws {
+        let observable = Observable<String>("ready")
         var received : [String] = []
 
         observable.addObserver({ value in
             received.append(value)
         }, key: "listener")
+        try await waitForObservableDelivery()
 
         XCTAssertEqual(received, ["ready"])
     }
 
-    func testMultiObservableReplacesObserverWithSameKey() {
-        let observable = MultiObservable<Int>(1)
+    func testObservableReplacesObserverWithSameKey() async throws {
+        let observable = Observable<Int>(1)
         var first : [Int] = []
         var replacement : [Int] = []
 
@@ -77,22 +79,28 @@ class ObservableTests: XCTestCase {
         observable.addObserver({ value in
             replacement.append(value)
         }, key: "duplicate")
-        observable.value = 2
+        observable.update(2)
+        try await waitForObservableDelivery()
 
         XCTAssertEqual(first, [1])
         XCTAssertEqual(replacement, [1, 2])
     }
 
-    func testMultiObservableRemovesObserverForKey() {
-        let observable = MultiObservable<Int>(1)
+    func testObservableRemovesObserverForKey() async throws {
+        let observable = Observable<Int>(1)
         var received : [Int] = []
 
         observable.addObserver({ value in
             received.append(value)
         }, key: "listener")
-        observable.removeObserverForkey("listener")
-        observable.value = 2
+        observable.removeObserver(forKey: "listener")
+        observable.update(2)
+        try await waitForObservableDelivery()
 
         XCTAssertEqual(received, [1])
+    }
+
+    private func waitForObservableDelivery() async throws {
+        try await Task.sleep(nanoseconds: 10_000_000)
     }
 }

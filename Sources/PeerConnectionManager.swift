@@ -190,7 +190,7 @@ public class PeerConnectionManager {
      */
     public fileprivate(set) var foundPeers: [Peer] = [] {
         didSet {
-            observer.value = .nearbyPeersChanged(foundPeers: foundPeers)
+            emit(.nearbyPeersChanged(foundPeers: foundPeers))
         }
     }
     
@@ -199,7 +199,7 @@ public class PeerConnectionManager {
     fileprivate let serviceType : ServiceType
     fileprivate var startupMode : PeerConnectionStartupMode = .advertisingAndBrowsing
     
-    fileprivate let observer = MultiObservable<PeerConnectionEvent>(.ready)
+    fileprivate let observer = Observable<PeerConnectionEvent>(.ready)
     
     fileprivate let sessionObserver = Observable<PeerSessionEvent>(.none)
     fileprivate let browserObserver = Observable<PeerBrowserEvent>(.none)
@@ -320,7 +320,7 @@ public class PeerConnectionManager {
             certificateHandler(peer, certificate, handler)
         }
 
-        observer.value = .receivedCertificate(peer: peer, certificate: certificate, handler: { _ in })
+        emit(.receivedCertificate(peer: peer, certificate: certificate, handler: { _ in }))
     }
 
     internal func handleInvitation(peer: Peer,
@@ -335,31 +335,31 @@ public class PeerConnectionManager {
         }
 
         guard connectionType == .automatic else {
-            observer.value = .receivedInvitation(peer: peer,
-                                                 withContext: context,
-                                                 invitationHandler: completeInvitation)
+            emit(.receivedInvitation(peer: peer,
+                                     withContext: context,
+                                     invitationHandler: completeInvitation))
             return
         }
 
         switch invitationPolicy {
         case .manual:
-            observer.value = .receivedInvitation(peer: peer,
-                                                 withContext: context,
-                                                 invitationHandler: completeInvitation)
+            emit(.receivedInvitation(peer: peer,
+                                     withContext: context,
+                                     invitationHandler: completeInvitation))
         case .acceptAll:
-            observer.value = .receivedInvitation(peer: peer,
-                                                 withContext: context,
-                                                 invitationHandler: { _ in })
+            emit(.receivedInvitation(peer: peer,
+                                     withContext: context,
+                                     invitationHandler: { _ in }))
             completeInvitation(true)
         case .rejectAll:
-            observer.value = .receivedInvitation(peer: peer,
-                                                 withContext: context,
-                                                 invitationHandler: { _ in })
+            emit(.receivedInvitation(peer: peer,
+                                     withContext: context,
+                                     invitationHandler: { _ in }))
             completeInvitation(false)
         case .custom(let invitationPolicy):
-            observer.value = .receivedInvitation(peer: peer,
-                                                 withContext: context,
-                                                 invitationHandler: { _ in })
+            emit(.receivedInvitation(peer: peer,
+                                     withContext: context,
+                                     invitationHandler: { _ in }))
             completeInvitation(invitationPolicy(peer, context))
         }
     }
@@ -531,7 +531,7 @@ extension PeerConnectionManager {
      Stop the current connection manager from listening to delegate callbacks and disconnects from the current session.
      */
     public func stop() {
-        observer.value = .ended
+        emit(.ended)
         
         session.stopSession()
         browser.stopBrowsing()
@@ -539,17 +539,16 @@ extension PeerConnectionManager {
         advertiserAssisstant.stopAdvertisingAssisstant()
         foundPeers = []
         
-        sessionObserver.observers = []
-        browserObserver.observers = []
-        advertiserObserver.observers = []
-        advertiserAssisstantObserver.observers = []
+        sessionObserver.removeAllObservers()
+        browserObserver.removeAllObservers()
+        advertiserObserver.removeAllObservers()
+        advertiserAssisstantObserver.removeAllObservers()
+        sessionObserver.update(.none)
+        browserObserver.update(.none)
+        advertiserObserver.update(.none)
+        advertiserAssisstantObserver.update(.none)
         
-        sessionObserver.value = .none
-        browserObserver.value = .none
-        advertiserObserver.value = .none
-        advertiserAssisstantObserver.value = .none
-        
-        observer.value = .ready
+        emit(.ready)
     }
     
     /**
@@ -564,6 +563,10 @@ extension PeerConnectionManager {
      */
     public func openSession() {
         browser.startBrowsing()
+    }
+
+    private func emit(_ event: PeerConnectionEvent) {
+        observer.update(event)
     }
 
     private func startCurrentMode(_ completion: (() -> Void)? = nil) {
@@ -585,12 +588,12 @@ extension PeerConnectionManager {
             browserObserver.addObserver { [weak self] event in
                 switch event {
                 case .foundPeer(let peer, let discoveryInfo):
-                    self?.observer.value = .foundPeer(peer: peer)
-                    self?.observer.value = .foundPeerWithDiscoveryInfo(peer: peer, discoveryInfo: discoveryInfo)
+                    self?.emit(.foundPeer(peer: peer))
+                    self?.emit(.foundPeerWithDiscoveryInfo(peer: peer, discoveryInfo: discoveryInfo))
                 case .lostPeer(let peer):
-                    self?.observer.value = .lostPeer(peer: peer)
+                    self?.emit(.lostPeer(peer: peer))
                 case .didNotStartBrowsingForPeers(let error):
-                    self?.observer.value = .error(error)
+                    self?.emit(.error(error))
                 default: break
                 }
             }
@@ -602,7 +605,7 @@ extension PeerConnectionManager {
                 case .didReceiveInvitationFromPeer(peer: let peer, withContext: let context, invitationHandler: let invite):
                     self?.handleInvitation(peer: peer, context: context, invitationHandler: invite)
                 case .didNotStartAdvertisingPeer(let error):
-                    self?.observer.value = .error(error)
+                    self?.emit(.error(error))
                 default: break
                 }
             }
@@ -612,16 +615,16 @@ extension PeerConnectionManager {
             switch event {
             case .devicesChanged(peer: let peer):
                 guard let connectedPeers = self?.connectedPeers else { break }
-                self?.observer.value = .devicesChanged(peer: peer, connectedPeers: connectedPeers)
+                self?.emit(.devicesChanged(peer: peer, connectedPeers: connectedPeers))
             case .didReceiveData(peer: let peer, data: let data):
-                self?.observer.value = .receivedData(peer: peer, data: data)
+                self?.emit(.receivedData(peer: peer, data: data))
 
                 // Try modern JSON envelope first (from sendMessage)
                 if let envelope = try? JSONDecoder().decode([String: Data].self, from: data),
                    let typeData = envelope["type"],
                    let messageType = String(data: typeData, encoding: .utf8),
                    let payload = envelope["payload"] {
-                    self?.observer.value = .receivedMessage(peer: peer, messageType: messageType, data: payload)
+                    self?.emit(.receivedMessage(peer: peer, messageType: messageType, data: payload))
                     return
                 }
 
@@ -630,15 +633,15 @@ extension PeerConnectionManager {
                     ofClasses: [NSDictionary.self, NSArray.self, NSString.self, NSNumber.self, NSDate.self, NSData.self],
                     from: data
                 ) as? [String: Any] else { return }
-                self?.observer.value = .receivedEvent(peer: peer, eventInfo: eventInfo)
+                self?.emit(.receivedEvent(peer: peer, eventInfo: eventInfo))
             case .didReceiveCertificate(peer: let peer, certificate: let certificate, handler: let handler):
                 self?.handleCertificate(peer: peer, certificate: certificate, handler: handler)
             case .didReceiveStream(peer: let peer, stream: let stream, name: let name):
-                self?.observer.value = .receivedStream(peer: peer, stream: stream, name: name)
+                self?.emit(.receivedStream(peer: peer, stream: stream, name: name))
             case .startedReceivingResource(peer: let peer, name: let name, progress: let progress):
-                self?.observer.value = .startedReceivingResource(peer: peer, name: name, progress: progress)
+                self?.emit(.startedReceivingResource(peer: peer, name: name, progress: progress))
             case .finishedReceivingResource(peer: let peer, name: let name, url: let url, error: let error):
-                self?.observer.value = .finishedReceivingResource(peer: peer, name: name, url: url, error: error)
+                self?.emit(.finishedReceivingResource(peer: peer, name: name, url: url, error: error))
             default: break
             }
         }
@@ -680,11 +683,11 @@ extension PeerConnectionManager {
         switch connectionType {
         case .automatic:
             if shouldBrowse {
-                browserObserver.addObserver { [unowned self] event in
+                browserObserver.addObserver { [weak self] event in
                     DispatchQueue.main.async {
                         switch event {
                         case .foundPeer(let peer, _):
-                            self.browser.invitePeer(peer)
+                            self?.browser.invitePeer(peer)
                         default: break
                         }
                     }
@@ -704,7 +707,7 @@ extension PeerConnectionManager {
             advertiser.startAdvertising()
         }
 
-        observer.value = .started
+        emit(.started)
         completion?()
     }
 }

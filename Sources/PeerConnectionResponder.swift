@@ -110,11 +110,11 @@ public typealias PeerConnectionEventListener = (PeerConnectionEvent)->Void
 
 internal class PeerConnectionResponder {
     
-    fileprivate let peerEventObserver : MultiObservable<PeerConnectionEvent>
+    fileprivate let peerEventObserver : Observable<PeerConnectionEvent>
     
     internal fileprivate(set) var listeners : [String:PeerConnectionEventListener] = [:]
     
-    internal init(observer: MultiObservable<PeerConnectionEvent>) {
+    internal init(observer: Observable<PeerConnectionEvent>) {
         peerEventObserver = observer
     }
     
@@ -131,11 +131,11 @@ internal class PeerConnectionResponder {
     
     internal func removeAllListeners() {
         listeners = [:]
-        peerEventObserver.observers = [:]
+        peerEventObserver.removeAllObservers()
     }
     
     internal func removeListenerForKey(_ key: String) {
         listeners.removeValue(forKey: key)
-        peerEventObserver.observers.removeValue(forKey: key)
+        peerEventObserver.removeObserver(forKey: key)
     }
 }
