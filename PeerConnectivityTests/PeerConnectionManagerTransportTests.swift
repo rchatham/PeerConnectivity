@@ -239,9 +239,51 @@ final class PeerConnectionManagerTransportTests : XCTestCase {
         await fulfillment(of: [expectation], timeout: 0.1)
     }
 
+    internal func testTransportEventsRemainDeliveredAfterRefreshAndRapidRestarts() async {
+        let harness = PeerConnectionTransportHarness()
+        let manager = PeerConnectionManager(serviceType: "test-service",
+            displayName: "Local",
+            transportFactory: harness.factory)
+        let receivedData = expectation(description: "New generation receives transport events")
+        receivedData.expectedFulfillmentCount = 3
+
+        manager.listenOn({ event in
+            switch event {
+            case .receivedData:
+                receivedData.fulfill()
+            default: break
+            }
+        }, performListenerInBackground: true, withKey: "received-data")
+
+        await startBrowsingOnly(manager)
+        await refresh(manager)
+
+        for _ in 0..<20 {
+            manager.stop()
+            manager.startBrowsingOnly()
+        }
+        manager.stop()
+        await startBrowsingOnly(manager)
+
+        for byte in UInt8(1)...3 {
+            await harness.sessionObserver?.updateAsync(.didReceiveData(peer: manager.peer, data: Data([byte])))
+            await Task.yield()
+        }
+
+        await fulfillment(of: [receivedData], timeout: 1)
+    }
+
     private func startBrowsingOnly(_ manager: PeerConnectionManager) async {
         let expectation = expectation(description: "Manager started browsing only")
         manager.startBrowsingOnly {
+            expectation.fulfill()
+        }
+        await fulfillment(of: [expectation], timeout: 1)
+    }
+
+    private func refresh(_ manager: PeerConnectionManager) async {
+        let expectation = expectation(description: "Manager refreshed")
+        manager.refresh {
             expectation.fulfill()
         }
         await fulfillment(of: [expectation], timeout: 1)
