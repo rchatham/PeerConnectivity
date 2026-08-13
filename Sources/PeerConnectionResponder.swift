@@ -133,9 +133,19 @@ internal class PeerConnectionResponder {
         listeners = [:]
         peerEventObserver.removeAllObservers()
     }
+
+    internal func removeAllListenersAsync() async {
+        listeners = [:]
+        await peerEventObserver.removeAllObserversAsync()
+    }
     
     internal func removeListenerForKey(_ key: String) {
         listeners.removeValue(forKey: key)
         peerEventObserver.removeObserver(forKey: key)
+    }
+
+    internal func removeListenerForKeyAsync(_ key: String) async {
+        listeners.removeValue(forKey: key)
+        await peerEventObserver.removeObserverAsync(forKey: key)
     }
 }

@@ -144,21 +144,29 @@ class PeerSecurityConfigurationTests: XCTestCase {
         var receivedCertificate: [Any]?
         let expectedCertificate: [Any] = ["certificate"]
 
+        let readyExpectation = expectation(description: "Ready event received")
+        readyExpectation.assertForOverFulfill = false
+        let certificateExpectation = expectation(description: "Certificate event received")
+        certificateExpectation.assertForOverFulfill = false
+
         manager.listenOn({ event in
             switch event {
+            case .ready:
+                readyExpectation.fulfill()
             case .receivedCertificate(let peer, let certificate, let handler):
                 receivedPeer = peer
                 receivedCertificate = certificate
                 handler(false)
+                certificateExpectation.fulfill()
             default: break
             }
         }, performListenerInBackground: true, withKey: "certificate-compatibility")
-        try await Task.sleep(nanoseconds: 10_000_000)
+        await fulfillment(of: [readyExpectation], timeout: 1)
 
         manager.handleCertificate(peer: manager.peer, certificate: expectedCertificate) { accepted in
             result = accepted
         }
-        try await Task.sleep(nanoseconds: 10_000_000)
+        await fulfillment(of: [certificateExpectation], timeout: 1)
 
         XCTAssertEqual(result, true)
         XCTAssertEqual(receivedPeer, manager.peer)
@@ -190,21 +198,29 @@ class PeerSecurityConfigurationTests: XCTestCase {
         var receivedPeer: Peer?
         let expectedContext = "automatic".data(using: .utf8)
 
+        let readyExpectation = expectation(description: "Ready event received")
+        readyExpectation.assertForOverFulfill = false
+        let invitationExpectation = expectation(description: "Invitation event received")
+        invitationExpectation.assertForOverFulfill = false
+
         manager.listenOn({ event in
             switch event {
+            case .ready:
+                readyExpectation.fulfill()
             case .receivedInvitation(let peer, let context, let invitationHandler):
                 receivedPeer = peer
                 XCTAssertEqual(context, expectedContext)
                 invitationHandler(false)
+                invitationExpectation.fulfill()
             default: break
             }
         }, performListenerInBackground: true, withKey: "automatic-invitation-compatibility")
-        try await Task.sleep(nanoseconds: 10_000_000)
+        await fulfillment(of: [readyExpectation], timeout: 1)
 
         manager.handleInvitation(peer: manager.peer, context: expectedContext) { accepted, _ in
             result = accepted
         }
-        try await Task.sleep(nanoseconds: 10_000_000)
+        await fulfillment(of: [invitationExpectation], timeout: 1)
 
         XCTAssertEqual(result, true)
         XCTAssertEqual(receivedPeer, manager.peer)
@@ -235,22 +251,30 @@ class PeerSecurityConfigurationTests: XCTestCase {
         var receivedContext: Data?
         let expectedContext = "manual".data(using: .utf8)
 
+        let readyExpectation = expectation(description: "Ready event received")
+        readyExpectation.assertForOverFulfill = false
+        let invitationExpectation = expectation(description: "Invitation event received")
+        invitationExpectation.assertForOverFulfill = false
+
         manager.listenOn({ event in
             switch event {
+            case .ready:
+                readyExpectation.fulfill()
             case .receivedInvitation(let peer, let context, let invitationHandler):
                 receivedPeer = peer
                 receivedContext = context
                 invitationHandler(false)
+                invitationExpectation.fulfill()
             default: break
             }
         }, performListenerInBackground: true, withKey: "manual-invitation")
-        try await Task.sleep(nanoseconds: 10_000_000)
+        await fulfillment(of: [readyExpectation], timeout: 1)
 
         var result: Bool?
         manager.handleInvitation(peer: manager.peer, context: expectedContext) { accepted, _ in
             result = accepted
         }
-        try await Task.sleep(nanoseconds: 10_000_000)
+        await fulfillment(of: [invitationExpectation], timeout: 1)
 
         XCTAssertEqual(result, false)
         XCTAssertEqual(receivedPeer, manager.peer)
@@ -262,21 +286,29 @@ class PeerSecurityConfigurationTests: XCTestCase {
         let manager = makeManager(invitationPolicy: .acceptAll, connectionType: .custom)
         var receivedInvitation = false
 
+        let readyExpectation = expectation(description: "Ready event received")
+        readyExpectation.assertForOverFulfill = false
+        let invitationExpectation = expectation(description: "Invitation event received")
+        invitationExpectation.assertForOverFulfill = false
+
         manager.listenOn({ event in
             switch event {
+            case .ready:
+                readyExpectation.fulfill()
             case .receivedInvitation(_, _, let invitationHandler):
                 receivedInvitation = true
                 invitationHandler(false)
+                invitationExpectation.fulfill()
             default: break
             }
         }, performListenerInBackground: true, withKey: "custom-invitation")
-        try await Task.sleep(nanoseconds: 10_000_000)
+        await fulfillment(of: [readyExpectation], timeout: 1)
 
         var result: Bool?
         manager.handleInvitation(peer: manager.peer, context: nil) { accepted, _ in
             result = accepted
         }
-        try await Task.sleep(nanoseconds: 10_000_000)
+        await fulfillment(of: [invitationExpectation], timeout: 1)
 
         XCTAssertEqual(receivedInvitation, true)
         XCTAssertEqual(result, false)

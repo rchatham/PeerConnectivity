@@ -779,6 +779,10 @@ extension PeerConnectionManager {
     
     /**
      Takes a `PeerConnectionEventListener` to respond to events.
+
+     Event delivery is asynchronous. Back-to-back events emitted from synchronous
+     call sites are not guaranteed to be delivered in FIFO order by this simple
+     actor-backed bridge.
      
      - parameter listener: Takes a `PeerConnectionEventListener`.
      - parameter performListenerInBackground: Default is `false`. Set to `true` to perform the listener asyncronously.
@@ -864,11 +868,19 @@ extension PeerConnectionManager {
     public func removeListenerForKey(_ key: String) {
         responder.removeListenerForKey(key)
     }
+
+    internal func removeListenerForKeyAsync(_ key: String) async {
+        await responder.removeListenerForKeyAsync(key)
+    }
     
     /**
      Remove all listeners.
      */
     public func removeAllListeners() {
         responder.removeAllListeners()
+    }
+
+    internal func removeAllListenersAsync() async {
+        await responder.removeAllListenersAsync()
     }
 }

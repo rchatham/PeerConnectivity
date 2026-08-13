@@ -29,6 +29,11 @@ internal actor Observable<T> {
         value = v
     }
 
+    /// Schedules observer registration from synchronous callers.
+    ///
+    /// This simple actor bridge does not guarantee FIFO ordering between separate
+    /// synchronous calls because each call is bridged through its own `Task`. Use
+    /// the async methods below when a caller must wait for a mutation to apply.
     @discardableResult
     nonisolated internal func addObserver(_ observer: @escaping Observer) -> String {
         let key = UUID().uuidString

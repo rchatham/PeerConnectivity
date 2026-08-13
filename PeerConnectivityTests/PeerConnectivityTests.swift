@@ -34,34 +34,42 @@ class PeerConnectivityTests: XCTestCase {
     func testListenOnImmediatelyReceivesReadyEventInBackgroundMode() async throws {
         let manager = PeerConnectionManager(serviceType: "test-listen", displayName: "Listener")
         pcm = manager
-        var didReceiveReady = false
+        let expectation = expectation(description: "Ready event received")
+        expectation.assertForOverFulfill = false
 
         manager.listenOn({ event in
             switch event {
             case .ready:
-                didReceiveReady = true
+                expectation.fulfill()
             default:
                 break
             }
         }, performListenerInBackground: true, withKey: "ready")
-        try await Task.sleep(nanoseconds: 10_000_000)
 
-        XCTAssertTrue(didReceiveReady)
+        await fulfillment(of: [expectation], timeout: 1)
     }
 
     func testRemovedListenerDoesNotReceiveLaterEvents() async throws {
         let manager = PeerConnectionManager(serviceType: "test-remove", displayName: "Listener")
         pcm = manager
+        let readyExpectation = expectation(description: "Ready event received")
+        readyExpectation.assertForOverFulfill = false
+        let removedExpectation = expectation(description: "Removed listener receives no later events")
+        removedExpectation.isInverted = true
         var eventCount = 0
+        var didRemoveListener = false
 
-        manager.listenOn({ _ in
+        manager.listenOn({ event in
             eventCount += 1
+            if case .ready = event { readyExpectation.fulfill() }
+            if didRemoveListener { removedExpectation.fulfill() }
         }, performListenerInBackground: true, withKey: "removed")
-        try await Task.sleep(nanoseconds: 10_000_000)
-        manager.removeListenerForKey("removed")
-        try await Task.sleep(nanoseconds: 10_000_000)
+        await fulfillment(of: [readyExpectation], timeout: 1)
+
+        didRemoveListener = true
+        await manager.removeListenerForKeyAsync("removed")
         manager.stop()
-        try await Task.sleep(nanoseconds: 10_000_000)
+        await fulfillment(of: [removedExpectation], timeout: 0.1)
 
         XCTAssertEqual(eventCount, 1)
     }
@@ -69,16 +77,24 @@ class PeerConnectivityTests: XCTestCase {
     func testRemoveAllListenersRemovesRegisteredListeners() async throws {
         let manager = PeerConnectionManager(serviceType: "test-all", displayName: "Listener")
         pcm = manager
+        let readyExpectation = expectation(description: "Ready event received")
+        readyExpectation.assertForOverFulfill = false
+        let removedExpectation = expectation(description: "Removed listeners receive no later events")
+        removedExpectation.isInverted = true
         var eventCount = 0
+        var didRemoveListeners = false
 
-        manager.listenOn({ _ in
+        manager.listenOn({ event in
             eventCount += 1
+            if case .ready = event { readyExpectation.fulfill() }
+            if didRemoveListeners { removedExpectation.fulfill() }
         }, performListenerInBackground: true, withKey: "removed")
-        try await Task.sleep(nanoseconds: 10_000_000)
-        manager.removeAllListeners()
-        try await Task.sleep(nanoseconds: 10_000_000)
+        await fulfillment(of: [readyExpectation], timeout: 1)
+
+        didRemoveListeners = true
+        await manager.removeAllListenersAsync()
         manager.stop()
-        try await Task.sleep(nanoseconds: 10_000_000)
+        await fulfillment(of: [removedExpectation], timeout: 0.1)
 
         XCTAssertEqual(eventCount, 1)
     }
@@ -139,16 +155,18 @@ class PeerConnectivityTests: XCTestCase {
         let discoveryInfo: PeerDiscoveryInfo = ["version": "1", "room": "lobby"]
         var receivedDiscoveryInfo: PeerDiscoveryInfo?
 
-        observer.addObserver { event in
+        let expectation = expectation(description: "Found peer event received")
+        await observer.addObserverAsync { event in
             switch event {
             case .foundPeer(_, let info):
                 receivedDiscoveryInfo = info
+                expectation.fulfill()
             default: break
             }
         }
 
         producer.browser(browser, foundPeer: remotePeerID, withDiscoveryInfo: discoveryInfo)
-        await Task.yield()
+        await fulfillment(of: [expectation], timeout: 1)
 
         XCTAssertEqual(receivedDiscoveryInfo?["version"], "1")
         XCTAssertEqual(receivedDiscoveryInfo?["room"], "lobby")
