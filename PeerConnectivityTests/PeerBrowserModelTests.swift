@@ -86,7 +86,7 @@ private final class PeerBrowserModelHarness {
 
 final class PeerBrowserModelTests : XCTestCase {
 
-    internal func testModelTracksFoundAndLostPeers() {
+    internal func testModelTracksFoundAndLostPeers() async {
         let harness = PeerBrowserModelHarness()
         let manager = makeManager(harness: harness)
         let peer = Peer(identity: PeerIdentity(identifier: "remote", displayName: "Remote"), status: .notConnected)
@@ -103,41 +103,46 @@ final class PeerBrowserModelTests : XCTestCase {
         }
 
         model.startObserving()
-        manager.startBrowsingOnly()
-        harness.browserObserver?.value = .foundPeer(peer, discoveryInfo: nil)
-        wait(for: [foundExpectation], timeout: 1)
+        await startBrowsingOnly(manager)
+        await harness.browserObserver?.updateAsync(.foundPeer(peer, discoveryInfo: nil))
+        await fulfillment(of: [foundExpectation], timeout: 1)
         XCTAssertEqual(model.discoveredPeers, [peer])
 
-        harness.browserObserver?.value = .lostPeer(peer)
-        wait(for: [lostExpectation], timeout: 1)
+        await harness.browserObserver?.updateAsync(.lostPeer(peer))
+        await fulfillment(of: [lostExpectation], timeout: 1)
         XCTAssertTrue(model.discoveredPeers.isEmpty)
     }
 
-    internal func testModelUpdatesDiscoveredPeerStatusFromDevicesChanged() {
+    internal func testModelUpdatesDiscoveredPeerStatusFromDevicesChanged() async {
         let harness = PeerBrowserModelHarness()
         let manager = makeManager(harness: harness)
         let identity = PeerIdentity(identifier: "remote", displayName: "Remote")
         let foundPeer = Peer(identity: identity, status: .notConnected)
         let connectedPeer = Peer(identity: identity, status: .connected)
         let otherPeer = Peer(identity: PeerIdentity(identifier: "other", displayName: "Other"), status: .notConnected)
-        let expectation = self.expectation(description: "Model updated peer status")
-        expectation.assertForOverFulfill = false
+        let foundExpectation = self.expectation(description: "Model found peer")
+        let connectedExpectation = self.expectation(description: "Model updated peer status")
+        foundExpectation.assertForOverFulfill = false
+        connectedExpectation.assertForOverFulfill = false
         let model = PeerBrowserModel(manager: manager) { peers in
             if peers.first?.status == .connected {
-                expectation.fulfill()
+                connectedExpectation.fulfill()
+            } else if peers.first == foundPeer {
+                foundExpectation.fulfill()
             }
         }
 
         model.startObserving()
-        manager.startBrowsingOnly()
-        harness.browserObserver?.value = .foundPeer(foundPeer, discoveryInfo: nil)
-        harness.sessionObserver?.value = .devicesChanged(peer: connectedPeer)
+        await startBrowsingOnly(manager)
+        await harness.browserObserver?.updateAsync(.foundPeer(foundPeer, discoveryInfo: nil))
+        await fulfillment(of: [foundExpectation], timeout: 1)
+        await harness.sessionObserver?.updateAsync(.devicesChanged(peer: connectedPeer))
 
-        waitForExpectations(timeout: 1)
+        await fulfillment(of: [connectedExpectation], timeout: 1)
         XCTAssertEqual(model.discoveredPeers.first?.status, .connected)
 
-        harness.browserObserver?.value = .foundPeer(otherPeer, discoveryInfo: nil)
-        RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        await harness.browserObserver?.updateAsync(.foundPeer(otherPeer, discoveryInfo: nil))
+        await shortAsyncDelay()
         XCTAssertEqual(model.discoveredPeers.first?.status, .connected)
     }
 
@@ -152,19 +157,33 @@ final class PeerBrowserModelTests : XCTestCase {
         XCTAssertEqual(harness.browser.invitedPeers, [peer])
     }
 
-    internal func testStopObservingRemovesModelListener() {
+    internal func testStopObservingRemovesModelListener() async {
         let harness = PeerBrowserModelHarness()
         let manager = makeManager(harness: harness)
-        let model = PeerBrowserModel(manager: manager)
+        let listenerKey = "PeerBrowserModelTests.stopObserving"
+        let model = PeerBrowserModel(manager: manager, listenerKey: listenerKey)
         let peer = Peer(identity: PeerIdentity(identifier: "remote", displayName: "Remote"), status: .notConnected)
 
         model.startObserving()
-        manager.startBrowsingOnly()
+        await startBrowsingOnly(manager)
         model.stopObserving()
-        harness.browserObserver?.value = .foundPeer(peer, discoveryInfo: nil)
+        await manager.removeListenerForKeyAsync(listenerKey)
+        await harness.browserObserver?.updateAsync(.foundPeer(peer, discoveryInfo: nil))
 
-        RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        await shortAsyncDelay()
         XCTAssertTrue(model.discoveredPeers.isEmpty)
+    }
+
+    private func startBrowsingOnly(_ manager: PeerConnectionManager) async {
+        await withCheckedContinuation { continuation in
+            manager.startBrowsingOnly {
+                continuation.resume()
+            }
+        }
+    }
+
+    private func shortAsyncDelay() async {
+        try? await Task.sleep(nanoseconds: 100_000_000)
     }
 
     private func makeManager(harness: PeerBrowserModelHarness) -> PeerConnectionManager {

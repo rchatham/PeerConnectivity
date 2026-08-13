@@ -7,7 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		3080C7ED1D80A1D700AF9EA3 /* MultiObservable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3080C7DC1D80A1D600AF9EA3 /* MultiObservable.swift */; };
 		3080C7EE1D80A1D700AF9EA3 /* Observable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3080C7DD1D80A1D600AF9EA3 /* Observable.swift */; };
 		3080C7EF1D80A1D700AF9EA3 /* Peer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3080C7DE1D80A1D600AF9EA3 /* Peer.swift */; };
 		3080C7F01D80A1D700AF9EA3 /* PeerAdvertiser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3080C7DF1D80A1D600AF9EA3 /* PeerAdvertiser.swift */; };
@@ -44,7 +43,6 @@
 		30NETPROTOTEST2606232 /* PeerNetworkProtocolTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30NETPROTOTEST2606231 /* PeerNetworkProtocolTests.swift */; };
 		30OBSTEST2607210002 /* ObservableThreadSafetyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30OBSTEST2607210001 /* ObservableThreadSafetyTests.swift */; };
 		30ASYNCOBS260721002 /* AsyncObservable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30ASYNCOBS260721001 /* AsyncObservable.swift */; };
-		30ASYNCMULTI2607212 /* AsyncMultiObservable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30ASYNCMULTI2607211 /* AsyncMultiObservable.swift */; };
 		30SYNCBRIDGE2607212 /* SyncObservableBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30SYNCBRIDGE2607211 /* SyncObservableBridge.swift */; };
 		30ASYNCTEST26072102 /* AsyncObservableTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30ASYNCTEST26072101 /* AsyncObservableTests.swift */; };
 		30NETADAPTTEST2607302 /* NetworkPeerTransportAdapterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30NETADAPTTEST2607301 /* NetworkPeerTransportAdapterTests.swift */; };
@@ -88,7 +86,6 @@
 		30NETPROTOTEST2606231 /* PeerNetworkProtocolTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeerNetworkProtocolTests.swift; sourceTree = "<group>"; };
 		30OBSTEST2607210001 /* ObservableThreadSafetyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservableThreadSafetyTests.swift; sourceTree = "<group>"; };
 		30ASYNCOBS260721001 /* AsyncObservable.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = AsyncObservable.swift; path = Sources/AsyncObservable.swift; sourceTree = "<group>"; };
-		30ASYNCMULTI2607211 /* AsyncMultiObservable.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = AsyncMultiObservable.swift; path = Sources/AsyncMultiObservable.swift; sourceTree = "<group>"; };
 		30SYNCBRIDGE2607211 /* SyncObservableBridge.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = SyncObservableBridge.swift; path = Sources/SyncObservableBridge.swift; sourceTree = "<group>"; };
 		30ASYNCTEST26072101 /* AsyncObservableTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AsyncObservableTests.swift; sourceTree = "<group>"; };
 		30NETADAPTTEST2607301 /* NetworkPeerTransportAdapterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkPeerTransportAdapterTests.swift; sourceTree = "<group>"; };
@@ -99,7 +96,6 @@
 		B20000022F30600000000002 /* ObservableTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservableTests.swift; sourceTree = "<group>"; };
 		B20000022F30600000000004 /* PeerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeerTests.swift; sourceTree = "<group>"; };
 		3080C7DB1D80A1D600AF9EA3 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = Sources/Info.plist; sourceTree = "<group>"; };
-		3080C7DC1D80A1D600AF9EA3 /* MultiObservable.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = MultiObservable.swift; path = Sources/MultiObservable.swift; sourceTree = "<group>"; };
 		3080C7DD1D80A1D600AF9EA3 /* Observable.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = Observable.swift; path = Sources/Observable.swift; sourceTree = "<group>"; };
 		3080C7DE1D80A1D600AF9EA3 /* Peer.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = Peer.swift; path = Sources/Peer.swift; sourceTree = "<group>"; };
 		3080C7DF1D80A1D600AF9EA3 /* PeerAdvertiser.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = PeerAdvertiser.swift; path = Sources/PeerAdvertiser.swift; sourceTree = "<group>"; };
@@ -146,10 +142,8 @@
 			isa = PBXGroup;
 			children = (
 				3080C7DB1D80A1D600AF9EA3 /* Info.plist */,
-				3080C7DC1D80A1D600AF9EA3 /* MultiObservable.swift */,
 				3080C7DD1D80A1D600AF9EA3 /* Observable.swift */,
 				30ASYNCOBS260721001 /* AsyncObservable.swift */,
-				30ASYNCMULTI2607211 /* AsyncMultiObservable.swift */,
 				30SYNCBRIDGE2607211 /* SyncObservableBridge.swift */,
 				30NETREG260624000001 /* NetworkPeerConnectionRegistry.swift */,
 				30NETDATA26062400001 /* NetworkPeerDataSender.swift */,
@@ -362,9 +356,7 @@
 				3080C7FB1D80A1D700AF9EA3 /* PeerSession.swift in Sources */,
 				3080C7EE1D80A1D700AF9EA3 /* Observable.swift in Sources */,
 				30ASYNCOBS260721002 /* AsyncObservable.swift in Sources */,
-				30ASYNCMULTI2607212 /* AsyncMultiObservable.swift in Sources */,
 				30SYNCBRIDGE2607212 /* SyncObservableBridge.swift in Sources */,
-				3080C7ED1D80A1D700AF9EA3 /* MultiObservable.swift in Sources */,
 				3080C7F61D80A1D700AF9EA3 /* PeerBrowserEventProducer.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
