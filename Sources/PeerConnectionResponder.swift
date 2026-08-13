@@ -112,7 +112,22 @@ internal class PeerConnectionResponder {
     
     fileprivate let peerEventObserver : Observable<PeerConnectionEvent>
     
-    internal fileprivate(set) var listeners : [String:PeerConnectionEventListener] = [:]
+    fileprivate var storedListeners : [String:PeerConnectionEventListener] = [:]
+    fileprivate let listenersLock = NSLock()
+
+    internal fileprivate(set) var listeners : [String:PeerConnectionEventListener] {
+        get {
+            listenersLock.lock()
+            let currentListeners = storedListeners
+            listenersLock.unlock()
+            return currentListeners
+        }
+        set {
+            listenersLock.lock()
+            storedListeners = newValue
+            listenersLock.unlock()
+        }
+    }
     
     internal init(observer: Observable<PeerConnectionEvent>) {
         peerEventObserver = observer
