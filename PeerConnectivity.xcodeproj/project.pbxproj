@@ -7,7 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		3080C7ED1D80A1D700AF9EA3 /* MultiObservable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3080C7DC1D80A1D600AF9EA3 /* MultiObservable.swift */; };
 		3080C7EE1D80A1D700AF9EA3 /* Observable.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3080C7DD1D80A1D600AF9EA3 /* Observable.swift */; };
 		3080C7EF1D80A1D700AF9EA3 /* Peer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3080C7DE1D80A1D600AF9EA3 /* Peer.swift */; };
 		3080C7F01D80A1D700AF9EA3 /* PeerAdvertiser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3080C7DF1D80A1D600AF9EA3 /* PeerAdvertiser.swift */; };
@@ -77,7 +76,6 @@
 		B20000022F30600000000002 /* ObservableTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservableTests.swift; sourceTree = "<group>"; };
 		B20000022F30600000000004 /* PeerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeerTests.swift; sourceTree = "<group>"; };
 		3080C7DB1D80A1D600AF9EA3 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = Sources/Info.plist; sourceTree = "<group>"; };
-		3080C7DC1D80A1D600AF9EA3 /* MultiObservable.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = MultiObservable.swift; path = Sources/MultiObservable.swift; sourceTree = "<group>"; };
 		3080C7DD1D80A1D600AF9EA3 /* Observable.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = Observable.swift; path = Sources/Observable.swift; sourceTree = "<group>"; };
 		3080C7DE1D80A1D600AF9EA3 /* Peer.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = Peer.swift; path = Sources/Peer.swift; sourceTree = "<group>"; };
 		3080C7DF1D80A1D600AF9EA3 /* PeerAdvertiser.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = PeerAdvertiser.swift; path = Sources/PeerAdvertiser.swift; sourceTree = "<group>"; };
@@ -124,7 +122,6 @@
 			isa = PBXGroup;
 			children = (
 				3080C7DB1D80A1D600AF9EA3 /* Info.plist */,
-				3080C7DC1D80A1D600AF9EA3 /* MultiObservable.swift */,
 				3080C7DD1D80A1D600AF9EA3 /* Observable.swift */,
 				30NETREG260624000001 /* NetworkPeerConnectionRegistry.swift */,
 				30NETDATA26062400001 /* NetworkPeerDataSender.swift */,
@@ -326,7 +323,6 @@
 				30SECURITY26060300000001 /* PeerSecurityConfiguration.swift in Sources */,
 				3080C7FB1D80A1D700AF9EA3 /* PeerSession.swift in Sources */,
 				3080C7EE1D80A1D700AF9EA3 /* Observable.swift in Sources */,
-				3080C7ED1D80A1D700AF9EA3 /* MultiObservable.swift in Sources */,
 				3080C7F61D80A1D700AF9EA3 /* PeerBrowserEventProducer.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

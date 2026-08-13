@@ -136,13 +136,13 @@ private final class PeerConnectionTransportHarness {
 
 final class PeerConnectionManagerTransportTests : XCTestCase {
 
-    internal func testStartBrowsingOnlyUsesInjectedSessionAndBrowser() {
+    internal func testStartBrowsingOnlyUsesInjectedSessionAndBrowser() async {
         let harness = PeerConnectionTransportHarness()
         let manager = PeerConnectionManager(serviceType: "test-service",
             displayName: "Local",
             transportFactory: harness.factory)
 
-        manager.startBrowsingOnly()
+        await startBrowsingOnly(manager)
 
         XCTAssertEqual(harness.session?.startSessionCallCount, 1)
         XCTAssertEqual(harness.browser.startBrowsingCallCount, 1)
@@ -170,7 +170,7 @@ final class PeerConnectionManagerTransportTests : XCTestCase {
         XCTAssertEqual(harness.session?.sentData.first?.peers, [])
     }
 
-    internal func testSessionDataEventForwardsReceivedData() {
+    internal func testSessionDataEventForwardsReceivedData() async {
         let harness = PeerConnectionTransportHarness()
         let manager = PeerConnectionManager(serviceType: "test-service",
             displayName: "Local",
@@ -188,13 +188,13 @@ final class PeerConnectionManagerTransportTests : XCTestCase {
             }
         }, performListenerInBackground: true, withKey: "received-data")
 
-        manager.startBrowsingOnly()
-        harness.sessionObserver?.value = .didReceiveData(peer: manager.peer, data: data)
+        await startBrowsingOnly(manager)
+        await harness.sessionObserver?.updateAsync(.didReceiveData(peer: manager.peer, data: data))
 
-        waitForExpectations(timeout: 1)
+        await fulfillment(of: [expectation], timeout: 1)
     }
 
-    internal func testBrowserEventForwardsFoundPeer() {
+    internal func testBrowserEventForwardsFoundPeer() async {
         let harness = PeerConnectionTransportHarness()
         let manager = PeerConnectionManager(serviceType: "test-service",
             displayName: "Local",
@@ -210,9 +210,40 @@ final class PeerConnectionManagerTransportTests : XCTestCase {
             }
         }, performListenerInBackground: true, withKey: "found-peer")
 
-        manager.startBrowsingOnly()
-        harness.browserObserver?.value = .foundPeer(manager.peer, discoveryInfo: nil)
+        await startBrowsingOnly(manager)
+        await harness.browserObserver?.updateAsync(.foundPeer(manager.peer, discoveryInfo: nil))
 
-        waitForExpectations(timeout: 1)
+        await fulfillment(of: [expectation], timeout: 1)
+    }
+
+    internal func testTransportEventAfterStopDoesNotEmitReceivedData() async {
+        let harness = PeerConnectionTransportHarness()
+        let manager = PeerConnectionManager(serviceType: "test-service",
+            displayName: "Local",
+            transportFactory: harness.factory)
+        let expectation = self.expectation(description: "Received data event should not be emitted after stop")
+        expectation.isInverted = true
+
+        manager.listenOn({ event in
+            switch event {
+            case .receivedData:
+                expectation.fulfill()
+            default: break
+            }
+        }, performListenerInBackground: true, withKey: "received-data")
+
+        await startBrowsingOnly(manager)
+        manager.stop()
+        await harness.sessionObserver?.updateAsync(.didReceiveData(peer: manager.peer, data: Data([7, 8, 9])))
+
+        await fulfillment(of: [expectation], timeout: 0.1)
+    }
+
+    private func startBrowsingOnly(_ manager: PeerConnectionManager) async {
+        let expectation = expectation(description: "Manager started browsing only")
+        manager.startBrowsingOnly {
+            expectation.fulfill()
+        }
+        await fulfillment(of: [expectation], timeout: 1)
     }
 }
