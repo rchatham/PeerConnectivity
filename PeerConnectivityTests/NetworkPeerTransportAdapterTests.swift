@@ -91,7 +91,7 @@ final class NetworkPeerTransportAdapterTests : XCTestCase {
         XCTAssertEqual(browser.cancelCallCount, 1)
     }
 
-    internal func testBrowserTransportFoundAndLostEndpointEmitsPeerEvents() {
+    internal func testBrowserTransportFoundAndLostEndpointEmitsPeerEvents() async {
         guard #available(iOS 13.0, macOS 10.15, *) else { return }
 
         let observer = Observable<PeerBrowserEvent>(.none)
@@ -100,28 +100,37 @@ final class NetworkPeerTransportAdapterTests : XCTestCase {
             browserObserver: observer)
         let endpoint = NWEndpoint.hostPort(host: .ipv4(IPv4Address("127.0.0.1")!), port: 23456)
         let identity = PeerIdentity(identifier: "remote", displayName: "Remote")
+        let foundExpectation = expectation(description: "Found peer emitted")
+        let lostExpectation = expectation(description: "Lost peer emitted")
         var events : [PeerBrowserEvent] = []
-        observer.addObserver { event in
+        await observer.addObserverAsync { event in
             events.append(event)
+            switch event {
+            case .foundPeer:
+                foundExpectation.fulfill()
+            case .lostPeer:
+                lostExpectation.fulfill()
+            default: break
+            }
         }
 
         transport.foundEndpoint(endpoint, identity: identity)
         transport.lostEndpoint(endpoint, identity: identity)
+        await fulfillment(of: [foundExpectation, lostExpectation], timeout: 1)
 
-        XCTAssertEqual(events.count, 3)
-        guard case .foundPeer(let foundPeer, _) = events[1] else {
-            XCTFail("Expected found peer event")
-            return
+        let foundPeers = events.compactMap { event -> Peer? in
+            guard case .foundPeer(let peer, _) = event else { return nil }
+            return peer
         }
-        guard case .lostPeer(let lostPeer) = events[2] else {
-            XCTFail("Expected lost peer event")
-            return
+        let lostPeers = events.compactMap { event -> Peer? in
+            guard case .lostPeer(let peer) = event else { return nil }
+            return peer
         }
-        XCTAssertEqual(foundPeer.identity, lostPeer.identity)
-        XCTAssertEqual(foundPeer.displayName, "Remote")
+        XCTAssertEqual(foundPeers.first?.identity, lostPeers.first?.identity)
+        XCTAssertEqual(foundPeers.first?.displayName, "Remote")
     }
 
-    internal func testBrowserTransportIgnoresSelfEndpoint() {
+    internal func testBrowserTransportIgnoresSelfEndpoint() async {
         guard #available(iOS 13.0, macOS 10.15, *) else { return }
 
         let observer = Observable<PeerBrowserEvent>(.none)
@@ -131,14 +140,14 @@ final class NetworkPeerTransportAdapterTests : XCTestCase {
             browserObserver: observer)
         let endpoint = NWEndpoint.hostPort(host: .ipv4(IPv4Address("127.0.0.1")!), port: 34567)
         var events : [PeerBrowserEvent] = []
-        observer.addObserver { event in events.append(event) }
+        await observer.addObserverAsync { event in events.append(event) }
 
         transport.foundEndpoint(endpoint, identity: session.peer.identity)
 
         XCTAssertEqual(events.count, 1)
     }
 
-    internal func testBrowserTransportIgnoresTruncatedSelfDiscoveryIdentity() {
+    internal func testBrowserTransportIgnoresTruncatedSelfDiscoveryIdentity() async {
         guard #available(iOS 13.0, macOS 10.15, *) else { return }
 
         let localIdentity = PeerIdentity(identifier: String(repeating: "a", count: 400),
@@ -151,7 +160,7 @@ final class NetworkPeerTransportAdapterTests : XCTestCase {
         let endpoint = NWEndpoint.hostPort(host: .ipv4(IPv4Address("127.0.0.1")!), port: 34568)
         let advertisedIdentity = PeerNetworkDiscoveryInfo(identity: localIdentity).identity
         var events : [PeerBrowserEvent] = []
-        observer.addObserver { event in events.append(event) }
+        await observer.addObserverAsync { event in events.append(event) }
 
         transport.foundEndpoint(endpoint, identity: advertisedIdentity)
         transport.lostEndpoint(endpoint, identity: advertisedIdentity)

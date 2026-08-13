@@ -93,7 +93,7 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
             }
         }
         guard let event = event else { return }
-        sessionObserver.value = event
+        sessionObserver.update(event)
     }
 
     internal func sendData(_ data: Data, toPeers peers: [Peer] = []) {
@@ -118,7 +118,7 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
         }
         connectionToCancel?.cancel()
         guard let event = event else { return }
-        sessionObserver.value = event
+        sessionObserver.update(event)
     }
 
     internal func cancelAllConnections() {
@@ -141,7 +141,7 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
             return .foundPeer(peer, discoveryInfo: nil)
         }
         guard let event = event else { return }
-        browserObserver.value = event
+        browserObserver.update(event)
     }
 
     internal func lostPeer(identity: PeerIdentity) {
@@ -151,7 +151,7 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
             return .lostPeer(peer)
         }
         guard let event = event else { return }
-        browserObserver.value = event
+        browserObserver.update(event)
     }
 
     fileprivate func receiveHandshake(_ data: Data, from connection: Connection) -> PeerSessionEvent? {

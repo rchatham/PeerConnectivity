@@ -13,86 +13,98 @@ class ObservableTests: XCTestCase {
 
     // MARK: - Observable
 
-    func testObservableImmediatelyNotifiesNewObserver() {
+    func testObservableImmediatelyNotifiesNewObserver() async throws {
         let observable = Observable<Int>(7)
         var received : [Int] = []
 
-        observable.addObserver { value in
+        await observable.addObserverAsync { value in
             received.append(value)
         }
 
         XCTAssertEqual(received, [7])
     }
 
-    func testObservableNotifiesObserversWhenValueChanges() {
+    func testObservableNotifiesObserversWhenValueChanges() async throws {
         let observable = Observable<String>("initial")
         var received : [String] = []
 
-        observable.addObserver { value in
+        await observable.addObserverAsync { value in
             received.append(value)
         }
-        observable.value = "updated"
+        await observable.updateAsync("updated")
 
         XCTAssertEqual(received, ["initial", "updated"])
     }
 
-    func testObservableSupportsMultipleObservers() {
+    func testObservableSupportsMultipleObservers() async throws {
         let observable = Observable<Int>(0)
         var first : [Int] = []
         var second : [Int] = []
 
-        observable.addObserver { value in
+        await observable.addObserverAsync { value in
             first.append(value)
         }
-        observable.addObserver { value in
+        await observable.addObserverAsync { value in
             second.append(value)
         }
-        observable.value = 1
+        await observable.updateAsync(1)
 
         XCTAssertEqual(first, [0, 1])
         XCTAssertEqual(second, [0, 1])
     }
 
-    // MARK: - MultiObservable
-
-    func testMultiObservableImmediatelyNotifiesNewObserver() {
-        let observable = MultiObservable<String>("ready")
+    func testObservableImmediatelyNotifiesKeyedObserver() async throws {
+        let observable = Observable<String>("ready")
         var received : [String] = []
 
-        observable.addObserver({ value in
+        await observable.addObserverAsync({ value in
             received.append(value)
         }, key: "listener")
 
         XCTAssertEqual(received, ["ready"])
     }
 
-    func testMultiObservableReplacesObserverWithSameKey() {
-        let observable = MultiObservable<Int>(1)
+    func testObservableReplacesObserverWithSameKey() async throws {
+        let observable = Observable<Int>(1)
         var first : [Int] = []
         var replacement : [Int] = []
 
-        observable.addObserver({ value in
+        await observable.addObserverAsync({ value in
             first.append(value)
         }, key: "duplicate")
-        observable.addObserver({ value in
+        await observable.addObserverAsync({ value in
             replacement.append(value)
         }, key: "duplicate")
-        observable.value = 2
+        await observable.updateAsync(2)
 
         XCTAssertEqual(first, [1])
         XCTAssertEqual(replacement, [1, 2])
     }
 
-    func testMultiObservableRemovesObserverForKey() {
-        let observable = MultiObservable<Int>(1)
+    func testObservableRemovesObserverForKey() async throws {
+        let observable = Observable<Int>(1)
         var received : [Int] = []
 
-        observable.addObserver({ value in
+        await observable.addObserverAsync({ value in
             received.append(value)
         }, key: "listener")
-        observable.removeObserverForkey("listener")
-        observable.value = 2
+        await observable.removeObserverAsync(forKey: "listener")
+        await observable.updateAsync(2)
 
         XCTAssertEqual(received, [1])
+    }
+
+    func testObservableNonisolatedAddObserverNotifiesObserver() async throws {
+        let observable = Observable<Int>(3)
+        let expectation = expectation(description: "observer notified")
+        var received : [Int] = []
+
+        observable.addObserver { value in
+            received.append(value)
+            expectation.fulfill()
+        }
+
+        await fulfillment(of: [expectation], timeout: 1)
+        XCTAssertEqual(received, [3])
     }
 }
