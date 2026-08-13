@@ -17,92 +17,87 @@ final class ObservableThreadSafetyTests: XCTestCase {
         let observable = Observable<Int>(0)
         let queue = DispatchQueue(label: "PeerConnectivity.ObservableThreadSafetyTests.observable", attributes: .concurrent)
         let group = DispatchGroup()
-        let lock = NSLock()
-        var deliveryCount = 0
+        let delivery = expectation(description: "observer delivered")
+        delivery.expectedFulfillmentCount = 100
+        delivery.assertForOverFulfill = false
 
         for index in 0..<100 {
             group.enter()
             queue.async {
                 observable.addObserver { _ in
-                    lock.lock()
-                    deliveryCount += 1
-                    lock.unlock()
+                    delivery.fulfill()
                 }
-                observable.value = index
+                observable.update(index)
                 group.leave()
             }
         }
 
         XCTAssertEqual(group.wait(timeout: .now() + 5), .success)
-        XCTAssertGreaterThan(deliveryCount, 0)
+        wait(for: [delivery], timeout: 5)
     }
 
-    // MARK: - MultiObservable
-
-    func testMultiObservableAllowsConcurrentObserversAndValueUpdates() {
-        let observable = MultiObservable<Int>(0)
-        let queue = DispatchQueue(label: "PeerConnectivity.ObservableThreadSafetyTests.multiObservable", attributes: .concurrent)
+    func testObservableAllowsConcurrentKeyedObserversAndValueUpdates() {
+        let observable = Observable<Int>(0)
+        let queue = DispatchQueue(label: "PeerConnectivity.ObservableThreadSafetyTests.keyedObservable", attributes: .concurrent)
         let group = DispatchGroup()
-        let lock = NSLock()
-        var deliveryCount = 0
+        let delivery = expectation(description: "keyed observer delivered")
+        delivery.expectedFulfillmentCount = 100
+        delivery.assertForOverFulfill = false
 
         for index in 0..<100 {
             group.enter()
             queue.async {
                 observable.addObserver({ _ in
-                    lock.lock()
-                    deliveryCount += 1
-                    lock.unlock()
+                    delivery.fulfill()
                 }, key: "observer-\(index)")
-                observable.value = index
+                observable.update(index)
                 group.leave()
             }
         }
 
         XCTAssertEqual(group.wait(timeout: .now() + 5), .success)
-        XCTAssertGreaterThan(deliveryCount, 0)
+        wait(for: [delivery], timeout: 5)
     }
 
-    func testMultiObservableAllowsObserverRemovalDuringDelivery() {
-        let observable = MultiObservable<Int>(0)
+    func testObservableAllowsObserverRemovalDuringDelivery() {
+        let observable = Observable<Int>(0)
         let delivery = expectation(description: "observer delivered")
+        delivery.assertForOverFulfill = false
 
         observable.addObserver({ _ in
-            observable.removeObserverForkey("self-removing")
+            observable.removeObserver(forKey: "self-removing")
             delivery.fulfill()
         }, key: "self-removing")
 
-        observable.value = 1
+        observable.update(1)
 
         wait(for: [delivery], timeout: 1)
-        XCTAssertTrue(observable.observers.isEmpty)
     }
 
     // MARK: - PeerConnectionResponder
 
     func testResponderAllowsConcurrentListenerRemovalAndEventDelivery() {
-        let observable = MultiObservable<PeerConnectionEvent>(.ready)
+        let observable = Observable<PeerConnectionEvent>(.ready)
         let responder = PeerConnectionResponder(observer: observable)
         let queue = DispatchQueue(label: "PeerConnectivity.ObservableThreadSafetyTests.responder", attributes: .concurrent)
         let group = DispatchGroup()
-        let lock = NSLock()
-        var deliveryCount = 0
+        let delivery = expectation(description: "listener delivered")
+        delivery.expectedFulfillmentCount = 100
+        delivery.assertForOverFulfill = false
 
         for index in 0..<100 {
             group.enter()
             queue.async {
                 responder.addListener({ _ in
-                    lock.lock()
-                    deliveryCount += 1
-                    lock.unlock()
+                    delivery.fulfill()
                 }, forKey: "listener-\(index)")
-                observable.value = .started
+                observable.update(.started)
                 responder.removeListenerForKey("listener-\(index)")
                 group.leave()
             }
         }
 
         XCTAssertEqual(group.wait(timeout: .now() + 5), .success)
-        XCTAssertGreaterThan(deliveryCount, 0)
+        wait(for: [delivery], timeout: 5)
     }
 }

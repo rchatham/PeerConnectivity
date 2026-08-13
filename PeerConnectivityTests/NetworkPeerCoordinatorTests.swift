@@ -28,8 +28,8 @@ private final class MockCoordinatorConnection : NetworkPeerFrameSending {
 
 final class NetworkPeerCoordinatorTests : XCTestCase {
 
-    internal func testPendingConnectionSendsLocalHandshake() throws {
-        let harness = makeHarness()
+    internal func testPendingConnectionSendsLocalHandshake() async throws {
+        let harness = await makeHarness()
         let connection = MockCoordinatorConnection()
 
         harness.coordinator.addPendingConnection(connection, direction: .outbound)
@@ -41,13 +41,19 @@ final class NetworkPeerCoordinatorTests : XCTestCase {
         XCTAssertEqual(handshake.identity, harness.localPeer.identity)
     }
 
-    internal func testHandshakeRegistersConnectedPeerAndEmitsSessionEvent() throws {
-        let harness = makeHarness()
+    internal func testHandshakeRegistersConnectedPeerAndEmitsSessionEvent() async throws {
+        let harness = await makeHarness()
         let connection = MockCoordinatorConnection()
         let remoteIdentity = identity("remote")
 
+        let expectation = expectSessionEvent(in: harness) { event in
+            guard let peer = self.devicesChangedPeer(from: event) else { return false }
+            return peer == Peer(identity: remoteIdentity, status: .connected)
+        }
+
         harness.coordinator.addPendingConnection(connection, direction: .outbound)
         harness.coordinator.receiveFrame(handshakeFrame(remoteIdentity), from: connection)
+        await fulfillment(of: [expectation], timeout: 1)
 
         XCTAssertEqual(harness.coordinator.connectedPeers, [Peer(identity: remoteIdentity, status: .connected)])
         let peer = try XCTUnwrap(devicesChangedPeer(from: harness.sessionEvents.last))
@@ -55,23 +61,29 @@ final class NetworkPeerCoordinatorTests : XCTestCase {
         XCTAssertEqual(peer.status, .connected)
     }
 
-    internal func testDataFrameEmitsSessionDataEventForRegisteredPeer() throws {
-        let harness = makeHarness()
+    internal func testDataFrameEmitsSessionDataEventForRegisteredPeer() async throws {
+        let harness = await makeHarness()
         let connection = MockCoordinatorConnection()
         let remoteIdentity = identity("remote")
         let payload = Data([1, 2, 3])
 
+        let expectation = expectSessionEvent(in: harness) { event in
+            guard let received = self.receivedData(from: event) else { return false }
+            return received.peer == Peer(identity: remoteIdentity, status: .connected) && received.data == payload
+        }
+
         harness.coordinator.addPendingConnection(connection, direction: .outbound)
         harness.coordinator.receiveFrame(handshakeFrame(remoteIdentity), from: connection)
         harness.coordinator.receiveFrame(PeerNetworkFrame(kind: .data, payload: payload), from: connection)
+        await fulfillment(of: [expectation], timeout: 1)
 
-        let received = try XCTUnwrap(receivedData(from: harness.sessionEvents.last))
+        let received = try XCTUnwrap(harness.sessionEvents.reversed().compactMap { receivedData(from: $0) }.first)
         XCTAssertEqual(received.peer, Peer(identity: remoteIdentity, status: .connected))
         XCTAssertEqual(received.data, payload)
     }
 
-    internal func testSendDataUsesRegisteredPeerConnections() {
-        let harness = makeHarness()
+    internal func testSendDataUsesRegisteredPeerConnections() async {
+        let harness = await makeHarness()
         let connection = MockCoordinatorConnection()
         let remoteIdentity = identity("remote")
         let payload = Data([4, 5, 6])
@@ -84,29 +96,42 @@ final class NetworkPeerCoordinatorTests : XCTestCase {
         XCTAssertEqual(connection.sentFrames, [PeerNetworkFrame(kind: .data, payload: payload)])
     }
 
-    internal func testRemoveConnectionEmitsNotConnectedEvent() throws {
-        let harness = makeHarness()
+    internal func testRemoveConnectionEmitsNotConnectedEvent() async throws {
+        let harness = await makeHarness()
         let connection = MockCoordinatorConnection()
         let remoteIdentity = identity("remote")
+
+        let expectation = expectSessionEvent(in: harness) { event in
+            guard let peer = self.devicesChangedPeer(from: event) else { return false }
+            return peer == Peer(identity: remoteIdentity, status: .notConnected)
+        }
 
         harness.coordinator.addPendingConnection(connection, direction: .outbound)
         harness.coordinator.receiveFrame(handshakeFrame(remoteIdentity), from: connection)
         harness.coordinator.removeConnection(connection)
+        await fulfillment(of: [expectation], timeout: 1)
 
         XCTAssertTrue(harness.coordinator.connectedPeers.isEmpty)
-        let peer = try XCTUnwrap(devicesChangedPeer(from: harness.sessionEvents.last))
+        let peer = try XCTUnwrap(harness.sessionEvents.compactMap { devicesChangedPeer(from: $0) }
+            .first { $0.status == .notConnected })
         XCTAssertEqual(peer, Peer(identity: remoteIdentity, status: .notConnected))
         XCTAssertEqual(peer.status, .notConnected)
     }
 
-    internal func testRemovingDuplicateLoserDoesNotRemoveWinningConnection() throws {
-        let harness = makeHarness(localIdentifier: "zlocal")
+    internal func testRemovingDuplicateLoserDoesNotRemoveWinningConnection() async throws {
+        let harness = await makeHarness(localIdentifier: "zlocal")
         let outbound = MockCoordinatorConnection()
         let inbound = MockCoordinatorConnection()
         let remoteIdentity = identity("remote")
 
+        let connectedExpectation = expectSessionEvent(in: harness) { event in
+            guard let peer = self.devicesChangedPeer(from: event) else { return false }
+            return peer == Peer(identity: remoteIdentity, status: .connected)
+        }
+
         harness.coordinator.addPendingConnection(outbound, direction: .outbound)
         harness.coordinator.receiveFrame(handshakeFrame(remoteIdentity), from: outbound)
+        await fulfillment(of: [connectedExpectation], timeout: 1)
         let sessionEventCount = harness.sessionEvents.count
         harness.coordinator.addPendingConnection(inbound, direction: .inbound)
         harness.coordinator.receiveFrame(handshakeFrame(remoteIdentity), from: inbound)
@@ -116,15 +141,22 @@ final class NetworkPeerCoordinatorTests : XCTestCase {
         XCTAssertEqual(harness.sessionEvents.count, sessionEventCount)
         XCTAssertEqual(harness.coordinator.connectedPeers, [Peer(identity: remoteIdentity, status: .connected)])
 
+        let disconnectedExpectation = expectSessionEvent(in: harness) { event in
+            guard let peer = self.devicesChangedPeer(from: event) else { return false }
+            return peer == Peer(identity: remoteIdentity, status: .notConnected)
+        }
+
         harness.coordinator.removeConnection(inbound)
+        await fulfillment(of: [disconnectedExpectation], timeout: 1)
 
         XCTAssertTrue(harness.coordinator.connectedPeers.isEmpty)
-        let peer = try XCTUnwrap(devicesChangedPeer(from: harness.sessionEvents.last))
+        let peer = try XCTUnwrap(harness.sessionEvents.compactMap { devicesChangedPeer(from: $0) }
+            .first { $0.status == .notConnected })
         XCTAssertEqual(peer, Peer(identity: remoteIdentity, status: .notConnected))
     }
 
-    internal func testCancelAllConnectionsCancelsPendingAndRegisteredConnections() {
-        let harness = makeHarness()
+    internal func testCancelAllConnectionsCancelsPendingAndRegisteredConnections() async {
+        let harness = await makeHarness()
         let pending = MockCoordinatorConnection()
         let registered = MockCoordinatorConnection()
 
@@ -138,8 +170,8 @@ final class NetworkPeerCoordinatorTests : XCTestCase {
         XCTAssertTrue(harness.coordinator.connectedPeers.isEmpty)
     }
 
-    internal func testInvalidHandshakeCancelsPendingConnection() {
-        let harness = makeHarness()
+    internal func testInvalidHandshakeCancelsPendingConnection() async {
+        let harness = await makeHarness()
         let connection = MockCoordinatorConnection()
 
         harness.coordinator.addPendingConnection(connection, direction: .outbound)
@@ -149,8 +181,8 @@ final class NetworkPeerCoordinatorTests : XCTestCase {
         XCTAssertTrue(harness.coordinator.connectedPeers.isEmpty)
     }
 
-    internal func testSelfHandshakeCancelsPendingConnection() {
-        let harness = makeHarness()
+    internal func testSelfHandshakeCancelsPendingConnection() async {
+        let harness = await makeHarness()
         let connection = MockCoordinatorConnection()
 
         harness.coordinator.addPendingConnection(connection, direction: .outbound)
@@ -160,8 +192,8 @@ final class NetworkPeerCoordinatorTests : XCTestCase {
         XCTAssertTrue(harness.coordinator.connectedPeers.isEmpty)
     }
 
-    internal func testSelfDiscoveryIsIgnored() {
-        let harness = makeHarness()
+    internal func testSelfDiscoveryIsIgnored() async {
+        let harness = await makeHarness()
         let browserEventCount = harness.browserEvents.count
 
         harness.coordinator.foundPeer(identity: harness.localPeer.identity)
@@ -170,21 +202,45 @@ final class NetworkPeerCoordinatorTests : XCTestCase {
         XCTAssertEqual(harness.browserEvents.count, browserEventCount)
     }
 
-    internal func testFoundAndLostPeerEmitBrowserEvents() throws {
-        let harness = makeHarness()
+    internal func testFoundAndLostPeerEmitBrowserEvents() async throws {
+        let harness = await makeHarness()
         let remoteIdentity = identity("remote")
 
+        let foundExpectation = expectBrowserEvent(in: harness) { event in
+            return self.foundPeer(from: event) == Peer(identity: remoteIdentity, status: .notConnected)
+        }
+
         harness.coordinator.foundPeer(identity: remoteIdentity)
-        let foundPeer = try XCTUnwrap(foundPeer(from: harness.browserEvents.last))
-        XCTAssertEqual(foundPeer, Peer(identity: remoteIdentity, status: .notConnected))
+        await fulfillment(of: [foundExpectation], timeout: 1)
+        let found = try XCTUnwrap(foundPeer(from: harness.browserEvents.last))
+        XCTAssertEqual(found, Peer(identity: remoteIdentity, status: .notConnected))
+
+        let lostExpectation = expectBrowserEvent(in: harness) { event in
+            return self.lostPeer(from: event) == Peer(identity: remoteIdentity, status: .notConnected)
+        }
 
         harness.coordinator.lostPeer(identity: remoteIdentity)
-        let lostPeer = try XCTUnwrap(lostPeer(from: harness.browserEvents.last))
-        XCTAssertEqual(lostPeer, Peer(identity: remoteIdentity, status: .notConnected))
+        await fulfillment(of: [lostExpectation], timeout: 1)
+        let lost = try XCTUnwrap(lostPeer(from: harness.browserEvents.last))
+        XCTAssertEqual(lost, Peer(identity: remoteIdentity, status: .notConnected))
     }
 
-    private func makeHarness(localIdentifier: String = "local") -> Harness {
-        return Harness(localPeer: Peer(identity: identity(localIdentifier), status: .currentUser))
+    private func expectSessionEvent(in harness: Harness, matching predicate: @escaping (PeerSessionEvent) -> Bool) -> XCTestExpectation {
+        let expectation = expectation(description: "Session event received")
+        harness.sessionEventPredicates.append((predicate, expectation))
+        return expectation
+    }
+
+    private func expectBrowserEvent(in harness: Harness, matching predicate: @escaping (PeerBrowserEvent) -> Bool) -> XCTestExpectation {
+        let expectation = expectation(description: "Browser event received")
+        harness.browserEventPredicates.append((predicate, expectation))
+        return expectation
+    }
+
+    private func makeHarness(localIdentifier: String = "local") async -> Harness {
+        let harness = Harness(localPeer: Peer(identity: identity(localIdentifier), status: .currentUser))
+        await harness.observeEvents()
+        return harness
     }
 
     private func handshakeFrame(_ identity: PeerIdentity) -> PeerNetworkFrame {
@@ -231,6 +287,8 @@ private final class Harness {
     internal let localPeer : Peer
     internal private(set) var sessionEvents : [PeerSessionEvent] = []
     internal private(set) var browserEvents : [PeerBrowserEvent] = []
+    internal var sessionEventPredicates : [((PeerSessionEvent) -> Bool, XCTestExpectation)] = []
+    internal var browserEventPredicates : [((PeerBrowserEvent) -> Bool, XCTestExpectation)] = []
 
     internal init(localPeer: Peer) {
         let sessionObserver = Observable<PeerSessionEvent>(.none)
@@ -242,7 +300,39 @@ private final class Harness {
             browserObserver: browserObserver
         )
 
-        sessionObserver.addObserver { [weak self] in self?.sessionEvents.append($0) }
-        browserObserver.addObserver { [weak self] in self?.browserEvents.append($0) }
+        self.sessionObserver = sessionObserver
+        self.browserObserver = browserObserver
+    }
+
+    fileprivate let sessionObserver : Observable<PeerSessionEvent>
+    fileprivate let browserObserver : Observable<PeerBrowserEvent>
+
+    internal func observeEvents() async {
+        await sessionObserver.addObserverAsync { [weak self] event in
+            self?.sessionEvents.append(event)
+            self?.fulfillSessionExpectations(matching: event)
+        }
+        await browserObserver.addObserverAsync { [weak self] event in
+            self?.browserEvents.append(event)
+            self?.fulfillBrowserExpectations(matching: event)
+        }
+    }
+
+    fileprivate func fulfillSessionExpectations(matching event: PeerSessionEvent) {
+        for index in sessionEventPredicates.indices.reversed() {
+            let (predicate, expectation) = sessionEventPredicates[index]
+            guard predicate(event) else { continue }
+            sessionEventPredicates.remove(at: index)
+            expectation.fulfill()
+        }
+    }
+
+    fileprivate func fulfillBrowserExpectations(matching event: PeerBrowserEvent) {
+        for index in browserEventPredicates.indices.reversed() {
+            let (predicate, expectation) = browserEventPredicates[index]
+            guard predicate(event) else { continue }
+            browserEventPredicates.remove(at: index)
+            expectation.fulfill()
+        }
     }
 }

@@ -72,7 +72,7 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
             guard let identity = connectionIdentities.removeValue(forKey: identifier) else { return }
             guard registry.connection(for: identity) === connection else { return }
             registry.remove(identity: identity)
-            sessionObserver.value = .devicesChanged(peer: Peer(identity: identity, status: .notConnected))
+            sessionObserver.update(.devicesChanged(peer: Peer(identity: identity, status: .notConnected)))
         }
     }
 
@@ -90,7 +90,7 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
             guard identity != localPeer.identity else { return }
             let peer = Peer(identity: identity, status: .notConnected)
             discoveredPeers[identity] = peer
-            browserObserver.value = .foundPeer(peer, discoveryInfo: nil)
+            browserObserver.update(.foundPeer(peer, discoveryInfo: nil))
         }
     }
 
@@ -98,7 +98,7 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
         queue.sync {
             guard identity != localPeer.identity else { return }
             let peer = discoveredPeers.removeValue(forKey: identity) ?? Peer(identity: identity, status: .notConnected)
-            browserObserver.value = .lostPeer(peer)
+            browserObserver.update(.lostPeer(peer))
         }
     }
 
@@ -124,7 +124,7 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
         removeConnectionIdentity(for: handshake.identity)
         connectionIdentities[identifier] = handshake.identity
         guard !wasConnected else { return }
-        sessionObserver.value = .devicesChanged(peer: Peer(identity: handshake.identity, status: .connected))
+        sessionObserver.update(.devicesChanged(peer: Peer(identity: handshake.identity, status: .connected)))
     }
 
     fileprivate func rejectHandshake(from connection: Connection) {
@@ -138,7 +138,7 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
 
     fileprivate func receiveData(_ data: Data, from connection: Connection) {
         guard let identity = connectionIdentities[ObjectIdentifier(connection)] else { return }
-        sessionObserver.value = .didReceiveData(peer: Peer(identity: identity, status: .connected), data: data)
+        sessionObserver.update(.didReceiveData(peer: Peer(identity: identity, status: .connected), data: data))
     }
 
     fileprivate func sendHandshake(on connection: Connection) {

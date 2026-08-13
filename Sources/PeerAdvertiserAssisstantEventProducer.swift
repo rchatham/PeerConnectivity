@@ -29,12 +29,12 @@ extension PeerAdvertiserAssisstantEventProducer: MCAdvertiserAssistantDelegate {
     internal func advertiserAssistantDidDismissInvitation(_ advertiserAssistant: MCAdvertiserAssistant) {
         
         let event: PeerAdvertiserAssisstantEvent = .didDissmissInvitation
-        self.observer.value = event
+        self.observer.update(event)
     }
     
     internal func advertiserAssistantWillPresentInvitation(_ advertiserAssistant: MCAdvertiserAssistant) {
         
         let event: PeerAdvertiserAssisstantEvent = .willPresentInvitation
-        self.observer.value = event
+        self.observer.update(event)
     }
 }
