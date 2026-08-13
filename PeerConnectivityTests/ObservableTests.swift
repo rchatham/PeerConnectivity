@@ -17,10 +17,9 @@ class ObservableTests: XCTestCase {
         let observable = Observable<Int>(7)
         var received : [Int] = []
 
-        observable.addObserver { value in
+        await observable.addObserverAsync { value in
             received.append(value)
         }
-        try? await Task.sleep(nanoseconds: 10_000_000)
 
         XCTAssertEqual(received, [7])
     }
@@ -29,11 +28,10 @@ class ObservableTests: XCTestCase {
         let observable = Observable<String>("initial")
         var received : [String] = []
 
-        observable.addObserver { value in
+        await observable.addObserverAsync { value in
             received.append(value)
         }
-        observable.update("updated")
-        try? await Task.sleep(nanoseconds: 10_000_000)
+        await observable.updateAsync("updated")
 
         XCTAssertEqual(received, ["initial", "updated"])
     }
@@ -43,14 +41,13 @@ class ObservableTests: XCTestCase {
         var first : [Int] = []
         var second : [Int] = []
 
-        observable.addObserver { value in
+        await observable.addObserverAsync { value in
             first.append(value)
         }
-        observable.addObserver { value in
+        await observable.addObserverAsync { value in
             second.append(value)
         }
-        observable.update(1)
-        try? await Task.sleep(nanoseconds: 10_000_000)
+        await observable.updateAsync(1)
 
         XCTAssertEqual(first, [0, 1])
         XCTAssertEqual(second, [0, 1])
@@ -60,10 +57,9 @@ class ObservableTests: XCTestCase {
         let observable = Observable<String>("ready")
         var received : [String] = []
 
-        observable.addObserver({ value in
+        await observable.addObserverAsync({ value in
             received.append(value)
         }, key: "listener")
-        try? await Task.sleep(nanoseconds: 10_000_000)
 
         XCTAssertEqual(received, ["ready"])
     }
@@ -73,14 +69,13 @@ class ObservableTests: XCTestCase {
         var first : [Int] = []
         var replacement : [Int] = []
 
-        observable.addObserver({ value in
+        await observable.addObserverAsync({ value in
             first.append(value)
         }, key: "duplicate")
-        observable.addObserver({ value in
+        await observable.addObserverAsync({ value in
             replacement.append(value)
         }, key: "duplicate")
-        observable.update(2)
-        try? await Task.sleep(nanoseconds: 10_000_000)
+        await observable.updateAsync(2)
 
         XCTAssertEqual(first, [1])
         XCTAssertEqual(replacement, [1, 2])
@@ -90,13 +85,26 @@ class ObservableTests: XCTestCase {
         let observable = Observable<Int>(1)
         var received : [Int] = []
 
-        observable.addObserver({ value in
+        await observable.addObserverAsync({ value in
             received.append(value)
         }, key: "listener")
-        observable.removeObserver(forKey: "listener")
-        observable.update(2)
-        try? await Task.sleep(nanoseconds: 10_000_000)
+        await observable.removeObserverAsync(forKey: "listener")
+        await observable.updateAsync(2)
 
         XCTAssertEqual(received, [1])
+    }
+
+    func testObservableNonisolatedAddObserverNotifiesObserver() async throws {
+        let observable = Observable<Int>(3)
+        let expectation = expectation(description: "observer notified")
+        var received : [Int] = []
+
+        observable.addObserver { value in
+            received.append(value)
+            expectation.fulfill()
+        }
+
+        await fulfillment(of: [expectation], timeout: 1)
+        XCTAssertEqual(received, [3])
     }
 }

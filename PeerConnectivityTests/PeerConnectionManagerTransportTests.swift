@@ -142,8 +142,7 @@ final class PeerConnectionManagerTransportTests : XCTestCase {
             displayName: "Local",
             transportFactory: harness.factory)
 
-        manager.startBrowsingOnly()
-        try? await Task.sleep(nanoseconds: 10_000_000)
+        await startBrowsingOnly(manager)
 
         XCTAssertEqual(harness.session?.startSessionCallCount, 1)
         XCTAssertEqual(harness.browser.startBrowsingCallCount, 1)
@@ -189,9 +188,8 @@ final class PeerConnectionManagerTransportTests : XCTestCase {
             }
         }, performListenerInBackground: true, withKey: "received-data")
 
-        manager.startBrowsingOnly()
-        try? await Task.sleep(nanoseconds: 10_000_000)
-        harness.sessionObserver?.update(.didReceiveData(peer: manager.peer, data: data))
+        await startBrowsingOnly(manager)
+        await harness.sessionObserver?.updateAsync(.didReceiveData(peer: manager.peer, data: data))
 
         await fulfillment(of: [expectation], timeout: 1)
     }
@@ -212,9 +210,8 @@ final class PeerConnectionManagerTransportTests : XCTestCase {
             }
         }, performListenerInBackground: true, withKey: "found-peer")
 
-        manager.startBrowsingOnly()
-        try? await Task.sleep(nanoseconds: 10_000_000)
-        harness.browserObserver?.update(.foundPeer(manager.peer, discoveryInfo: nil))
+        await startBrowsingOnly(manager)
+        await harness.browserObserver?.updateAsync(.foundPeer(manager.peer, discoveryInfo: nil))
 
         await fulfillment(of: [expectation], timeout: 1)
     }
@@ -235,12 +232,18 @@ final class PeerConnectionManagerTransportTests : XCTestCase {
             }
         }, performListenerInBackground: true, withKey: "received-data")
 
-        manager.startBrowsingOnly()
-        try? await Task.sleep(nanoseconds: 10_000_000)
+        await startBrowsingOnly(manager)
         manager.stop()
-        harness.sessionObserver?.update(.didReceiveData(peer: manager.peer, data: Data([7, 8, 9])))
-        try? await Task.sleep(nanoseconds: 10_000_000)
+        await harness.sessionObserver?.updateAsync(.didReceiveData(peer: manager.peer, data: Data([7, 8, 9])))
 
         await fulfillment(of: [expectation], timeout: 0.1)
+    }
+
+    private func startBrowsingOnly(_ manager: PeerConnectionManager) async {
+        let expectation = expectation(description: "Manager started browsing only")
+        manager.startBrowsingOnly {
+            expectation.fulfill()
+        }
+        await fulfillment(of: [expectation], timeout: 1)
     }
 }

@@ -267,9 +267,8 @@ private final class Harness {
     fileprivate let advertiserObserver : Observable<PeerAdvertiserEvent>
 
     internal func observeEvents() async {
-        sessionObserver.addObserver { [weak self] in self?.sessionEvents.append($0) }
-        browserObserver.addObserver { [weak self] in self?.browserEvents.append($0) }
-        advertiserObserver.addObserver { [weak self] in self?.advertiserEvents.append($0) }
-        try? await Task.sleep(nanoseconds: 10_000_000)
+        await sessionObserver.addObserverAsync { [weak self] in self?.sessionEvents.append($0) }
+        await browserObserver.addObserverAsync { [weak self] in self?.browserEvents.append($0) }
+        await advertiserObserver.addObserverAsync { [weak self] in self?.advertiserEvents.append($0) }
     }
 }

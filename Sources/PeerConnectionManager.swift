@@ -591,25 +591,27 @@ extension PeerConnectionManager {
 
     private func startCurrentMode(_ completion: (() -> Void)? = nil) {
         advanceTransportEventGeneration()
+        let generation = currentTransportEventGeneration()
+        let mode = startupMode
 
-        switch startupMode {
-        case .advertisingAndBrowsing:
-            prepareForStart(includeBrowserObservers: true, includeAdvertiserObservers: true)
-            startConfiguredSession(shouldBrowse: true, shouldAdvertise: true, completion)
-        case .browsingOnly:
-            prepareForStart(includeBrowserObservers: true, includeAdvertiserObservers: false)
-            startConfiguredSession(shouldBrowse: true, shouldAdvertise: false, completion)
-        case .advertisingOnly:
-            prepareForStart(includeBrowserObservers: false, includeAdvertiserObservers: true)
-            startConfiguredSession(shouldBrowse: false, shouldAdvertise: true, completion)
+        Task {
+            switch mode {
+            case .advertisingAndBrowsing:
+                await prepareForStart(includeBrowserObservers: true, includeAdvertiserObservers: true, generation: generation)
+                await startConfiguredSession(shouldBrowse: true, shouldAdvertise: true, generation: generation, completion)
+            case .browsingOnly:
+                await prepareForStart(includeBrowserObservers: true, includeAdvertiserObservers: false, generation: generation)
+                await startConfiguredSession(shouldBrowse: true, shouldAdvertise: false, generation: generation, completion)
+            case .advertisingOnly:
+                await prepareForStart(includeBrowserObservers: false, includeAdvertiserObservers: true, generation: generation)
+                await startConfiguredSession(shouldBrowse: false, shouldAdvertise: true, generation: generation, completion)
+            }
         }
     }
 
-    private func prepareForStart(includeBrowserObservers: Bool, includeAdvertiserObservers: Bool) {
-        let generation = currentTransportEventGeneration()
-
+    private func prepareForStart(includeBrowserObservers: Bool, includeAdvertiserObservers: Bool, generation: Int) async {
         if includeBrowserObservers {
-            browserObserver.addObserver { [weak self] event in
+            await browserObserver.addObserverAsync { [weak self] event in
                 guard self?.isCurrentTransportEventGeneration(generation) == true else { return }
 
                 switch event {
@@ -626,7 +628,7 @@ extension PeerConnectionManager {
         }
 
         if includeAdvertiserObservers {
-            advertiserObserver.addObserver { [weak self] event in
+            await advertiserObserver.addObserverAsync { [weak self] event in
                 guard self?.isCurrentTransportEventGeneration(generation) == true else { return }
 
                 switch event {
@@ -639,7 +641,7 @@ extension PeerConnectionManager {
             }
         }
 
-        sessionObserver.addObserver { [weak self] event in
+        await sessionObserver.addObserverAsync { [weak self] event in
             guard self?.isCurrentTransportEventGeneration(generation) == true else { return }
 
             switch event {
@@ -677,7 +679,7 @@ extension PeerConnectionManager {
         }
 
         if includeBrowserObservers {
-            browserObserver.addObserver { [weak self] event in
+            await browserObserver.addObserverAsync { [weak self] event in
                 guard self?.isCurrentTransportEventGeneration(generation) == true else { return }
 
                 DispatchQueue.main.async {
@@ -696,7 +698,7 @@ extension PeerConnectionManager {
             }
         }
 
-        sessionObserver.addObserver { [weak self] event in
+        await sessionObserver.addObserverAsync { [weak self] event in
             guard self?.isCurrentTransportEventGeneration(generation) == true else { return }
 
             DispatchQueue.main.async {
@@ -716,30 +718,31 @@ extension PeerConnectionManager {
         }
     }
 
-    private func startConfiguredSession(shouldBrowse: Bool, shouldAdvertise: Bool, _ completion: (() -> Void)? = nil) {
-        let generation = currentTransportEventGeneration()
+    private func startConfiguredSession(
+        shouldBrowse: Bool,
+        shouldAdvertise: Bool,
+        generation: Int,
+        _ completion: (() -> Void)? = nil
+    ) async {
+        guard isCurrentTransportEventGeneration(generation) else {
+            completion?()
+            return
+        }
 
         switch connectionType {
         case .automatic:
             if shouldBrowse {
-                browserObserver.addObserver { [weak self] event in
-                    guard self?.isCurrentTransportEventGeneration(generation) == true else { return }
-
-                    DispatchQueue.main.async {
-                        guard self?.isCurrentTransportEventGeneration(generation) == true else { return }
-
-                        switch event {
-                        case .foundPeer(let peer, _):
-                            self?.browser.invitePeer(peer)
-                        default: break
-                        }
-                    }
-                }
+                await prepareAutomaticInviteObserver(generation: generation)
             }
         case .inviteOnly where shouldAdvertise:
             advertiserAssisstant.startAdvertisingAssisstant()
         case .inviteOnly, .custom:
             break
+        }
+
+        guard isCurrentTransportEventGeneration(generation) else {
+            completion?()
+            return
         }
 
         session.startSession()
@@ -752,6 +755,22 @@ extension PeerConnectionManager {
 
         emit(.started)
         completion?()
+    }
+
+    private func prepareAutomaticInviteObserver(generation: Int) async {
+        await browserObserver.addObserverAsync { [weak self] event in
+            guard self?.isCurrentTransportEventGeneration(generation) == true else { return }
+
+            DispatchQueue.main.async {
+                guard self?.isCurrentTransportEventGeneration(generation) == true else { return }
+
+                switch event {
+                case .foundPeer(let peer, _):
+                    self?.browser.invitePeer(peer)
+                default: break
+                }
+            }
+        }
     }
 }
 
