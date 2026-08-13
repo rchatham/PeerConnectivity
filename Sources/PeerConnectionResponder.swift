@@ -134,7 +134,7 @@ internal class PeerConnectionResponder {
     }
     
     @discardableResult internal func addListener(_ listener: @escaping PeerConnectionEventListener, forKey key: String) -> PeerConnectionResponder {
-        listeners[key] = listener
+        storeListener(listener, forKey: key)
         peerEventObserver.addObserver(listener, key: key)
         return self
     }
@@ -145,22 +145,40 @@ internal class PeerConnectionResponder {
     }
     
     internal func removeAllListeners() {
-        listeners = [:]
+        removeStoredListeners()
         peerEventObserver.removeAllObservers()
     }
 
     internal func removeAllListenersAsync() async {
-        listeners = [:]
+        removeStoredListeners()
         await peerEventObserver.removeAllObserversAsync()
     }
     
     internal func removeListenerForKey(_ key: String) {
-        listeners.removeValue(forKey: key)
+        removeStoredListener(forKey: key)
         peerEventObserver.removeObserver(forKey: key)
     }
 
     internal func removeListenerForKeyAsync(_ key: String) async {
-        listeners.removeValue(forKey: key)
+        removeStoredListener(forKey: key)
         await peerEventObserver.removeObserverAsync(forKey: key)
+    }
+
+    fileprivate func storeListener(_ listener: @escaping PeerConnectionEventListener, forKey key: String) {
+        listenersLock.lock()
+        storedListeners[key] = listener
+        listenersLock.unlock()
+    }
+
+    fileprivate func removeStoredListener(forKey key: String) {
+        listenersLock.lock()
+        storedListeners.removeValue(forKey: key)
+        listenersLock.unlock()
+    }
+
+    fileprivate func removeStoredListeners() {
+        listenersLock.lock()
+        storedListeners.removeAll()
+        listenersLock.unlock()
     }
 }
