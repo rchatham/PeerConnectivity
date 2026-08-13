@@ -665,7 +665,7 @@ extension PeerConnectionManager {
      Stop the current connection manager from listening to delegate callbacks and disconnects from the current session.
      */
     public func stop() {
-        advanceTransportEventGeneration()
+        let stoppedGeneration = advanceTransportEventGeneration()
         emit(.ended)
         
         session.stopSession()
@@ -674,10 +674,7 @@ extension PeerConnectionManager {
         advertiserAssisstant.stopAdvertisingAssisstant()
         foundPeers = []
         
-        sessionObserver.removeAllObservers()
-        browserObserver.removeAllObservers()
-        advertiserObserver.removeAllObservers()
-        advertiserAssisstantObserver.removeAllObservers()
+        removeTransportObservers(for: stoppedGeneration)
         sessionObserver.update(.none)
         browserObserver.update(.none)
         advertiserObserver.update(.none)
@@ -704,10 +701,13 @@ extension PeerConnectionManager {
         observer.update(event)
     }
 
-    private func advanceTransportEventGeneration() {
+    @discardableResult
+    private func advanceTransportEventGeneration() -> Int {
         transportEventGenerationLock.lock()
+        let previousGeneration = transportEventGeneration
         transportEventGeneration += 1
         transportEventGenerationLock.unlock()
+        return previousGeneration
     }
 
     private func currentTransportEventGeneration() -> Int {
@@ -721,8 +721,22 @@ extension PeerConnectionManager {
         return currentTransportEventGeneration() == generation
     }
 
+    private func transportObserverKey(_ role: String, generation: Int) -> String {
+        return "PeerConnectionManager.\(role).\(generation)"
+    }
+
+    private func removeTransportObservers(for generation: Int) {
+        sessionObserver.removeObserver(forKey: transportObserverKey("session-events", generation: generation))
+        sessionObserver.removeObserver(forKey: transportObserverKey("session-refresh", generation: generation))
+        browserObserver.removeObserver(forKey: transportObserverKey("browser-events", generation: generation))
+        browserObserver.removeObserver(forKey: transportObserverKey("browser-found-peers", generation: generation))
+        browserObserver.removeObserver(forKey: transportObserverKey("browser-automatic-invite", generation: generation))
+        advertiserObserver.removeObserver(forKey: transportObserverKey("advertiser-events", generation: generation))
+    }
+
     private func startCurrentMode(_ completion: (() -> Void)? = nil) {
-        advanceTransportEventGeneration()
+        let previousGeneration = advanceTransportEventGeneration()
+        removeTransportObservers(for: previousGeneration)
         let generation = currentTransportEventGeneration()
         let mode = startupMode
 
@@ -743,7 +757,7 @@ extension PeerConnectionManager {
 
     private func prepareForStart(includeBrowserObservers: Bool, includeAdvertiserObservers: Bool, generation: Int) async {
         if includeBrowserObservers {
-            await browserObserver.addObserverAsync { [weak self] event in
+            await browserObserver.addObserverAsync({ [weak self] event in
                 guard self?.isCurrentTransportEventGeneration(generation) == true else { return }
 
                 switch event {
@@ -756,11 +770,11 @@ extension PeerConnectionManager {
                     self?.emit(.error(error))
                 default: break
                 }
-            }
+            }, key: transportObserverKey("browser-events", generation: generation))
         }
 
         if includeAdvertiserObservers {
-            await advertiserObserver.addObserverAsync { [weak self] event in
+            await advertiserObserver.addObserverAsync({ [weak self] event in
                 guard self?.isCurrentTransportEventGeneration(generation) == true else { return }
 
                 switch event {
@@ -770,10 +784,10 @@ extension PeerConnectionManager {
                     self?.emit(.error(error))
                 default: break
                 }
-            }
+            }, key: transportObserverKey("advertiser-events", generation: generation))
         }
 
-        await sessionObserver.addObserverAsync { [weak self] event in
+        await sessionObserver.addObserverAsync({ [weak self] event in
             guard self?.isCurrentTransportEventGeneration(generation) == true else { return }
 
             switch event {
@@ -808,10 +822,10 @@ extension PeerConnectionManager {
                 self?.emit(.finishedReceivingResource(peer: peer, name: name, url: url, error: error))
             default: break
             }
-        }
+        }, key: transportObserverKey("session-events", generation: generation))
 
         if includeBrowserObservers {
-            await browserObserver.addObserverAsync { [weak self] event in
+            await browserObserver.addObserverAsync({ [weak self] event in
                 guard self?.isCurrentTransportEventGeneration(generation) == true else { return }
 
                 DispatchQueue.main.async {
@@ -827,10 +841,10 @@ extension PeerConnectionManager {
                     default: break
                     }
                 }
-            }
+            }, key: transportObserverKey("browser-found-peers", generation: generation))
         }
 
-        await sessionObserver.addObserverAsync { [weak self] event in
+        await sessionObserver.addObserverAsync({ [weak self] event in
             guard self?.isCurrentTransportEventGeneration(generation) == true else { return }
 
             DispatchQueue.main.async {
@@ -848,7 +862,7 @@ extension PeerConnectionManager {
                 default: break
                 }
             }
-        }
+        }, key: transportObserverKey("session-refresh", generation: generation))
     }
 
     private func startConfiguredSession(
@@ -891,7 +905,7 @@ extension PeerConnectionManager {
     }
 
     private func prepareAutomaticInviteObserver(generation: Int) async {
-        await browserObserver.addObserverAsync { [weak self] event in
+        await browserObserver.addObserverAsync({ [weak self] event in
             guard self?.isCurrentTransportEventGeneration(generation) == true else { return }
 
             DispatchQueue.main.async {
@@ -903,7 +917,7 @@ extension PeerConnectionManager {
                 default: break
                 }
             }
-        }
+        }, key: transportObserverKey("browser-automatic-invite", generation: generation))
     }
 }
 
