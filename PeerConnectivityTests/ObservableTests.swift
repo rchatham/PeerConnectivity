@@ -108,6 +108,67 @@ class ObservableTests: XCTestCase {
         XCTAssertEqual(received, [3])
     }
 
+    func testObservableAsyncOperationsCompleteAfterActorMutation() async {
+        let observable = Observable<Int>(0)
+        var received : [Int] = []
+
+        let generatedKey = await observable.addObserverAsync { received.append($0) }
+        var observerCount = await observable.observerCount
+        XCTAssertEqual(observerCount, 1)
+        XCTAssertEqual(received, [0])
+
+        await observable.updateAsync(1)
+        let value = await observable.value
+        XCTAssertEqual(value, 1)
+        XCTAssertEqual(received, [0, 1])
+
+        await observable.addObserverAsync({ _ in }, key: "keyed")
+        observerCount = await observable.observerCount
+        XCTAssertEqual(observerCount, 2)
+
+        await observable.removeObserverAsync(forKey: generatedKey)
+        observerCount = await observable.observerCount
+        XCTAssertEqual(observerCount, 1)
+
+        await observable.removeAllObserversAsync()
+        observerCount = await observable.observerCount
+        XCTAssertEqual(observerCount, 0)
+    }
+
+    func testObservableEventPumpDoesNotRetainObservable() async {
+        weak var releasedObservable : Observable<Int>?
+
+        do {
+            let observable = Observable<Int>(0)
+            releasedObservable = observable
+            await observable.flush()
+        }
+
+        for _ in 0..<10 where releasedObservable != nil {
+            await Task.yield()
+        }
+
+        XCTAssertNil(releasedObservable)
+    }
+
+    func testObservableAsyncOperationWaitsForEarlierSynchronousOperations() async {
+        let observable = Observable<Int>(0)
+        var received : [Int] = []
+
+        observable.addObserver({ received.append($0) }, key: "listener")
+        observable.update(1)
+        await observable.updateAsync(2)
+
+        XCTAssertEqual(received, [0, 1, 2])
+
+        observable.removeObserver(forKey: "listener")
+        await observable.updateAsync(3)
+
+        let value = await observable.value
+        XCTAssertEqual(received, [0, 1, 2])
+        XCTAssertEqual(value, 3)
+    }
+
     func testObservableSynchronousLifecycleAndUpdatesRemainFIFO() async {
         let observable = Observable<Int>(0)
         var received : [Int] = []
