@@ -340,6 +340,7 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.rchatham.PeerConnectivityDemo;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) PEER_CONNECTIVITY_DEMO";
 				SWIFT_VERSION = 5.0;
 			};
 			name = Debug;
@@ -357,6 +358,7 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.rchatham.PeerConnectivityDemo;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited) PEER_CONNECTIVITY_DEMO";
 				SWIFT_VERSION = 5.0;
 			};
 			name = Release;

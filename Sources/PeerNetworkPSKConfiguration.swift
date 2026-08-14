@@ -7,7 +7,7 @@
 //
 
 import Foundation
-#if canImport(PeerConnectivity)
+#if PEER_CONNECTIVITY_DEMO
 import PeerConnectivity
 #endif
 
