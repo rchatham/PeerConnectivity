@@ -9,6 +9,24 @@
 import Foundation
 import MultipeerConnectivity
 
+/// Transfers an immutable value across a known dispatch-queue boundary.
+fileprivate final class SendableTransfer<Value> : @unchecked Sendable {
+    fileprivate let value : Value
+
+    fileprivate init(_ value: Value) {
+        self.value = value
+    }
+}
+
+/// Transfers a weak reference across a known dispatch-queue boundary.
+fileprivate final class WeakSendableTransfer<Value: AnyObject> : @unchecked Sendable {
+    fileprivate weak var value : Value?
+
+    fileprivate init(_ value: Value?) {
+        self.value = value
+    }
+}
+
 /**
  The service type describing the channel over which connections are made.
 
@@ -171,7 +189,7 @@ public class PeerConnectionManager {
      This is exposed for platform-specific helper packages such as `PeerConnectivityUI`.
      */
     public var multipeerSession : MCSession {
-        return session.session
+        return session.multipeerSession
     }
 
     /**
@@ -190,7 +208,7 @@ public class PeerConnectionManager {
      */
     public fileprivate(set) var foundPeers: [Peer] = [] {
         didSet {
-            observer.value = .nearbyPeersChanged(foundPeers: foundPeers)
+            emit(.nearbyPeersChanged(foundPeers: foundPeers))
         }
     }
     
@@ -199,22 +217,19 @@ public class PeerConnectionManager {
     fileprivate let serviceType : ServiceType
     fileprivate var startupMode : PeerConnectionStartupMode = .advertisingAndBrowsing
     
-    fileprivate let observer = MultiObservable<PeerConnectionEvent>(.ready)
+    fileprivate let observer = Observable<PeerConnectionEvent>(.ready)
     
     fileprivate let sessionObserver = Observable<PeerSessionEvent>(.none)
     fileprivate let browserObserver = Observable<PeerBrowserEvent>(.none)
     fileprivate let advertiserObserver = Observable<PeerAdvertiserEvent>(.none)
     fileprivate let advertiserAssisstantObserver = Observable<PeerAdvertiserAssisstantEvent>(.none)
     
-    fileprivate let sessionEventProducer : PeerSessionEventProducer
-    fileprivate let browserEventProducer : PeerBrowserEventProducer
-    fileprivate let advertiserEventProducer : PeerAdvertiserEventProducer
-    fileprivate let advertiserAssisstantEventProducer : PeerAdvertiserAssisstantEventProducer
-    
-    fileprivate let session : PeerSession
-    fileprivate let browser : PeerBrowser
-    fileprivate let advertiser : PeerAdvertiser
-    fileprivate let advertiserAssisstant : PeerAdvertiserAssisstant
+    fileprivate let session : PeerSessionTransport
+    fileprivate let browser : PeerBrowserTransport
+    fileprivate let advertiser : PeerAdvertiserTransport
+    fileprivate let advertiserAssisstant : PeerAdvertiserAssisstantTransport
+    fileprivate let transportEventGenerationLock = NSLock()
+    fileprivate var transportEventGeneration = 0
     
     fileprivate let responder : PeerConnectionResponder
     
@@ -232,7 +247,7 @@ public class PeerConnectionManager {
      
      - Returns: A fully initialized `PeerConnectionManager`.
      */
-    public init(serviceType: ServiceType,
+    public convenience init(serviceType: ServiceType,
                 connectionType: PeerConnectionType = .automatic,
                 displayName: String = {
                     #if os(macOS)
@@ -244,32 +259,59 @@ public class PeerConnectionManager {
                 securityConfiguration: PeerSecurityConfiguration = .default,
                 discoveryInfo: PeerDiscoveryInfo? = nil,
                 invitationPolicy: PeerInvitationPolicy = .acceptAll) {
-        
+        self.init(serviceType: serviceType,
+            connectionType: connectionType,
+            displayName: displayName,
+            securityConfiguration: securityConfiguration,
+            discoveryInfo: discoveryInfo,
+            invitationPolicy: invitationPolicy,
+            transportFactory: .multipeerConnectivity,
+            shouldRegisterSharedManager: true)
+    }
+
+    internal convenience init(serviceType: ServiceType,
+        connectionType: PeerConnectionType = .automatic,
+        displayName: String,
+        securityConfiguration: PeerSecurityConfiguration = .default,
+        discoveryInfo: PeerDiscoveryInfo? = nil,
+        invitationPolicy: PeerInvitationPolicy = .acceptAll,
+        transportFactory: PeerConnectionTransportFactory) {
+        self.init(serviceType: serviceType,
+            connectionType: connectionType,
+            displayName: displayName,
+            securityConfiguration: securityConfiguration,
+            discoveryInfo: discoveryInfo,
+            invitationPolicy: invitationPolicy,
+            transportFactory: transportFactory,
+            shouldRegisterSharedManager: false)
+    }
+
+    fileprivate init(serviceType: ServiceType,
+        connectionType: PeerConnectionType,
+        displayName: String,
+        securityConfiguration: PeerSecurityConfiguration,
+        discoveryInfo: PeerDiscoveryInfo?,
+        invitationPolicy: PeerInvitationPolicy,
+        transportFactory: PeerConnectionTransportFactory,
+        shouldRegisterSharedManager: Bool) {
         self.connectionType = connectionType
         self.serviceType = serviceType
         self.peer = Peer(displayName: displayName)
         self.securityConfiguration = securityConfiguration
         self.discoveryInfo = discoveryInfo
         self.invitationPolicy = invitationPolicy
-        
-        sessionEventProducer = PeerSessionEventProducer(observer: sessionObserver)
-        browserEventProducer = PeerBrowserEventProducer(observer: browserObserver)
-        advertiserEventProducer = PeerAdvertiserEventProducer(observer: advertiserObserver)
-        advertiserAssisstantEventProducer = PeerAdvertiserAssisstantEventProducer(observer: advertiserAssisstantObserver)
-        
-        session = PeerSession(peer: peer, securityConfiguration: securityConfiguration, eventProducer: sessionEventProducer)
-        browser = PeerBrowser(session: session, serviceType: serviceType, eventProducer: browserEventProducer)
-        advertiser = PeerAdvertiser(session: session,
-                                    serviceType: serviceType,
-                                    discoveryInfo: discoveryInfo,
-                                    eventProducer: advertiserEventProducer)
-        advertiserAssisstant = PeerAdvertiserAssisstant(session: session,
-                                                        serviceType: serviceType,
-                                                        discoveryInfo: discoveryInfo,
-                                                        eventProducer: advertiserAssisstantEventProducer)
-        
+
+        session = transportFactory.makeSession(peer, securityConfiguration, sessionObserver)
+        browser = transportFactory.makeBrowser(session, serviceType, browserObserver)
+        advertiser = transportFactory.makeAdvertiser(session, serviceType, discoveryInfo, advertiserObserver)
+        advertiserAssisstant = transportFactory.makeAdvertiserAssisstant(session,
+                                                                         serviceType,
+                                                                         discoveryInfo,
+                                                                         advertiserAssisstantObserver)
+
         responder = PeerConnectionResponder(observer: observer)
-        
+
+        guard shouldRegisterSharedManager else { return }
         // Prevent mingling signals from the same device
         if let existing = PeerConnectionManager.shared[serviceType] {
             existing.stop()
@@ -298,12 +340,12 @@ public class PeerConnectionManager {
             certificateHandler(peer, certificate, handler)
         }
 
-        observer.value = .receivedCertificate(peer: peer, certificate: certificate, handler: { _ in })
+        emit(.receivedCertificate(peer: peer, certificate: certificate, handler: { _ in }))
     }
 
     internal func handleInvitation(peer: Peer,
                                    context: Data?,
-                                   invitationHandler: @escaping (Bool, PeerSession) -> Void) {
+                                   invitationHandler: @escaping (Bool, PeerSessionTransport) -> Void) {
         let completeInvitation = { [weak self] (accept: Bool) -> Void in
             guard let strongSelf = self else { return }
             invitationHandler(accept, strongSelf.session)
@@ -313,31 +355,31 @@ public class PeerConnectionManager {
         }
 
         guard connectionType == .automatic else {
-            observer.value = .receivedInvitation(peer: peer,
-                                                 withContext: context,
-                                                 invitationHandler: completeInvitation)
+            emit(.receivedInvitation(peer: peer,
+                                     withContext: context,
+                                     invitationHandler: completeInvitation))
             return
         }
 
         switch invitationPolicy {
         case .manual:
-            observer.value = .receivedInvitation(peer: peer,
-                                                 withContext: context,
-                                                 invitationHandler: completeInvitation)
+            emit(.receivedInvitation(peer: peer,
+                                     withContext: context,
+                                     invitationHandler: completeInvitation))
         case .acceptAll:
-            observer.value = .receivedInvitation(peer: peer,
-                                                 withContext: context,
-                                                 invitationHandler: { _ in })
+            emit(.receivedInvitation(peer: peer,
+                                     withContext: context,
+                                     invitationHandler: { _ in }))
             completeInvitation(true)
         case .rejectAll:
-            observer.value = .receivedInvitation(peer: peer,
-                                                 withContext: context,
-                                                 invitationHandler: { _ in })
+            emit(.receivedInvitation(peer: peer,
+                                     withContext: context,
+                                     invitationHandler: { _ in }))
             completeInvitation(false)
         case .custom(let invitationPolicy):
-            observer.value = .receivedInvitation(peer: peer,
-                                                 withContext: context,
-                                                 invitationHandler: { _ in })
+            emit(.receivedInvitation(peer: peer,
+                                     withContext: context,
+                                     invitationHandler: { _ in }))
             completeInvitation(invitationPolicy(peer, context))
         }
     }
@@ -509,7 +551,8 @@ extension PeerConnectionManager {
      Stop the current connection manager from listening to delegate callbacks and disconnects from the current session.
      */
     public func stop() {
-        observer.value = .ended
+        let stoppedGeneration = advanceTransportEventGeneration()
+        emit(.ended)
         
         session.stopSession()
         browser.stopBrowsing()
@@ -517,17 +560,13 @@ extension PeerConnectionManager {
         advertiserAssisstant.stopAdvertisingAssisstant()
         foundPeers = []
         
-        sessionObserver.observers = []
-        browserObserver.observers = []
-        advertiserObserver.observers = []
-        advertiserAssisstantObserver.observers = []
+        removeTransportObservers(for: stoppedGeneration)
+        sessionObserver.update(.none)
+        browserObserver.update(.none)
+        advertiserObserver.update(.none)
+        advertiserAssisstantObserver.update(.none)
         
-        sessionObserver.value = .none
-        browserObserver.value = .none
-        advertiserObserver.value = .none
-        advertiserAssisstantObserver.value = .none
-        
-        observer.value = .ready
+        emit(.ready)
     }
     
     /**
@@ -544,62 +583,112 @@ extension PeerConnectionManager {
         browser.startBrowsing()
     }
 
+    private func emit(_ event: PeerConnectionEvent) {
+        observer.update(event)
+    }
+
+    @discardableResult
+    private func advanceTransportEventGeneration() -> Int {
+        transportEventGenerationLock.lock()
+        let previousGeneration = transportEventGeneration
+        transportEventGeneration += 1
+        transportEventGenerationLock.unlock()
+        return previousGeneration
+    }
+
+    private func currentTransportEventGeneration() -> Int {
+        transportEventGenerationLock.lock()
+        let generation = transportEventGeneration
+        transportEventGenerationLock.unlock()
+        return generation
+    }
+
+    private func isCurrentTransportEventGeneration(_ generation: Int) -> Bool {
+        return currentTransportEventGeneration() == generation
+    }
+
+    private func transportObserverKey(_ role: String, generation: Int) -> String {
+        return "PeerConnectionManager.\(role).\(generation)"
+    }
+
+    private func removeTransportObservers(for generation: Int) {
+        sessionObserver.removeObserver(forKey: transportObserverKey("session-events", generation: generation))
+        sessionObserver.removeObserver(forKey: transportObserverKey("session-refresh", generation: generation))
+        browserObserver.removeObserver(forKey: transportObserverKey("browser-events", generation: generation))
+        browserObserver.removeObserver(forKey: transportObserverKey("browser-found-peers", generation: generation))
+        browserObserver.removeObserver(forKey: transportObserverKey("browser-automatic-invite", generation: generation))
+        advertiserObserver.removeObserver(forKey: transportObserverKey("advertiser-events", generation: generation))
+    }
+
     private func startCurrentMode(_ completion: (() -> Void)? = nil) {
-        switch startupMode {
-        case .advertisingAndBrowsing:
-            prepareForStart(includeBrowserObservers: true, includeAdvertiserObservers: true)
-            startConfiguredSession(shouldBrowse: true, shouldAdvertise: true, completion)
-        case .browsingOnly:
-            prepareForStart(includeBrowserObservers: true, includeAdvertiserObservers: false)
-            startConfiguredSession(shouldBrowse: true, shouldAdvertise: false, completion)
-        case .advertisingOnly:
-            prepareForStart(includeBrowserObservers: false, includeAdvertiserObservers: true)
-            startConfiguredSession(shouldBrowse: false, shouldAdvertise: true, completion)
+        let previousGeneration = advanceTransportEventGeneration()
+        removeTransportObservers(for: previousGeneration)
+        let generation = currentTransportEventGeneration()
+        let mode = startupMode
+
+        Task {
+            switch mode {
+            case .advertisingAndBrowsing:
+                await prepareForStart(includeBrowserObservers: true, includeAdvertiserObservers: true, generation: generation)
+                await startConfiguredSession(shouldBrowse: true, shouldAdvertise: true, generation: generation, completion)
+            case .browsingOnly:
+                await prepareForStart(includeBrowserObservers: true, includeAdvertiserObservers: false, generation: generation)
+                await startConfiguredSession(shouldBrowse: true, shouldAdvertise: false, generation: generation, completion)
+            case .advertisingOnly:
+                await prepareForStart(includeBrowserObservers: false, includeAdvertiserObservers: true, generation: generation)
+                await startConfiguredSession(shouldBrowse: false, shouldAdvertise: true, generation: generation, completion)
+            }
         }
     }
 
-    private func prepareForStart(includeBrowserObservers: Bool, includeAdvertiserObservers: Bool) {
+    private func prepareForStart(includeBrowserObservers: Bool, includeAdvertiserObservers: Bool, generation: Int) async {
         if includeBrowserObservers {
-            browserObserver.addObserver { [weak self] event in
+            await browserObserver.addObserverAsync({ [weak self] event in
+                guard self?.isCurrentTransportEventGeneration(generation) == true else { return }
+
                 switch event {
                 case .foundPeer(let peer, let discoveryInfo):
-                    self?.observer.value = .foundPeer(peer: peer)
-                    self?.observer.value = .foundPeerWithDiscoveryInfo(peer: peer, discoveryInfo: discoveryInfo)
+                    self?.emit(.foundPeer(peer: peer))
+                    self?.emit(.foundPeerWithDiscoveryInfo(peer: peer, discoveryInfo: discoveryInfo))
                 case .lostPeer(let peer):
-                    self?.observer.value = .lostPeer(peer: peer)
+                    self?.emit(.lostPeer(peer: peer))
                 case .didNotStartBrowsingForPeers(let error):
-                    self?.observer.value = .error(error)
+                    self?.emit(.error(error))
                 default: break
                 }
-            }
+            }, key: transportObserverKey("browser-events", generation: generation))
         }
 
         if includeAdvertiserObservers {
-            advertiserObserver.addObserver { [weak self] event in
+            await advertiserObserver.addObserverAsync({ [weak self] event in
+                guard self?.isCurrentTransportEventGeneration(generation) == true else { return }
+
                 switch event {
                 case .didReceiveInvitationFromPeer(peer: let peer, withContext: let context, invitationHandler: let invite):
                     self?.handleInvitation(peer: peer, context: context, invitationHandler: invite)
                 case .didNotStartAdvertisingPeer(let error):
-                    self?.observer.value = .error(error)
+                    self?.emit(.error(error))
                 default: break
                 }
-            }
+            }, key: transportObserverKey("advertiser-events", generation: generation))
         }
 
-        sessionObserver.addObserver { [weak self] event in
+        await sessionObserver.addObserverAsync({ [weak self] event in
+            guard self?.isCurrentTransportEventGeneration(generation) == true else { return }
+
             switch event {
             case .devicesChanged(peer: let peer):
                 guard let connectedPeers = self?.connectedPeers else { break }
-                self?.observer.value = .devicesChanged(peer: peer, connectedPeers: connectedPeers)
+                self?.emit(.devicesChanged(peer: peer, connectedPeers: connectedPeers))
             case .didReceiveData(peer: let peer, data: let data):
-                self?.observer.value = .receivedData(peer: peer, data: data)
+                self?.emit(.receivedData(peer: peer, data: data))
 
                 // Try modern JSON envelope first (from sendMessage)
                 if let envelope = try? JSONDecoder().decode([String: Data].self, from: data),
                    let typeData = envelope["type"],
                    let messageType = String(data: typeData, encoding: .utf8),
                    let payload = envelope["payload"] {
-                    self?.observer.value = .receivedMessage(peer: peer, messageType: messageType, data: payload)
+                    self?.emit(.receivedMessage(peer: peer, messageType: messageType, data: payload))
                     return
                 }
 
@@ -608,70 +697,90 @@ extension PeerConnectionManager {
                     ofClasses: [NSDictionary.self, NSArray.self, NSString.self, NSNumber.self, NSDate.self, NSData.self],
                     from: data
                 ) as? [String: Any] else { return }
-                self?.observer.value = .receivedEvent(peer: peer, eventInfo: eventInfo)
+                self?.emit(.receivedEvent(peer: peer, eventInfo: eventInfo))
             case .didReceiveCertificate(peer: let peer, certificate: let certificate, handler: let handler):
                 self?.handleCertificate(peer: peer, certificate: certificate, handler: handler)
             case .didReceiveStream(peer: let peer, stream: let stream, name: let name):
-                self?.observer.value = .receivedStream(peer: peer, stream: stream, name: name)
+                self?.emit(.receivedStream(peer: peer, stream: stream, name: name))
             case .startedReceivingResource(peer: let peer, name: let name, progress: let progress):
-                self?.observer.value = .startedReceivingResource(peer: peer, name: name, progress: progress)
+                self?.emit(.startedReceivingResource(peer: peer, name: name, progress: progress))
             case .finishedReceivingResource(peer: let peer, name: let name, url: let url, error: let error):
-                self?.observer.value = .finishedReceivingResource(peer: peer, name: name, url: url, error: error)
+                self?.emit(.finishedReceivingResource(peer: peer, name: name, url: url, error: error))
             default: break
             }
-        }
+        }, key: transportObserverKey("session-events", generation: generation))
 
         if includeBrowserObservers {
-            browserObserver.addObserver { [weak self] event in
+            await browserObserver.addObserverAsync({ [weak self] event in
+                guard self?.isCurrentTransportEventGeneration(generation) == true else { return }
+
+                let managerTransfer = WeakSendableTransfer(self)
+                let eventTransfer = SendableTransfer(event)
                 DispatchQueue.main.async {
-                    switch event {
+                    guard let manager = managerTransfer.value,
+                          manager.isCurrentTransportEventGeneration(generation) else { return }
+
+                    switch eventTransfer.value {
                     case .foundPeer(let peer, _):
-                        guard let peers = self?.foundPeers , !peers.contains(peer) else { break }
-                        self?.foundPeers.append(peer)
+                        guard !manager.foundPeers.contains(peer) else { break }
+                        manager.foundPeers.append(peer)
                     case .lostPeer(let peer):
-                        guard let index = self?.foundPeers.firstIndex(of: peer) else { break }
-                        self?.foundPeers.remove(at: index)
+                        guard let index = manager.foundPeers.firstIndex(of: peer) else { break }
+                        manager.foundPeers.remove(at: index)
                     default: break
                     }
                 }
-            }
+            }, key: transportObserverKey("browser-found-peers", generation: generation))
         }
 
-        sessionObserver.addObserver { [weak self] event in
-            DispatchQueue.main.async {
-                guard let peerCount = self?.connectedPeers.count else { return }
+        await sessionObserver.addObserverAsync({ [weak self] event in
+            guard self?.isCurrentTransportEventGeneration(generation) == true else { return }
 
-                switch event {
+            let managerTransfer = WeakSendableTransfer(self)
+            let eventTransfer = SendableTransfer(event)
+            DispatchQueue.main.async {
+                guard let manager = managerTransfer.value,
+                      manager.isCurrentTransportEventGeneration(generation) else { return }
+                let peerCount = manager.connectedPeers.count
+
+                switch eventTransfer.value {
                 case .devicesChanged(peer: let peer) where peerCount <= 0:
                     switch peer.status {
                     case .notConnected:
-                        self?.refresh()
+                        manager.refresh()
                     default: break
                     }
                 default: break
                 }
             }
-        }
+        }, key: transportObserverKey("session-refresh", generation: generation))
     }
 
-    private func startConfiguredSession(shouldBrowse: Bool, shouldAdvertise: Bool, _ completion: (() -> Void)? = nil) {
+    private func startConfiguredSession(
+        shouldBrowse: Bool,
+        shouldAdvertise: Bool,
+        generation: Int,
+        _ completion: (() -> Void)? = nil
+    ) async {
+        guard isCurrentTransportEventGeneration(generation) else {
+            completion?()
+            return
+        }
+
         switch connectionType {
         case .automatic:
             if shouldBrowse {
-                browserObserver.addObserver { [unowned self] event in
-                    DispatchQueue.main.async {
-                        switch event {
-                        case .foundPeer(let peer, _):
-                            self.browser.invitePeer(peer)
-                        default: break
-                        }
-                    }
-                }
+                await prepareAutomaticInviteObserver(generation: generation)
             }
         case .inviteOnly where shouldAdvertise:
             advertiserAssisstant.startAdvertisingAssisstant()
         case .inviteOnly, .custom:
             break
+        }
+
+        guard isCurrentTransportEventGeneration(generation) else {
+            completion?()
+            return
         }
 
         session.startSession()
@@ -682,8 +791,27 @@ extension PeerConnectionManager {
             advertiser.startAdvertising()
         }
 
-        observer.value = .started
+        emit(.started)
         completion?()
+    }
+
+    private func prepareAutomaticInviteObserver(generation: Int) async {
+        await browserObserver.addObserverAsync({ [weak self] event in
+            guard self?.isCurrentTransportEventGeneration(generation) == true else { return }
+
+            let managerTransfer = WeakSendableTransfer(self)
+            let eventTransfer = SendableTransfer(event)
+            DispatchQueue.main.async {
+                guard let manager = managerTransfer.value,
+                      manager.isCurrentTransportEventGeneration(generation) else { return }
+
+                switch eventTransfer.value {
+                case .foundPeer(let peer, _):
+                    manager.browser.invitePeer(peer)
+                default: break
+                }
+            }
+        }, key: transportObserverKey("browser-automatic-invite", generation: generation))
     }
 }
 
@@ -692,6 +820,9 @@ extension PeerConnectionManager {
     
     /**
      Takes a `PeerConnectionEventListener` to respond to events.
+
+     Event delivery is asynchronous. Back-to-back events emitted from synchronous
+     call sites are delivered in FIFO submission order.
      
      - parameter listener: Takes a `PeerConnectionEventListener`.
      - parameter performListenerInBackground: Default is `false`. Set to `true` to perform the listener asyncronously.
@@ -777,11 +908,19 @@ extension PeerConnectionManager {
     public func removeListenerForKey(_ key: String) {
         responder.removeListenerForKey(key)
     }
+
+    internal func removeListenerForKeyAsync(_ key: String) async {
+        await responder.removeListenerForKeyAsync(key)
+    }
     
     /**
      Remove all listeners.
      */
     public func removeAllListeners() {
         responder.removeAllListeners()
+    }
+
+    internal func removeAllListenersAsync() async {
+        await responder.removeAllListenersAsync()
     }
 }
