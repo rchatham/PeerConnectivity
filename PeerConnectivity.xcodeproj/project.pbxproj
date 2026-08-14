@@ -45,6 +45,8 @@
 		30NETADAPTTEST2607302 /* NetworkPeerTransportAdapterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30NETADAPTTEST2607301 /* NetworkPeerTransportAdapterTests.swift */; };
 		30BACKENDTEST2607302 /* PeerConnectionBackendTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30BACKENDTEST2607301 /* PeerConnectionBackendTests.swift */; };
 		30LOOPBACKTEST2608062 /* NetworkPeerLoopbackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30LOOPBACKTEST2608061 /* NetworkPeerLoopbackTests.swift */; };
+		30BROWSERMODEL2608082 /* PeerBrowserModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30BROWSERMODEL2608081 /* PeerBrowserModel.swift */; };
+		30BROWSERMODELTEST2608082 /* PeerBrowserModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30BROWSERMODELTEST2608081 /* PeerBrowserModelTests.swift */; };
 		30SECURITY26060300000001 /* PeerSecurityConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30SECURITY26060300000002 /* PeerSecurityConfiguration.swift */; };
 		30SECURITY26060300000003 /* PeerSecurityConfigurationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30SECURITY26060300000004 /* PeerSecurityConfigurationTests.swift */; };
 		B20000022F30600000000001 /* ObservableTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000022F30600000000002 /* ObservableTests.swift */; };
@@ -83,6 +85,8 @@
 		30NETADAPTTEST2607301 /* NetworkPeerTransportAdapterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkPeerTransportAdapterTests.swift; sourceTree = "<group>"; };
 		30BACKENDTEST2607301 /* PeerConnectionBackendTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeerConnectionBackendTests.swift; sourceTree = "<group>"; };
 		30LOOPBACKTEST2608061 /* NetworkPeerLoopbackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkPeerLoopbackTests.swift; sourceTree = "<group>"; };
+		30BROWSERMODEL2608081 /* PeerBrowserModel.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = PeerBrowserModel.swift; path = Sources/PeerBrowserModel.swift; sourceTree = "<group>"; };
+		30BROWSERMODELTEST2608081 /* PeerBrowserModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeerBrowserModelTests.swift; sourceTree = "<group>"; };
 		B20000022F30600000000002 /* ObservableTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservableTests.swift; sourceTree = "<group>"; };
 		B20000022F30600000000004 /* PeerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeerTests.swift; sourceTree = "<group>"; };
 		3080C7DB1D80A1D600AF9EA3 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = Sources/Info.plist; sourceTree = "<group>"; };
@@ -147,6 +151,7 @@
 				3080C7E11D80A1D600AF9EA3 /* PeerAdvertiserAssisstantEventProducer.swift */,
 				3080C7E21D80A1D600AF9EA3 /* PeerAdvertiserEventProducer.swift */,
 				3080C7E31D80A1D600AF9EA3 /* PeerBrowser.swift */,
+				30BROWSERMODEL2608081 /* PeerBrowserModel.swift */,
 				3080C7E41D80A1D600AF9EA3 /* PeerBrowserAssisstant.swift */,
 				3080C7E51D80A1D600AF9EA3 /* PeerBrowserEventProducer.swift */,
 				3080C7E61D80A1D600AF9EA3 /* PeerBrowserViewControllerEventProducer.swift */,
@@ -194,6 +199,7 @@
 				30NETADAPTTEST2607301 /* NetworkPeerTransportAdapterTests.swift */,
 				30BACKENDTEST2607301 /* PeerConnectionBackendTests.swift */,
 				30LOOPBACKTEST2608061 /* NetworkPeerLoopbackTests.swift */,
+				30BROWSERMODELTEST2608081 /* PeerBrowserModelTests.swift */,
 				30PEERMSG2602020000000001 /* PeerMessageTests.swift */,
 				30SECURITY26060300000004 /* PeerSecurityConfigurationTests.swift */,
 				B20000022F30600000000002 /* ObservableTests.swift */,
@@ -333,6 +339,7 @@
 				30TRANS2606230000000002 /* PeerConnectionTransports.swift in Sources */,
 				3080C7F71D80A1D700AF9EA3 /* PeerBrowserViewControllerEventProducer.swift in Sources */,
 				3080C7F41D80A1D700AF9EA3 /* PeerBrowser.swift in Sources */,
+				30BROWSERMODEL2608082 /* PeerBrowserModel.swift in Sources */,
 				3080C7F31D80A1D700AF9EA3 /* PeerAdvertiserEventProducer.swift in Sources */,
 				3080C7FC1D80A1D700AF9EA3 /* PeerSessionEventProducer.swift in Sources */,
 				3080C7F51D80A1D700AF9EA3 /* PeerBrowserAssisstant.swift in Sources */,
@@ -359,6 +366,7 @@
 				30NETADAPTTEST2607302 /* NetworkPeerTransportAdapterTests.swift in Sources */,
 				30BACKENDTEST2607302 /* PeerConnectionBackendTests.swift in Sources */,
 				30LOOPBACKTEST2608062 /* NetworkPeerLoopbackTests.swift in Sources */,
+				30BROWSERMODELTEST2608082 /* PeerBrowserModelTests.swift in Sources */,
 				30PEERMSG2602020000000002 /* PeerMessageTests.swift in Sources */,
 				30SECURITY26060300000003 /* PeerSecurityConfigurationTests.swift in Sources */,
 				B20000022F30600000000001 /* ObservableTests.swift in Sources */,

@@ -47,14 +47,20 @@ public enum PeerConnectionEvent {
     case receivedMessage(peer: Peer, messageType: String, data: Data)
     /**
      Data stream received from `Peer`.
+
+     This event is MultipeerConnectivity-only and is not emitted by the current Network backend.
      */
     case receivedStream(peer: Peer, stream: Stream, name: String)
     /**
      Started receiving a resource from `Peer` with name and `NSProgress`.
+
+     This event is MultipeerConnectivity-only and is not emitted by the current Network backend.
      */
     case startedReceivingResource(peer: Peer, name: String, progress: Progress)
     /**
      Finished receiving resource from `Peer` with name at url with optional error.
+
+     This event is MultipeerConnectivity-only and is not emitted by the current Network backend.
      */
     case finishedReceivingResource(peer: Peer, name: String, url: URL?, error: Error?)
     /**
@@ -135,10 +141,15 @@ internal class PeerConnectionResponder {
     
     @discardableResult internal func addListener(_ listener: @escaping PeerConnectionEventListener, forKey key: String) -> PeerConnectionResponder {
         storeListener(listener, forKey: key)
-        peerEventObserver.addObserver(listener, key: key)
+        peerEventObserver.addObserver(listener, key: key, replayCurrentValue: false)
         return self
     }
     
+    internal func addListenerAsync(_ listener: @escaping PeerConnectionEventListener, forKey key: String) async {
+        storeListener(listener, forKey: key)
+        await peerEventObserver.addObserverAsync(listener, key: key, replayCurrentValue: false)
+    }
+
     @discardableResult internal func addListeners(_ listeners: [String:PeerConnectionEventListener]) -> PeerConnectionResponder {
         listeners.forEach { addListener($0.1, forKey: $0.0) }
         return self
@@ -162,6 +173,10 @@ internal class PeerConnectionResponder {
     internal func removeListenerForKeyAsync(_ key: String) async {
         removeStoredListener(forKey: key)
         await peerEventObserver.removeObserverAsync(forKey: key)
+    }
+
+    internal func listenerCountAsync() async -> Int {
+        return await peerEventObserver.observerCount
     }
 
     fileprivate func storeListener(_ listener: @escaping PeerConnectionEventListener, forKey key: String) {

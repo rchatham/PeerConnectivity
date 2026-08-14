@@ -283,7 +283,7 @@ final class PeerConnectionManagerTransportTests : XCTestCase {
         startsCompleted.expectedFulfillmentCount = 100
         var lifecycleEvents : [String] = []
 
-        manager.listenOn({ event in
+        await manager.listenOnAsync({ event in
             switch event {
             case .ready: lifecycleEvents.append("ready")
             case .started: lifecycleEvents.append("started")
@@ -302,7 +302,7 @@ final class PeerConnectionManagerTransportTests : XCTestCase {
         await fulfillment(of: [startsCompleted], timeout: 2)
         await manager.removeListenerForKeyAsync("lifecycle")
 
-        let expected = ["ready"] + Array(repeating: ["ended", "ready"], count: 100).flatMap { $0 }
+        let expected = Array(repeating: ["ended", "ready"], count: 100).flatMap { $0 }
         XCTAssertEqual(lifecycleEvents, expected)
     }
 
