@@ -125,6 +125,15 @@ peers advertise Bonjour TXT record values.
 
 ## API Compatibility Notes
 
+### Network backend discovery metadata limitation
+
+The opt-in `.networkFramework` backend does **not** currently support app-provided
+`discoveryInfo`. A value passed to `PeerConnectionManager` is retained as configuration but
+ignored by Network advertising; the backend's Bonjour TXT record contains only reserved
+internal peer identity fields. Peers discovered through the Network backend therefore emit
+`foundPeerWithDiscoveryInfo(peer:discoveryInfo:)` with `discoveryInfo == nil`. Use the default
+`.multipeerConnectivity` backend when application discovery metadata is required.
+
 `PeerConnectionEvent.foundPeer(peer:)` is still emitted for existing listeners. When
 advertised discovery metadata is available, PeerConnectivity also emits
 `foundPeerWithDiscoveryInfo(peer:discoveryInfo:)`; listeners should handle one of these
