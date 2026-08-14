@@ -145,6 +145,11 @@ internal class PeerConnectionResponder {
         return self
     }
     
+    internal func addListenerAsync(_ listener: @escaping PeerConnectionEventListener, forKey key: String) async {
+        storeListener(listener, forKey: key)
+        await peerEventObserver.addObserverAsync(listener, key: key)
+    }
+
     @discardableResult internal func addListeners(_ listeners: [String:PeerConnectionEventListener]) -> PeerConnectionResponder {
         listeners.forEach { addListener($0.1, forKey: $0.0) }
         return self
@@ -168,6 +173,10 @@ internal class PeerConnectionResponder {
     internal func removeListenerForKeyAsync(_ key: String) async {
         removeStoredListener(forKey: key)
         await peerEventObserver.removeObserverAsync(forKey: key)
+    }
+
+    internal func listenerCountAsync() async -> Int {
+        return await peerEventObserver.observerCount
     }
 
     fileprivate func storeListener(_ listener: @escaping PeerConnectionEventListener, forKey key: String) {

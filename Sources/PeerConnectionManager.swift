@@ -961,6 +961,21 @@ extension PeerConnectionManager {
         }
     }
     
+    internal func listenOnAsync(_ listener: @escaping PeerConnectionEventListener,
+        performListenerInBackground background: Bool,
+        withKey key: String) async {
+        switch background {
+        case true:
+            await responder.addListenerAsync(listener, forKey: key)
+        case false:
+            await responder.addListenerAsync({ event in
+                DispatchQueue.main.async {
+                    listener(event)
+                }
+            }, forKey: key)
+        }
+    }
+
     /**
      Takes a key to register the callback and calls the listener when an event is recieved and also passes back the `Peer` that sent it.
 
@@ -1030,6 +1045,10 @@ extension PeerConnectionManager {
 
     internal func removeListenerForKeyAsync(_ key: String) async {
         await responder.removeListenerForKeyAsync(key)
+    }
+
+    internal func listenerCountAsync() async -> Int {
+        return await responder.listenerCountAsync()
     }
     
     /**
