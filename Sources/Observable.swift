@@ -11,6 +11,14 @@ import Foundation
 internal actor Observable<T> {
     internal typealias Observer = (T) -> Void
 
+    fileprivate enum Operation {
+        case addObserver(Observer, key: String, completion: CheckedContinuation<Void, Never>?)
+        case removeObserver(key: String, completion: CheckedContinuation<Void, Never>?)
+        case removeAllObservers(completion: CheckedContinuation<Void, Never>?)
+        case update(T, completion: CheckedContinuation<Void, Never>?)
+        case barrier(CheckedContinuation<Void, Never>)
+    }
+
     internal private(set) var value : T {
         didSet {
             observers.values.forEach { observer in
@@ -20,20 +28,36 @@ internal actor Observable<T> {
     }
 
     fileprivate var observers : [String:Observer] = [:]
+    nonisolated fileprivate let operationContinuation : AsyncStream<Operation>.Continuation
+    nonisolated(unsafe) fileprivate var eventPump : Task<Void, Never>?
 
     internal var observerCount : Int {
         return observers.count
     }
 
     internal init(_ v: T) {
+        let (operations, continuation) = AsyncStream.makeStream(of: Operation.self)
+
         value = v
+        operationContinuation = continuation
+        eventPump = nil
+        eventPump = Task { [weak self] in
+            for await operation in operations {
+                guard let self = self else { break }
+                await self.perform(operation)
+            }
+        }
+    }
+
+    deinit {
+        operationContinuation.finish()
+        eventPump?.cancel()
     }
 
     /// Schedules observer registration from synchronous callers.
     ///
-    /// This simple actor bridge does not guarantee FIFO ordering between separate
-    /// synchronous calls because each call is bridged through its own `Task`. Use
-    /// the async methods below when a caller must wait for a mutation to apply.
+    /// Synchronous submissions enter the actor's operation stream so observer
+    /// lifecycle changes and updates are applied in call order without blocking.
     @discardableResult
     nonisolated internal func addObserver(_ observer: @escaping Observer) -> String {
         let key = UUID().uuidString
@@ -42,42 +66,90 @@ internal actor Observable<T> {
     }
 
     nonisolated internal func addObserver(_ observer: @escaping Observer, key: String) {
-        Task { await addObserverAsync(observer, key: key) }
+        operationContinuation.yield(.addObserver(observer, key: key, completion: nil))
     }
 
     nonisolated internal func removeObserver(forKey key: String) {
-        Task { await removeObserverAsync(forKey: key) }
+        operationContinuation.yield(.removeObserver(key: key, completion: nil))
     }
 
     nonisolated internal func removeAllObservers() {
-        Task { await removeAllObserversAsync() }
+        operationContinuation.yield(.removeAllObservers(completion: nil))
     }
 
     nonisolated internal func update(_ newValue: T) {
-        Task { await updateAsync(newValue) }
+        operationContinuation.yield(.update(newValue, completion: nil))
     }
 
     @discardableResult
-    internal func addObserverAsync(_ observer: @escaping Observer) -> String {
+    nonisolated internal func addObserverAsync(_ observer: @escaping Observer) async -> String {
         let key = UUID().uuidString
-        addObserverAsync(observer, key: key)
+        await addObserverAsync(observer, key: key)
         return key
     }
 
-    internal func addObserverAsync(_ observer: @escaping Observer, key: String) {
-        storeObserver(observer, key: key)
+    nonisolated internal func addObserverAsync(_ observer: @escaping Observer, key: String) async {
+        await enqueueAndWait { completion in
+            .addObserver(observer, key: key, completion: completion)
+        }
     }
 
-    internal func removeObserverAsync(forKey key: String) {
-        removeStoredObserver(forKey: key)
+    nonisolated internal func removeObserverAsync(forKey key: String) async {
+        await enqueueAndWait { completion in
+            .removeObserver(key: key, completion: completion)
+        }
     }
 
-    internal func removeAllObserversAsync() {
-        removeStoredObservers()
+    nonisolated internal func removeAllObserversAsync() async {
+        await enqueueAndWait { completion in
+            .removeAllObservers(completion: completion)
+        }
     }
 
-    internal func updateAsync(_ newValue: T) {
-        setValue(newValue)
+    nonisolated internal func updateAsync(_ newValue: T) async {
+        await enqueueAndWait { completion in
+            .update(newValue, completion: completion)
+        }
+    }
+
+    nonisolated internal func flush() async {
+        await enqueueAndWait { completion in
+            .barrier(completion)
+        }
+    }
+
+    nonisolated fileprivate func enqueueAndWait(
+        _ makeOperation: (CheckedContinuation<Void, Never>) -> Operation
+    ) async {
+        await withCheckedContinuation { completion in
+            switch operationContinuation.yield(makeOperation(completion)) {
+            case .enqueued:
+                break
+            case .dropped, .terminated:
+                completion.resume()
+            @unknown default:
+                completion.resume()
+            }
+        }
+    }
+
+    fileprivate func perform(_ operation: Operation) {
+        switch operation {
+        case let .addObserver(observer, key, completion):
+            storeObserver(observer, key: key)
+            completion?.resume()
+        case let .removeObserver(key, completion):
+            removeStoredObserver(forKey: key)
+            completion?.resume()
+        case let .removeAllObservers(completion):
+            removeStoredObservers()
+            completion?.resume()
+        case let .update(newValue, completion):
+            setValue(newValue)
+            completion?.resume()
+        case let .barrier(completion):
+            completion.resume()
+        }
     }
 
     fileprivate func storeObserver(_ observer: @escaping Observer, key: String) {

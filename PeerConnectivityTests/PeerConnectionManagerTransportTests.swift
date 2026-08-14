@@ -113,6 +113,7 @@ private final class PeerConnectionTransportHarness {
 
     internal var factory : PeerConnectionTransportFactory {
         return PeerConnectionTransportFactory(
+            backend: .networkFramework,
             makeSession: { [weak self] peer, _, observer in
                 let session = MockPeerSessionTransport(peer: peer)
                 self?.session = session
@@ -271,6 +272,38 @@ final class PeerConnectionManagerTransportTests : XCTestCase {
         }
 
         await fulfillment(of: [receivedData], timeout: 1)
+    }
+
+    internal func testRapidStartThenStopEventsRemainFIFO() async {
+        let harness = PeerConnectionTransportHarness()
+        let manager = PeerConnectionManager(serviceType: "test-service",
+            displayName: "Local",
+            transportFactory: harness.factory)
+        let startsCompleted = expectation(description: "Superseded starts completed")
+        startsCompleted.expectedFulfillmentCount = 100
+        var lifecycleEvents : [String] = []
+
+        manager.listenOn({ event in
+            switch event {
+            case .ready: lifecycleEvents.append("ready")
+            case .started: lifecycleEvents.append("started")
+            case .ended: lifecycleEvents.append("ended")
+            default: break
+            }
+        }, performListenerInBackground: true, withKey: "lifecycle")
+
+        for _ in 0..<100 {
+            manager.startBrowsingOnly {
+                startsCompleted.fulfill()
+            }
+            manager.stop()
+        }
+
+        await fulfillment(of: [startsCompleted], timeout: 2)
+        await manager.removeListenerForKeyAsync("lifecycle")
+
+        let expected = ["ready"] + Array(repeating: ["ended", "ready"], count: 100).flatMap { $0 }
+        XCTAssertEqual(lifecycleEvents, expected)
     }
 
     private func startBrowsingOnly(_ manager: PeerConnectionManager) async {

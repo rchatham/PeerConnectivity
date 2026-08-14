@@ -38,13 +38,41 @@ class PeerTests: XCTestCase {
         XCTAssertEqual(Peer.sanitizedDisplayName("", fallback: ""), "Peer")
     }
 
-    func testSanitizedDisplayNameTruncatesAtUnicodeScalarBoundary() {
+    func testSanitizedDisplayNameTruncatesAtCharacterBoundary() {
         let displayName = String(repeating: "a", count: 61) + "é🙂suffix"
         let sanitized = Peer.sanitizedDisplayName(displayName)
 
         XCTAssertEqual(sanitized, String(repeating: "a", count: 61) + "é")
         XCTAssertEqual(sanitized.utf8.count, 63)
         XCTAssertTrue(Peer.isValidDisplayName(sanitized))
+    }
+
+    func testSanitizedDisplayNamePreservesCompleteZWJFamilyEmoji() {
+        let family = "👨‍👩‍👧‍👦"
+        let displayName = String(repeating: "a", count: 38) + family + "suffix"
+
+        XCTAssertEqual(Peer.sanitizedDisplayName(displayName), String(repeating: "a", count: 38) + family)
+    }
+
+    func testSanitizedDisplayNameDoesNotSplitFlagCharacter() {
+        let displayName = String(repeating: "a", count: 56) + "🇺🇸" + "suffix"
+
+        XCTAssertEqual(Peer.sanitizedDisplayName(displayName), String(repeating: "a", count: 56))
+    }
+
+    func testSanitizedDisplayNameDoesNotSplitCombiningCharacter() {
+        let combiningCharacter = "e\u{301}"
+        let displayName = String(repeating: "a", count: 61) + combiningCharacter
+
+        XCTAssertEqual(Peer.sanitizedDisplayName(displayName), String(repeating: "a", count: 61))
+    }
+
+    func testSanitizedDisplayNameUsesFallbackWhenFirstCharacterIsOversized() {
+        let oversizedCharacter = "e" + String(repeating: "\u{301}", count: 63)
+
+        XCTAssertEqual(Peer.sanitizedDisplayName(oversizedCharacter), "Peer")
+        XCTAssertEqual(Peer.sanitizedDisplayName(oversizedCharacter, fallback: "Fallback"), "Fallback")
+        XCTAssertEqual(Peer.sanitizedDisplayName(oversizedCharacter, fallback: oversizedCharacter), "Peer")
     }
 
     // MARK: - Equality

@@ -30,7 +30,7 @@ public struct Peer {
     /**
      Returns a deterministic display name that satisfies MultipeerConnectivity's constraints.
 
-     Overlong names are truncated to a valid Unicode scalar boundary without exceeding 63 UTF-8 bytes.
+     Overlong names are truncated to a complete `Character` boundary without exceeding 63 UTF-8 bytes.
      Empty names use the supplied fallback, which is sanitized by the same rules.
 
      - parameter displayName: Preferred display name.
@@ -39,17 +39,24 @@ public struct Peer {
      */
     public static func sanitizedDisplayName(_ displayName: String, fallback: String = "Peer") -> String {
         let candidate = displayName.isEmpty ? fallback : displayName
-        let nonEmptyCandidate = candidate.isEmpty ? "Peer" : candidate
+        let sanitizedCandidate = displayNamePrefix(candidate)
+        guard sanitizedCandidate.isEmpty else { return sanitizedCandidate }
+
+        let sanitizedFallback = displayNamePrefix(fallback)
+        return sanitizedFallback.isEmpty ? "Peer" : sanitizedFallback
+    }
+
+    fileprivate static func displayNamePrefix(_ displayName: String) -> String {
         var result = ""
         var byteCount = 0
 
-        for scalar in nonEmptyCandidate.unicodeScalars {
-            let scalarByteCount = scalar.utf8.count
-            guard byteCount + scalarByteCount <= 63 else { break }
-            result.unicodeScalars.append(scalar)
-            byteCount += scalarByteCount
+        for character in displayName {
+            let characterByteCount = String(character).utf8.count
+            guard byteCount + characterByteCount <= 63 else { break }
+            result.append(character)
+            byteCount += characterByteCount
         }
-        return result.isEmpty ? "Peer" : result
+        return result
     }
     
     /**
