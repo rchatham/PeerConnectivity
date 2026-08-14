@@ -9,6 +9,24 @@
 import Foundation
 import MultipeerConnectivity
 
+/// Transfers an immutable value across a known dispatch-queue boundary.
+fileprivate final class SendableTransfer<Value> : @unchecked Sendable {
+    fileprivate let value : Value
+
+    fileprivate init(_ value: Value) {
+        self.value = value
+    }
+}
+
+/// Transfers a weak reference across a known dispatch-queue boundary.
+fileprivate final class WeakSendableTransfer<Value: AnyObject> : @unchecked Sendable {
+    fileprivate weak var value : Value?
+
+    fileprivate init(_ value: Value?) {
+        self.value = value
+    }
+}
+
 /**
  The service type describing the channel over which connections are made.
 
@@ -696,16 +714,19 @@ extension PeerConnectionManager {
             await browserObserver.addObserverAsync({ [weak self] event in
                 guard self?.isCurrentTransportEventGeneration(generation) == true else { return }
 
+                let managerTransfer = WeakSendableTransfer(self)
+                let eventTransfer = SendableTransfer(event)
                 DispatchQueue.main.async {
-                    guard self?.isCurrentTransportEventGeneration(generation) == true else { return }
+                    guard let manager = managerTransfer.value,
+                          manager.isCurrentTransportEventGeneration(generation) else { return }
 
-                    switch event {
+                    switch eventTransfer.value {
                     case .foundPeer(let peer, _):
-                        guard let peers = self?.foundPeers , !peers.contains(peer) else { break }
-                        self?.foundPeers.append(peer)
+                        guard !manager.foundPeers.contains(peer) else { break }
+                        manager.foundPeers.append(peer)
                     case .lostPeer(let peer):
-                        guard let index = self?.foundPeers.firstIndex(of: peer) else { break }
-                        self?.foundPeers.remove(at: index)
+                        guard let index = manager.foundPeers.firstIndex(of: peer) else { break }
+                        manager.foundPeers.remove(at: index)
                     default: break
                     }
                 }
@@ -715,15 +736,18 @@ extension PeerConnectionManager {
         await sessionObserver.addObserverAsync({ [weak self] event in
             guard self?.isCurrentTransportEventGeneration(generation) == true else { return }
 
+            let managerTransfer = WeakSendableTransfer(self)
+            let eventTransfer = SendableTransfer(event)
             DispatchQueue.main.async {
-                guard self?.isCurrentTransportEventGeneration(generation) == true else { return }
-                guard let peerCount = self?.connectedPeers.count else { return }
+                guard let manager = managerTransfer.value,
+                      manager.isCurrentTransportEventGeneration(generation) else { return }
+                let peerCount = manager.connectedPeers.count
 
-                switch event {
+                switch eventTransfer.value {
                 case .devicesChanged(peer: let peer) where peerCount <= 0:
                     switch peer.status {
                     case .notConnected:
-                        self?.refresh()
+                        manager.refresh()
                     default: break
                     }
                 default: break
@@ -775,12 +799,15 @@ extension PeerConnectionManager {
         await browserObserver.addObserverAsync({ [weak self] event in
             guard self?.isCurrentTransportEventGeneration(generation) == true else { return }
 
+            let managerTransfer = WeakSendableTransfer(self)
+            let eventTransfer = SendableTransfer(event)
             DispatchQueue.main.async {
-                guard self?.isCurrentTransportEventGeneration(generation) == true else { return }
+                guard let manager = managerTransfer.value,
+                      manager.isCurrentTransportEventGeneration(generation) else { return }
 
-                switch event {
+                switch eventTransfer.value {
                 case .foundPeer(let peer, _):
-                    self?.browser.invitePeer(peer)
+                    manager.browser.invitePeer(peer)
                 default: break
                 }
             }
