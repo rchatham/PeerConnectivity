@@ -117,7 +117,9 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
             return
         }
 
-        guard handshake.identity != localPeer.identity else {
+        guard PeerIdentity.isValidIdentifier(handshake.identity.identifier),
+            Peer.isValidDisplayName(handshake.identity.displayName),
+            handshake.identity != localPeer.identity else {
             rejectHandshake(from: connection)
             return
         }
