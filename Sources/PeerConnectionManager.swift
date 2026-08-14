@@ -94,8 +94,8 @@ public enum PeerConnectionNetworkSecurity : Equatable {
      */
     case unauthenticated
     /**
-     Use TLS with a pre-shared key. Peers must be initialized with the same non-empty key
-     to connect successfully.
+     Use TLS 1.2 or later with a pre-shared key. Peers must be initialized with the same
+     non-empty key to connect successfully.
      */
     case preSharedKey(Data)
 }

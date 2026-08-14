@@ -25,6 +25,7 @@ internal protocol NetworkPeerBrowsing {
 @available(iOS 13.0, macOS 10.15, *)
 internal final class NetworkPeerConnection : NetworkPeerConnectionCancellable {
 
+    internal typealias TLSMinimumVersionSetter = (sec_protocol_options_t, tls_protocol_version_t) -> Void
     internal typealias StateHandler = (NWConnection.State) -> Void
     internal typealias DataHandler = (PeerNetworkFrame) -> Void
     internal typealias InvalidFrameHandler = () -> Void
@@ -146,7 +147,9 @@ internal final class NetworkPeerConnection : NetworkPeerConnectionCancellable {
         }
     }
 
-    internal static func parameters(security: PeerConnectionNetworkSecurity = .unauthenticated) -> NWParameters {
+    internal static func parameters(security: PeerConnectionNetworkSecurity = .unauthenticated,
+        minimumTLSVersionSetter: TLSMinimumVersionSetter = sec_protocol_options_set_min_tls_protocol_version)
+        -> NWParameters {
         let parameters : NWParameters
         switch security {
         case .unauthenticated:
@@ -154,6 +157,7 @@ internal final class NetworkPeerConnection : NetworkPeerConnectionCancellable {
         case .preSharedKey(let key):
             precondition(!key.isEmpty, "PeerConnectivity: Network pre-shared key must not be empty")
             let options = NWProtocolTLS.Options()
+            minimumTLSVersionSetter(options.securityProtocolOptions, .TLSv12)
             sec_protocol_options_add_pre_shared_key(options.securityProtocolOptions,
                 dispatchData(from: key),
                 dispatchData(from: Data("PeerConnectivity.NetworkFramework.PSK.v1".utf8)))
