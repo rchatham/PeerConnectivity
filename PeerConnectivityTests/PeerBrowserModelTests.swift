@@ -227,6 +227,54 @@ final class PeerBrowserModelTests : XCTestCase {
         XCTAssertEqual(listenerCount, 0)
     }
 
+    internal func testRepeatedRestartsDoNotReplayPreviouslyDiscoveredPeer() async {
+        let harness = PeerBrowserModelHarness()
+        let manager = makeManager(harness: harness)
+        let priorPeer = Peer(identity: PeerIdentity(identifier: "prior", displayName: "Prior"), status: .notConnected)
+        let futurePeer = Peer(identity: PeerIdentity(identifier: "future", displayName: "Future"), status: .notConnected)
+        let priorPeerExpectation = expectation(description: "Model found prior peer")
+        let futurePeerExpectation = expectation(description: "Model found future peer")
+        var foundPriorPeer = false
+        var foundFuturePeer = false
+        let model = PeerBrowserModel(manager: manager,
+            listenerKey: "PeerBrowserModelTests.repeatedRestarts") { peers in
+            if peers.contains(priorPeer) && !foundPriorPeer {
+                foundPriorPeer = true
+                priorPeerExpectation.fulfill()
+            }
+            if peers == [futurePeer] && !foundFuturePeer {
+                foundFuturePeer = true
+                futurePeerExpectation.fulfill()
+            }
+        }
+
+        model.startObserving()
+        await startBrowsingOnly(manager)
+        await harness.browserObserver?.updateAsync(.foundPeer(priorPeer, discoveryInfo: nil))
+        await fulfillment(of: [priorPeerExpectation], timeout: 1)
+        model.stopObserving()
+        await model.waitForPendingObservationTransition()
+        XCTAssertTrue(model.discoveredPeers.isEmpty)
+
+        for _ in 0..<3 {
+            model.startObserving()
+            await model.waitForPendingObservationTransition()
+            await shortAsyncDelay()
+            XCTAssertTrue(model.discoveredPeers.isEmpty)
+
+            model.stopObserving()
+            await model.waitForPendingObservationTransition()
+            XCTAssertTrue(model.discoveredPeers.isEmpty)
+        }
+
+        model.startObserving()
+        await model.waitForPendingObservationTransition()
+        await harness.browserObserver?.updateAsync(.lostPeer(priorPeer))
+        await harness.browserObserver?.updateAsync(.foundPeer(futurePeer, discoveryInfo: nil))
+        await fulfillment(of: [futurePeerExpectation], timeout: 1)
+        XCTAssertEqual(model.discoveredPeers, [futurePeer])
+    }
+
     internal func testRepeatedConcurrentStartStopCyclesLeaveNoListener() async {
         let harness = PeerBrowserModelHarness()
         let manager = makeManager(harness: harness)
