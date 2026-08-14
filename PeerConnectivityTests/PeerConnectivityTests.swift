@@ -113,7 +113,11 @@ class PeerConnectivityTests: XCTestCase {
 
     func testManagerStoresDiscoveryInfo() {
         let discoveryInfo: PeerDiscoveryInfo = ["version": "1", "room": "lobby"]
-        let manager = PeerConnectionManager(serviceType: "disc-test", discoveryInfo: discoveryInfo)
+        let manager = PeerConnectionManager(
+            serviceType: "disc-test",
+            displayName: "Discovery Tester",
+            discoveryInfo: discoveryInfo
+        )
 
         XCTAssertEqual(manager.discoveryInfo?["version"], "1")
         XCTAssertEqual(manager.discoveryInfo?["room"], "lobby")

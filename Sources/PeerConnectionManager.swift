@@ -78,6 +78,27 @@ extension PeerMessage {
 }
 
 /**
+ Backend implementation used by `PeerConnectionManager`.
+
+ The default backend is `.multipeerConnectivity`, preserving existing runtime behavior.
+ The `.networkFramework` backend is an opt-in migration path and does not yet provide
+ full parity for MultipeerConnectivity browser UI, streams, resource transfer, or
+ app-provided discovery metadata.
+ */
+public enum PeerConnectionBackend : Equatable {
+    /**
+     Use Apple's MultipeerConnectivity framework. This is the default backend.
+     */
+    case multipeerConnectivity
+    /**
+     Use Apple's Network framework. This backend is experimental and currently supports
+     discovery, connection scaffolding, and reliable data transport only. App-provided
+     `discoveryInfo` is ignored, and discovery events report `nil` metadata.
+     */
+    case networkFramework
+}
+
+/**
  Enum represeting available connection types. `.automatic`, `.inviteOnly`, `.custom`.
  */
 public enum PeerConnectionType : Int {
@@ -149,6 +170,15 @@ public class PeerConnectionManager {
      The connection type for the connection manager. (ex. `.automatic`, `.inviteOnly`, `.custom`)
      */
     public let connectionType : PeerConnectionType
+
+    /**
+     The backend implementation used by this connection manager.
+
+     The default value is `.multipeerConnectivity`. The `.networkFramework` backend is
+     opt-in and does not yet provide browser UI, stream, resource transfer, or app-provided
+     discovery metadata parity.
+     */
+    public let backend : PeerConnectionBackend
     
     /**
      Access to the local peer representing the user.
@@ -165,6 +195,10 @@ public class PeerConnectionManager {
 
      This metadata is unauthenticated and visible to nearby peers. Do not include secrets,
      tokens, emails, stable user IDs, or sensitive device information.
+
+     - Note: The Network framework backend currently ignores this value. It advertises only
+     internal peer identity metadata, and peers discovered through that backend report `nil`
+     discovery info.
      */
     public let discoveryInfo : PeerDiscoveryInfo?
 
@@ -184,12 +218,30 @@ public class PeerConnectionManager {
     }
 
     /**
+     The MultipeerConnectivity session used by this connection manager, when available.
+
+     Use this property to feature-detect APIs that require MultipeerConnectivity. It returns
+     `nil` for the Network framework backend.
+     */
+    public var availableMultipeerSession : MCSession? {
+        return (session as? MultipeerSessionTransport)?.multipeerSession
+    }
+
+    /**
      The MultipeerConnectivity session used by this connection manager.
 
      This is exposed for platform-specific helper packages such as `PeerConnectivityUI`.
+     Existing callers retain the original non-optional API and behavior. New code that can
+     use the Network framework backend should feature-detect with `availableMultipeerSession`.
+
+     - Warning: Only available when `backend == .multipeerConnectivity`. Accessing this
+     property with `.networkFramework` is a programmer error.
      */
     public var multipeerSession : MCSession {
-        return session.multipeerSession
+        guard let session = availableMultipeerSession else {
+            fatalError("PeerConnectivity: multipeerSession is only available for MultipeerConnectivity transports")
+        }
+        return session
     }
 
     /**
@@ -243,7 +295,10 @@ public class PeerConnectionManager {
      - parameter displayName: The local user's display name to other peers. Display names are visible to nearby peers and must be no more than 63 bytes when UTF-8 encoded.
      - parameter securityConfiguration: Security settings used to create the underlying MultipeerConnectivity session.
      - parameter discoveryInfo: Public, unauthenticated metadata advertised to nearby browsers.
+       The Network framework backend currently ignores this value, and its discovered peers
+       report `nil` discovery info.
      - parameter invitationPolicy: Policy used to decide whether incoming invitations are accepted in `.automatic` mode.
+     - parameter backend: Backend implementation to use. Defaults to `.multipeerConnectivity`.
      
      - Returns: A fully initialized `PeerConnectionManager`.
      */
@@ -258,14 +313,16 @@ public class PeerConnectionManager {
                 }(),
                 securityConfiguration: PeerSecurityConfiguration = .default,
                 discoveryInfo: PeerDiscoveryInfo? = nil,
-                invitationPolicy: PeerInvitationPolicy = .acceptAll) {
+                invitationPolicy: PeerInvitationPolicy = .acceptAll,
+                backend: PeerConnectionBackend = .multipeerConnectivity) {
         self.init(serviceType: serviceType,
             connectionType: connectionType,
             displayName: displayName,
             securityConfiguration: securityConfiguration,
             discoveryInfo: discoveryInfo,
             invitationPolicy: invitationPolicy,
-            transportFactory: .multipeerConnectivity,
+            backend: backend,
+            transportFactory: PeerConnectionManager.transportFactory(for: backend),
             shouldRegisterSharedManager: true)
     }
 
@@ -282,6 +339,7 @@ public class PeerConnectionManager {
             securityConfiguration: securityConfiguration,
             discoveryInfo: discoveryInfo,
             invitationPolicy: invitationPolicy,
+            backend: transportFactory.backend,
             transportFactory: transportFactory,
             shouldRegisterSharedManager: false)
     }
@@ -292,9 +350,11 @@ public class PeerConnectionManager {
         securityConfiguration: PeerSecurityConfiguration,
         discoveryInfo: PeerDiscoveryInfo?,
         invitationPolicy: PeerInvitationPolicy,
+        backend: PeerConnectionBackend,
         transportFactory: PeerConnectionTransportFactory,
         shouldRegisterSharedManager: Bool) {
         self.connectionType = connectionType
+        self.backend = backend
         self.serviceType = serviceType
         self.peer = Peer(displayName: displayName)
         self.securityConfiguration = securityConfiguration
@@ -328,6 +388,29 @@ public class PeerConnectionManager {
         }
     }
 
+    internal var isUsingMultipeerConnectivityTransport : Bool {
+        return session is MultipeerSessionTransport
+    }
+
+    internal var isUsingNetworkFrameworkTransport : Bool {
+        if #available(iOS 13.0, macOS 10.15, *) {
+            return session is NetworkPeerSessionTransport
+        }
+        return false
+    }
+
+    private static func transportFactory(for backend: PeerConnectionBackend) -> PeerConnectionTransportFactory {
+        switch backend {
+        case .multipeerConnectivity:
+            return .multipeerConnectivity
+        case .networkFramework:
+            if #available(iOS 13.0, macOS 10.15, *) {
+                return .networkFramework
+            }
+            fatalError("PeerConnectivity: Network framework backend requires iOS 13.0 or macOS 10.15")
+        }
+    }
+
     internal func handleCertificate(peer: Peer, certificate: [Any]?, handler: @escaping (Bool) -> Void) {
         switch securityConfiguration.certificatePolicy {
         case .acceptAll:
@@ -345,10 +428,11 @@ public class PeerConnectionManager {
 
     internal func handleInvitation(peer: Peer,
                                    context: Data?,
-                                   invitationHandler: @escaping (Bool, PeerSessionTransport) -> Void) {
+                                   invitationHandler: @escaping (Bool, MultipeerSessionTransport) -> Void) {
         let completeInvitation = { [weak self] (accept: Bool) -> Void in
-            guard let strongSelf = self else { return }
-            invitationHandler(accept, strongSelf.session)
+            guard let strongSelf = self,
+                  let session = strongSelf.session as? MultipeerSessionTransport else { return }
+            invitationHandler(accept, session)
             if accept && strongSelf.connectionType == .automatic {
                 strongSelf.advertiser.stopAdvertising()
             }

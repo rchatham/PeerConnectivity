@@ -11,12 +11,12 @@ import MultipeerConnectivity
 
 internal struct PeerAdvertiserAssisstant : PeerAdvertiserAssisstantTransport {
     
-    fileprivate let session : PeerSessionTransport
+    fileprivate let session : MultipeerSessionTransport
     fileprivate let assisstant : MCAdvertiserAssistant
     internal let discoveryInfo : PeerDiscoveryInfo?
     fileprivate let eventProducer : PeerAdvertiserAssisstantEventProducer?
     
-    internal init(session: PeerSessionTransport,
+    internal init(session: MultipeerSessionTransport,
                   serviceType: ServiceType,
                   discoveryInfo: PeerDiscoveryInfo? = nil,
                   eventProducer: PeerAdvertiserAssisstantEventProducer? = nil) {

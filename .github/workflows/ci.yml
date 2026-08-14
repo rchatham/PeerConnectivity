@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+      - feature/**
+
+permissions:
+  contents: read
+
+jobs:
+  swift-test:
+    name: Swift Package Tests
+    runs-on: macos-15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Print Xcode version
+        run: xcodebuild -version
+
+      - name: Run Swift package tests
+        run: swift test
+
+  xcode-test:
+    name: Xcode Project Tests
+    runs-on: macos-15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Print Xcode version
+        run: xcodebuild -version
+
+      - name: Run Xcode tests
+        run: |
+          xcodebuild test \
+            -project PeerConnectivity.xcodeproj \
+            -scheme PeerConnectivity \
+            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            -configuration Debug

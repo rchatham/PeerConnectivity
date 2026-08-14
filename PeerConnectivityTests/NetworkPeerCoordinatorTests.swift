@@ -200,7 +200,37 @@ final class NetworkPeerCoordinatorTests : XCTestCase {
         XCTAssertTrue(harness.coordinator.connectedPeers.isEmpty)
     }
 
-    internal func testHandshakeWithExactBoundaryIdentifierRegistersAndEmitsEvent() async throws {
+    internal func testHandshakeWithEmptyDisplayNameIsRejectedOnce() async {
+        await assertRejectedHandshake(displayName: "")
+    }
+
+    internal func testHandshakeWith64ByteASCIINameIsRejectedOnce() async {
+        await assertRejectedHandshake(displayName: String(repeating: "a", count: 64))
+    }
+
+    internal func testHandshakeWithMultibyteNameOver63BytesIsRejectedOnce() async {
+        await assertRejectedHandshake(displayName: String(repeating: "🙂", count: 16))
+    }
+
+    internal func testHandshakeWith63ByteDisplayNameRegistersAndEmitsEvent() async {
+        let harness = await makeHarness()
+        let connection = MockCoordinatorConnection()
+        let displayName = String(repeating: "a", count: 63)
+        let remoteIdentity = PeerIdentity(identifier: "remote", displayName: displayName)
+        let expectation = expectSessionEvent(in: harness) { event in
+            self.devicesChangedPeer(from: event)?.identity == remoteIdentity
+        }
+
+        harness.coordinator.addPendingConnection(connection, direction: .outbound)
+        harness.coordinator.receiveFrame(handshakeFrame(remoteIdentity), from: connection)
+        await fulfillment(of: [expectation], timeout: 1)
+
+        XCTAssertEqual(connection.cancelCallCount, 0)
+        XCTAssertEqual(harness.coordinator.connectedPeers.map { $0.identity }, [remoteIdentity])
+        XCTAssertEqual(harness.sessionEvents.compactMap { devicesChangedPeer(from: $0) }.count, 1)
+    }
+
+    internal func testHandshakeWithExactBoundaryIdentifierRegistersAndEmitsEvent() async {
         let harness = await makeHarness()
         let connection = MockCoordinatorConnection()
         let identifier = String(repeating: "🙂", count: 45)
@@ -259,48 +289,26 @@ final class NetworkPeerCoordinatorTests : XCTestCase {
         XCTAssertTrue(harness.sessionEvents.compactMap { devicesChangedPeer(from: $0) }.isEmpty)
     }
 
-    internal func testSelfDiscoveryIsIgnored() async {
+    private func assertRejectedHandshake(displayName: String) async {
         let harness = await makeHarness()
-        let browserEventCount = harness.browserEvents.count
+        let connection = MockCoordinatorConnection()
+        let remoteIdentity = PeerIdentity(identifier: "remote", displayName: displayName)
+        let frame = handshakeFrame(remoteIdentity)
 
-        harness.coordinator.foundPeer(identity: harness.localPeer.identity)
-        harness.coordinator.lostPeer(identity: harness.localPeer.identity)
+        harness.coordinator.addPendingConnection(connection, direction: .outbound)
+        harness.coordinator.receiveFrame(frame, from: connection)
+        harness.coordinator.receiveFrame(frame, from: connection)
+        harness.coordinator.removeConnection(connection)
+        harness.coordinator.cancelAllConnections()
 
-        XCTAssertEqual(harness.browserEvents.count, browserEventCount)
-    }
-
-    internal func testFoundAndLostPeerEmitBrowserEvents() async throws {
-        let harness = await makeHarness()
-        let remoteIdentity = identity("remote")
-
-        let foundExpectation = expectBrowserEvent(in: harness) { event in
-            return self.foundPeer(from: event) == Peer(identity: remoteIdentity, status: .notConnected)
-        }
-
-        harness.coordinator.foundPeer(identity: remoteIdentity)
-        await fulfillment(of: [foundExpectation], timeout: 1)
-        let found = try XCTUnwrap(foundPeer(from: harness.browserEvents.last))
-        XCTAssertEqual(found, Peer(identity: remoteIdentity, status: .notConnected))
-
-        let lostExpectation = expectBrowserEvent(in: harness) { event in
-            return self.lostPeer(from: event) == Peer(identity: remoteIdentity, status: .notConnected)
-        }
-
-        harness.coordinator.lostPeer(identity: remoteIdentity)
-        await fulfillment(of: [lostExpectation], timeout: 1)
-        let lost = try XCTUnwrap(lostPeer(from: harness.browserEvents.last))
-        XCTAssertEqual(lost, Peer(identity: remoteIdentity, status: .notConnected))
+        XCTAssertEqual(connection.cancelCallCount, 1)
+        XCTAssertTrue(harness.coordinator.connectedPeers.isEmpty)
+        XCTAssertTrue(harness.sessionEvents.compactMap { devicesChangedPeer(from: $0) }.isEmpty)
     }
 
     private func expectSessionEvent(in harness: Harness, matching predicate: @escaping (PeerSessionEvent) -> Bool) -> XCTestExpectation {
         let expectation = expectation(description: "Session event received")
         harness.sessionEventPredicates.append((predicate, expectation))
-        return expectation
-    }
-
-    private func expectBrowserEvent(in harness: Harness, matching predicate: @escaping (PeerBrowserEvent) -> Bool) -> XCTestExpectation {
-        let expectation = expectation(description: "Browser event received")
-        harness.browserEventPredicates.append((predicate, expectation))
         return expectation
     }
 
@@ -338,20 +346,6 @@ final class NetworkPeerCoordinatorTests : XCTestCase {
         }
     }
 
-    private func foundPeer(from event: PeerBrowserEvent?) -> Peer? {
-        switch event {
-        case .foundPeer(let peer, _): return peer
-        default: return nil
-        }
-    }
-
-    private func lostPeer(from event: PeerBrowserEvent?) -> Peer? {
-        switch event {
-        case .lostPeer(let peer): return peer
-        default: return nil
-        }
-    }
-
     private func identity(_ identifier: String) -> PeerIdentity {
         return PeerIdentity(identifier: identifier, displayName: identifier)
     }
@@ -361,46 +355,30 @@ private final class Harness {
     internal let coordinator : NetworkPeerCoordinator<MockCoordinatorConnection>
     internal let localPeer : Peer
     internal private(set) var sessionEvents : [PeerSessionEvent] = []
-    internal private(set) var browserEvents : [PeerBrowserEvent] = []
-    internal private(set) var advertiserEvents : [PeerAdvertiserEvent] = []
     internal var sessionEventPredicates : [((PeerSessionEvent) -> Bool, XCTestExpectation)] = []
-    internal var browserEventPredicates : [((PeerBrowserEvent) -> Bool, XCTestExpectation)] = []
 
     internal init(
         localPeer: Peer,
         handshakeEncoder: @escaping NetworkPeerCoordinator<MockCoordinatorConnection>.HandshakeEncoder
     ) {
         let sessionObserver = Observable<PeerSessionEvent>(.none)
-        let browserObserver = Observable<PeerBrowserEvent>(.none)
-        let advertiserObserver = Observable<PeerAdvertiserEvent>(.none)
         self.localPeer = localPeer
         self.coordinator = NetworkPeerCoordinator<MockCoordinatorConnection>(
             localPeer: localPeer,
             sessionObserver: sessionObserver,
-            browserObserver: browserObserver,
-            advertiserObserver: advertiserObserver,
             handshakeEncoder: handshakeEncoder
         )
 
         self.sessionObserver = sessionObserver
-        self.browserObserver = browserObserver
-        self.advertiserObserver = advertiserObserver
     }
 
     fileprivate let sessionObserver : Observable<PeerSessionEvent>
-    fileprivate let browserObserver : Observable<PeerBrowserEvent>
-    fileprivate let advertiserObserver : Observable<PeerAdvertiserEvent>
 
     internal func observeEvents() async {
         await sessionObserver.addObserverAsync { [weak self] event in
             self?.sessionEvents.append(event)
             self?.fulfillSessionExpectations(matching: event)
         }
-        await browserObserver.addObserverAsync { [weak self] event in
-            self?.browserEvents.append(event)
-            self?.fulfillBrowserExpectations(matching: event)
-        }
-        await advertiserObserver.addObserverAsync { [weak self] in self?.advertiserEvents.append($0) }
     }
 
     fileprivate func fulfillSessionExpectations(matching event: PeerSessionEvent) {
@@ -412,12 +390,4 @@ private final class Harness {
         }
     }
 
-    fileprivate func fulfillBrowserExpectations(matching event: PeerBrowserEvent) {
-        for index in browserEventPredicates.indices.reversed() {
-            let (predicate, expectation) = browserEventPredicates[index]
-            guard predicate(event) else { continue }
-            browserEventPredicates.remove(at: index)
-            expectation.fulfill()
-        }
-    }
 }
