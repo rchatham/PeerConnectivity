@@ -997,8 +997,10 @@ extension PeerConnectionManager {
             await responder.addListenerAsync(listener, forKey: key)
         case false:
             await responder.addListenerAsync({ event in
+                let listenerTransfer = SendableTransfer(listener)
+                let eventTransfer = SendableTransfer(event)
                 DispatchQueue.main.async {
-                    listener(event)
+                    listenerTransfer.value(eventTransfer.value)
                 }
             }, forKey: key)
         }
