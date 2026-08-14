@@ -9,6 +9,10 @@
 import XCTest
 @testable import PeerConnectivity
 
+private enum CoordinatorHandshakeEncodingError : Error {
+    case failed
+}
+
 private final class MockCoordinatorConnection : NetworkPeerFrameSending {
     internal private(set) var sentFrames : [PeerNetworkFrame] = []
     internal private(set) var cancelCallCount = 0
@@ -39,6 +43,21 @@ final class NetworkPeerCoordinatorTests : XCTestCase {
         let payload = try XCTUnwrap(connection.sentFrames.first?.payload)
         let handshake = try JSONDecoder().decode(PeerNetworkHandshake.self, from: payload)
         XCTAssertEqual(handshake.identity, harness.localPeer.identity)
+    }
+
+    internal func testHandshakeEncodingFailureImmediatelyRejectsPendingConnectionOnce() async {
+        let harness = await makeHarness(handshakeEncoder: { _ in
+            throw CoordinatorHandshakeEncodingError.failed
+        })
+        let connection = MockCoordinatorConnection()
+
+        harness.coordinator.addPendingConnection(connection, direction: .outbound)
+        harness.coordinator.removeConnection(connection)
+        harness.coordinator.cancelAllConnections()
+
+        XCTAssertTrue(connection.sentFrames.isEmpty)
+        XCTAssertEqual(connection.cancelCallCount, 1)
+        XCTAssertTrue(harness.coordinator.connectedPeers.isEmpty)
     }
 
     internal func testHandshakeRegistersConnectedPeerAndEmitsSessionEvent() async throws {
@@ -237,8 +256,16 @@ final class NetworkPeerCoordinatorTests : XCTestCase {
         return expectation
     }
 
-    private func makeHarness(localIdentifier: String = "local") async -> Harness {
-        let harness = Harness(localPeer: Peer(identity: identity(localIdentifier), status: .currentUser))
+    private func makeHarness(
+        localIdentifier: String = "local",
+        handshakeEncoder: @escaping NetworkPeerCoordinator<MockCoordinatorConnection>.HandshakeEncoder = {
+            try JSONEncoder().encode($0)
+        }
+    ) async -> Harness {
+        let harness = Harness(
+            localPeer: Peer(identity: identity(localIdentifier), status: .currentUser),
+            handshakeEncoder: handshakeEncoder
+        )
         await harness.observeEvents()
         return harness
     }
@@ -291,7 +318,10 @@ private final class Harness {
     internal var sessionEventPredicates : [((PeerSessionEvent) -> Bool, XCTestExpectation)] = []
     internal var browserEventPredicates : [((PeerBrowserEvent) -> Bool, XCTestExpectation)] = []
 
-    internal init(localPeer: Peer) {
+    internal init(
+        localPeer: Peer,
+        handshakeEncoder: @escaping NetworkPeerCoordinator<MockCoordinatorConnection>.HandshakeEncoder
+    ) {
         let sessionObserver = Observable<PeerSessionEvent>(.none)
         let browserObserver = Observable<PeerBrowserEvent>(.none)
         let advertiserObserver = Observable<PeerAdvertiserEvent>(.none)
@@ -300,7 +330,8 @@ private final class Harness {
             localPeer: localPeer,
             sessionObserver: sessionObserver,
             browserObserver: browserObserver,
-            advertiserObserver: advertiserObserver
+            advertiserObserver: advertiserObserver,
+            handshakeEncoder: handshakeEncoder
         )
 
         self.sessionObserver = sessionObserver
