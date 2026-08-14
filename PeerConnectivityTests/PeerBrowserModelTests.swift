@@ -59,6 +59,14 @@ private struct BrowserModelNoOpAdvertiserAssisstantTransport : PeerAdvertiserAss
     internal func stopAdvertisingAssisstant() {}
 }
 
+private final class BrowserModelSendableBox : @unchecked Sendable {
+    internal let model : PeerBrowserModel
+
+    internal init(_ model: PeerBrowserModel) {
+        self.model = model
+    }
+}
+
 private final class PeerBrowserModelHarness {
     internal let browser = BrowserModelMockBrowserTransport()
     internal var browserObserver : Observable<PeerBrowserEvent>?
@@ -167,11 +175,66 @@ final class PeerBrowserModelTests : XCTestCase {
         model.startObserving()
         await startBrowsingOnly(manager)
         model.stopObserving()
-        await manager.removeListenerForKeyAsync(listenerKey)
+        await model.waitForPendingObservationTransition()
         await harness.browserObserver?.updateAsync(.foundPeer(peer, discoveryInfo: nil))
 
         await shortAsyncDelay()
         XCTAssertTrue(model.discoveredPeers.isEmpty)
+        let listenerCount = await manager.listenerCountAsync()
+        XCTAssertEqual(listenerCount, 0)
+    }
+
+    internal func testStopWhileRegistrationIsBlockedDoesNotLeakListenerOrApplyEvents() async {
+        let harness = PeerBrowserModelHarness()
+        let manager = makeManager(harness: harness)
+        let registrationStarted = DispatchSemaphore(value: 0)
+        let allowRegistration = DispatchSemaphore(value: 0)
+        let model = PeerBrowserModel(manager: manager,
+            listenerKey: "PeerBrowserModelTests.blockedRegistration",
+            lifecycleHooks: PeerBrowserModelLifecycleHooks(willRegisterListener: {
+                registrationStarted.signal()
+                allowRegistration.wait()
+            }))
+        let peer = Peer(identity: PeerIdentity(identifier: "remote", displayName: "Remote"), status: .notConnected)
+
+        model.startObserving()
+        XCTAssertEqual(registrationStarted.wait(timeout: .now() + 1), .success)
+        model.stopObserving()
+        allowRegistration.signal()
+        await model.waitForPendingObservationTransition()
+        await harness.browserObserver?.updateAsync(.foundPeer(peer, discoveryInfo: nil))
+
+        await shortAsyncDelay()
+        XCTAssertTrue(model.discoveredPeers.isEmpty)
+        let listenerCount = await manager.listenerCountAsync()
+        XCTAssertEqual(listenerCount, 0)
+    }
+
+    internal func testRepeatedConcurrentStartStopCyclesLeaveNoListener() async {
+        let harness = PeerBrowserModelHarness()
+        let manager = makeManager(harness: harness)
+        let model = PeerBrowserModel(manager: manager,
+            listenerKey: "PeerBrowserModelTests.concurrentCycles")
+        let modelBox = BrowserModelSendableBox(model)
+        let operationsFinished = expectation(description: "Concurrent observation operations finished")
+
+        DispatchQueue.global().async {
+            DispatchQueue.concurrentPerform(iterations: 100) { iteration in
+                if iteration.isMultiple(of: 2) {
+                    modelBox.model.startObserving()
+                } else {
+                    modelBox.model.stopObserving()
+                }
+            }
+            operationsFinished.fulfill()
+        }
+
+        await fulfillment(of: [operationsFinished], timeout: 2)
+        model.stopObserving()
+        await model.waitForPendingObservationTransition()
+
+        let listenerCount = await manager.listenerCountAsync()
+        XCTAssertEqual(listenerCount, 0)
     }
 
     private func startBrowsingOnly(_ manager: PeerConnectionManager) async {

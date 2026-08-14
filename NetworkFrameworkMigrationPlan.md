@@ -88,6 +88,10 @@ Relevant Network framework APIs:
 - Existing `ServiceType` values are bare MultipeerConnectivity service names; Network Bonjour APIs require DNS-SD service names such as `_example._tcp`, so conversion or a documented breaking change is required.
 - `Observable` and `MultiObservable` are not synchronized; Network framework callbacks on caller-provided queues may introduce races unless event delivery is serialized.
 - `PeerConnectionType.custom` and `invitePeer(_:withContext:timeout:)` need explicit Network-backed semantics because MC invitations do not have a direct Network framework equivalent.
+- App-provided Multipeer `discoveryInfo` is not currently carried by the Network backend. The
+  backend ignores that initializer value, advertises only reserved peer identity fields in its
+  Bonjour TXT record, and reports `nil` discovery info for discovered peers. This is a documented
+  limitation, not metadata parity; adding it later requires an explicit encoding and compatibility design.
 
 ## Migration Strategy
 

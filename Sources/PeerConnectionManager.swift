@@ -66,9 +66,10 @@ extension PeerMessage {
  The `.networkFramework` backend is an opt-in migration path. It supports Bonjour
  discovery, automatic/custom peer connection, reliable `Data`, and `PeerMessage`
  exchange. MultipeerConnectivity browser UI, data streams, resource transfer, and
- their receive events remain MultipeerConnectivity-only in the current migration.
- Use `networkSecurity: .preSharedKey(_:)` with
- `.networkFramework` to require an authenticated encrypted connection.
+ their receive events remain MultipeerConnectivity-only in the current migration;
+ app-provided discovery metadata is not supported. Use
+ `networkSecurity: .preSharedKey(_:)` with `.networkFramework` to require an
+ authenticated encrypted connection.
  */
 public enum PeerConnectionBackend : Equatable {
     /**
@@ -78,7 +79,8 @@ public enum PeerConnectionBackend : Equatable {
     /**
      Use Apple's Network framework. This backend is experimental and currently supports
      discovery, automatic/custom peer connection, reliable data transport, and
-     `PeerMessage` exchange only.
+     `PeerMessage` exchange only. App-provided `discoveryInfo` is ignored, and discovery
+     events report `nil` metadata.
      */
     case networkFramework
 }
@@ -179,8 +181,8 @@ public class PeerConnectionManager {
      The backend implementation used by this connection manager.
 
      The default value is `.multipeerConnectivity`. The `.networkFramework` backend is
-     opt-in; browser UI, stream/resource sends, and stream/resource receive events remain
-     MultipeerConnectivity-only in the current migration.
+     opt-in; browser UI, stream/resource sends, stream/resource receive events, and
+     app-provided discovery metadata remain MultipeerConnectivity-only in the current migration.
      */
     public let backend : PeerConnectionBackend
 
@@ -206,6 +208,10 @@ public class PeerConnectionManager {
 
      This metadata is unauthenticated and visible to nearby peers. Do not include secrets,
      tokens, emails, stable user IDs, or sensitive device information.
+
+     - Note: The Network framework backend currently ignores this value. It advertises only
+     internal peer identity metadata, and peers discovered through that backend report `nil`
+     discovery info.
      */
     public let discoveryInfo : PeerDiscoveryInfo?
 
@@ -302,6 +308,8 @@ public class PeerConnectionManager {
      - parameter displayName: The local user's display name to other peers. Display names are visible to nearby peers; empty or overlong values are sanitized to a non-empty maximum of 63 UTF-8 bytes.
      - parameter securityConfiguration: Security settings used to create the underlying MultipeerConnectivity session.
      - parameter discoveryInfo: Public, unauthenticated metadata advertised to nearby browsers.
+       The Network framework backend currently ignores this value, and its discovered peers
+       report `nil` discovery info.
      - parameter invitationPolicy: Policy used to decide whether incoming invitations are accepted in `.automatic` mode.
      - parameter backend: Backend implementation to use. Defaults to `.multipeerConnectivity`.
      - parameter networkSecurity: Security configuration for `.networkFramework`. Defaults to
@@ -953,6 +961,21 @@ extension PeerConnectionManager {
         }
     }
     
+    internal func listenOnAsync(_ listener: @escaping PeerConnectionEventListener,
+        performListenerInBackground background: Bool,
+        withKey key: String) async {
+        switch background {
+        case true:
+            await responder.addListenerAsync(listener, forKey: key)
+        case false:
+            await responder.addListenerAsync({ event in
+                DispatchQueue.main.async {
+                    listener(event)
+                }
+            }, forKey: key)
+        }
+    }
+
     /**
      Takes a key to register the callback and calls the listener when an event is recieved and also passes back the `Peer` that sent it.
 
@@ -1022,6 +1045,10 @@ extension PeerConnectionManager {
 
     internal func removeListenerForKeyAsync(_ key: String) async {
         await responder.removeListenerForKeyAsync(key)
+    }
+
+    internal func listenerCountAsync() async -> Int {
+        return await responder.listenerCountAsync()
     }
     
     /**
