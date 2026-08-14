@@ -22,21 +22,17 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
     fileprivate let dataSender : NetworkPeerDataSender<Connection>
     fileprivate let queue = DispatchQueue(label: "PeerConnectivity.NetworkPeerCoordinator")
     fileprivate let sessionObserver : Observable<PeerSessionEvent>
-    fileprivate let browserObserver : Observable<PeerBrowserEvent>
     fileprivate let handshakeEncoder : HandshakeEncoder
     fileprivate var pendingConnections : [ObjectIdentifier:PendingConnection] = [:]
     fileprivate var connectionIdentities : [ObjectIdentifier:PeerIdentity] = [:]
-    fileprivate var discoveredPeers : [PeerIdentity:Peer] = [:]
 
     internal init(localPeer: Peer,
         sessionObserver: Observable<PeerSessionEvent>,
-        browserObserver: Observable<PeerBrowserEvent>,
         handshakeEncoder: @escaping HandshakeEncoder = { try JSONEncoder().encode($0) }) {
         self.localPeer = localPeer
         self.registry = NetworkPeerConnectionRegistry(localIdentity: localPeer.identity)
         self.dataSender = NetworkPeerDataSender(registry: registry)
         self.sessionObserver = sessionObserver
-        self.browserObserver = browserObserver
         self.handshakeEncoder = handshakeEncoder
     }
 
@@ -87,23 +83,6 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
             pendingConnections.removeAll()
             connectionIdentities.removeAll()
             registry.cancelAll()
-        }
-    }
-
-    internal func foundPeer(identity: PeerIdentity) {
-        queue.sync {
-            guard identity != localPeer.identity else { return }
-            let peer = Peer(identity: identity, status: .notConnected)
-            discoveredPeers[identity] = peer
-            browserObserver.update(.foundPeer(peer, discoveryInfo: nil))
-        }
-    }
-
-    internal func lostPeer(identity: PeerIdentity) {
-        queue.sync {
-            guard identity != localPeer.identity else { return }
-            let peer = discoveredPeers.removeValue(forKey: identity) ?? Peer(identity: identity, status: .notConnected)
-            browserObserver.update(.lostPeer(peer))
         }
     }
 

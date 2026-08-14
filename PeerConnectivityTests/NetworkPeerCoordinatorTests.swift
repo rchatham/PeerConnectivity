@@ -211,48 +211,9 @@ final class NetworkPeerCoordinatorTests : XCTestCase {
         XCTAssertTrue(harness.coordinator.connectedPeers.isEmpty)
     }
 
-    internal func testSelfDiscoveryIsIgnored() async {
-        let harness = await makeHarness()
-        let browserEventCount = harness.browserEvents.count
-
-        harness.coordinator.foundPeer(identity: harness.localPeer.identity)
-        harness.coordinator.lostPeer(identity: harness.localPeer.identity)
-
-        XCTAssertEqual(harness.browserEvents.count, browserEventCount)
-    }
-
-    internal func testFoundAndLostPeerEmitBrowserEvents() async throws {
-        let harness = await makeHarness()
-        let remoteIdentity = identity("remote")
-
-        let foundExpectation = expectBrowserEvent(in: harness) { event in
-            return self.foundPeer(from: event) == Peer(identity: remoteIdentity, status: .notConnected)
-        }
-
-        harness.coordinator.foundPeer(identity: remoteIdentity)
-        await fulfillment(of: [foundExpectation], timeout: 1)
-        let found = try XCTUnwrap(foundPeer(from: harness.browserEvents.last))
-        XCTAssertEqual(found, Peer(identity: remoteIdentity, status: .notConnected))
-
-        let lostExpectation = expectBrowserEvent(in: harness) { event in
-            return self.lostPeer(from: event) == Peer(identity: remoteIdentity, status: .notConnected)
-        }
-
-        harness.coordinator.lostPeer(identity: remoteIdentity)
-        await fulfillment(of: [lostExpectation], timeout: 1)
-        let lost = try XCTUnwrap(lostPeer(from: harness.browserEvents.last))
-        XCTAssertEqual(lost, Peer(identity: remoteIdentity, status: .notConnected))
-    }
-
     private func expectSessionEvent(in harness: Harness, matching predicate: @escaping (PeerSessionEvent) -> Bool) -> XCTestExpectation {
         let expectation = expectation(description: "Session event received")
         harness.sessionEventPredicates.append((predicate, expectation))
-        return expectation
-    }
-
-    private func expectBrowserEvent(in harness: Harness, matching predicate: @escaping (PeerBrowserEvent) -> Bool) -> XCTestExpectation {
-        let expectation = expectation(description: "Browser event received")
-        harness.browserEventPredicates.append((predicate, expectation))
         return expectation
     }
 
@@ -290,20 +251,6 @@ final class NetworkPeerCoordinatorTests : XCTestCase {
         }
     }
 
-    private func foundPeer(from event: PeerBrowserEvent?) -> Peer? {
-        switch event {
-        case .foundPeer(let peer, _): return peer
-        default: return nil
-        }
-    }
-
-    private func lostPeer(from event: PeerBrowserEvent?) -> Peer? {
-        switch event {
-        case .lostPeer(let peer): return peer
-        default: return nil
-        }
-    }
-
     private func identity(_ identifier: String) -> PeerIdentity {
         return PeerIdentity(identifier: identifier, displayName: identifier)
     }
@@ -313,39 +260,29 @@ private final class Harness {
     internal let coordinator : NetworkPeerCoordinator<MockCoordinatorConnection>
     internal let localPeer : Peer
     internal private(set) var sessionEvents : [PeerSessionEvent] = []
-    internal private(set) var browserEvents : [PeerBrowserEvent] = []
     internal var sessionEventPredicates : [((PeerSessionEvent) -> Bool, XCTestExpectation)] = []
-    internal var browserEventPredicates : [((PeerBrowserEvent) -> Bool, XCTestExpectation)] = []
 
     internal init(
         localPeer: Peer,
         handshakeEncoder: @escaping NetworkPeerCoordinator<MockCoordinatorConnection>.HandshakeEncoder
     ) {
         let sessionObserver = Observable<PeerSessionEvent>(.none)
-        let browserObserver = Observable<PeerBrowserEvent>(.none)
         self.localPeer = localPeer
         self.coordinator = NetworkPeerCoordinator<MockCoordinatorConnection>(
             localPeer: localPeer,
             sessionObserver: sessionObserver,
-            browserObserver: browserObserver,
             handshakeEncoder: handshakeEncoder
         )
 
         self.sessionObserver = sessionObserver
-        self.browserObserver = browserObserver
     }
 
     fileprivate let sessionObserver : Observable<PeerSessionEvent>
-    fileprivate let browserObserver : Observable<PeerBrowserEvent>
 
     internal func observeEvents() async {
         await sessionObserver.addObserverAsync { [weak self] event in
             self?.sessionEvents.append(event)
             self?.fulfillSessionExpectations(matching: event)
-        }
-        await browserObserver.addObserverAsync { [weak self] event in
-            self?.browserEvents.append(event)
-            self?.fulfillBrowserExpectations(matching: event)
         }
     }
 
@@ -358,12 +295,4 @@ private final class Harness {
         }
     }
 
-    fileprivate func fulfillBrowserExpectations(matching event: PeerBrowserEvent) {
-        for index in browserEventPredicates.indices.reversed() {
-            let (predicate, expectation) = browserEventPredicates[index]
-            guard predicate(event) else { continue }
-            browserEventPredicates.remove(at: index)
-            expectation.fulfill()
-        }
-    }
 }
