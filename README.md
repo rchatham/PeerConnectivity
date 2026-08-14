@@ -42,6 +42,22 @@ CocoaPods and Carthage are no longer the recommended distribution paths for new 
 
 The staged migration toward Apple's Network framework is tracked in [NetworkFrameworkMigrationPlan.md](NetworkFrameworkMigrationPlan.md), with follow-up PR sequencing in [NetworkMigrationPRPlan.md](NetworkMigrationPRPlan.md).
 
+## Experimental Network framework backend
+
+`PeerConnectionManager` can be explicitly initialized with `backend: .networkFramework` on supported OS versions. The default backend remains `.multipeerConnectivity`.
+
+Use `.preSharedKey` with high-entropy app-managed key material for authenticated encrypted Network sessions:
+
+```swift
+let secret = Data("replace-with-an-app-managed-secret".utf8)
+let pcm = PeerConnectionManager(serviceType: "local",
+    backend: .networkFramework,
+    networkSecurity: .preSharedKey(secret))
+```
+
+The default `networkSecurity: .unauthenticated` mode is plaintext TCP, remains available only for source compatibility and diagnostics, and must not be used for sensitive data.
+
+See [NetworkBackendGuide.md](NetworkBackendGuide.md) for the full migration guide, security model, support matrix, demo launch arguments, validation coverage, and known limitations.
 
 ## Creating/Stopping/Starting
 
@@ -58,7 +74,7 @@ pcm.stop()
 
 // Can join chatrooms using PeerConnectionType.automatic, .inviteOnly, and .custom
 //  - .automatic : automatically searches and joins other devices with the same service type
-//  - .inviteOnly : provides advertiser assistant behavior; import PeerConnectivityUI for browserViewController support
+//  - .inviteOnly : provides MultipeerConnectivity advertiser assistant behavior; Network backend requires app-owned UI using found/lost peer events
 //  - .custom : no default behavior is implemented
 
 // The manager can be initialized with a contructed peer representing the local user
@@ -74,7 +90,7 @@ pcm.start() {
 
 ## Browser UI
 
-UIKit browser view controller support lives in the separate `PeerConnectivityUI` SwiftPM product:
+UIKit browser view controller support lives in the separate `PeerConnectivityUI` SwiftPM product and is available only for the MultipeerConnectivity backend:
 
 ```swift
 import PeerConnectivity

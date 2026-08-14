@@ -26,15 +26,21 @@ extension PeerConnectionManager {
     }
 
     /**
-     Returns a browser view controller if the connectionType was set to `.InviteOnly` or returns `nil` if not.
+     Returns a browser view controller if the connectionType was set to `.InviteOnly` and
+     the manager uses the MultipeerConnectivity backend, or returns `nil` otherwise.
+
+     The Network framework backend does not support MultipeerConnectivity's browser UI.
+     Observe `.foundPeer` / `.lostPeer` events and call `invitePeer(_:withContext:timeout:)`
+     from app-provided UI instead.
 
      - parameter callback: Events sent back with cases `.DidFinish` and `.DidCancel`.
      - parameter peerFilter: Optional synchronous filter used before nearby peers are presented.
 
-     - Returns: A browser view controller for inviting available peers nearby if connection type is `.InviteOnly` or `nil` otherwise.
+     - Returns: A browser view controller for inviting available MultipeerConnectivity peers nearby if connection type is `.InviteOnly` or `nil` otherwise.
      */
     public func browserViewController(_ callback: @escaping (PeerBrowserViewControllerEvent)->Void,
                                       peerFilter: PeerBrowserViewControllerPeerFilter? = nil) -> UIViewController? {
+        guard backend == .multipeerConnectivity else { return nil }
         switch connectionType {
         case .inviteOnly:
             let browserAssisstant = PeerBrowserAssisstant(session: multipeerSession, serviceType: peerServiceType)

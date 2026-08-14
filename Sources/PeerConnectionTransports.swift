@@ -61,27 +61,39 @@ internal struct PeerConnectionTransportFactory {
     internal let makeAdvertiserAssisstant : (PeerSessionTransport, ServiceType, PeerDiscoveryInfo?, Observable<PeerAdvertiserAssisstantEvent>) -> PeerAdvertiserAssisstantTransport
 
     @available(iOS 13.0, macOS 10.15, *)
-    internal static let networkFramework = PeerConnectionTransportFactory(
-        backend: .networkFramework,
-        makeSession: { peer, _, observer in
-            return NetworkPeerSessionTransport(peer: peer, sessionObserver: observer)
-        },
-        makeBrowser: { session, serviceType, observer in
-            guard let session = session as? NetworkPeerSessionTransport else {
-                fatalError("PeerConnectivity: Network browser requires NetworkPeerSessionTransport")
+    internal static var networkFramework : PeerConnectionTransportFactory {
+        return networkFramework(security: .unauthenticated)
+    }
+
+    @available(iOS 13.0, macOS 10.15, *)
+    internal static func networkFramework(security: PeerConnectionNetworkSecurity) -> PeerConnectionTransportFactory {
+        return PeerConnectionTransportFactory(
+            backend: .networkFramework,
+            makeSession: { peer, _, observer in
+                return NetworkPeerSessionTransport(peer: peer, sessionObserver: observer, security: security)
+            },
+            makeBrowser: { session, serviceType, observer in
+                guard let session = session as? NetworkPeerSessionTransport else {
+                    fatalError("PeerConnectivity: Network browser requires NetworkPeerSessionTransport")
+                }
+                return NetworkPeerBrowserTransport(session: session,
+                                                   serviceType: serviceType,
+                                                   browserObserver: observer,
+                                                   security: security)
+            },
+            makeAdvertiser: { session, serviceType, _, observer in
+                guard let session = session as? NetworkPeerSessionTransport else {
+                    fatalError("PeerConnectivity: Network advertiser requires NetworkPeerSessionTransport")
+                }
+                return NetworkPeerAdvertiserTransport(session: session,
+                                                      serviceType: serviceType,
+                                                      advertiserObserver: observer)
+            },
+            makeAdvertiserAssisstant: { _, _, _, _ in
+                return NetworkPeerAdvertiserAssisstantTransport()
             }
-            return NetworkPeerBrowserTransport(session: session, serviceType: serviceType, browserObserver: observer)
-        },
-        makeAdvertiser: { session, serviceType, _, observer in
-            guard let session = session as? NetworkPeerSessionTransport else {
-                fatalError("PeerConnectivity: Network advertiser requires NetworkPeerSessionTransport")
-            }
-            return NetworkPeerAdvertiserTransport(session: session, serviceType: serviceType, advertiserObserver: observer)
-        },
-        makeAdvertiserAssisstant: { _, _, _, _ in
-            return NetworkPeerAdvertiserAssisstantTransport()
-        }
-    )
+        )
+    }
 
     internal static let multipeerConnectivity = PeerConnectionTransportFactory(
         backend: .multipeerConnectivity,

@@ -24,6 +24,19 @@ jobs:
       - name: Run Swift package tests
         run: swift test
 
+      - name: Run Network loopback tests
+        env:
+          PEERCONNECTIVITY_RUN_NETWORK_E2E: "1"
+        run: |
+          run_with_retry() {
+            "$@" && return 0
+            echo "Network loopback test command failed; retrying once..."
+            sleep 5
+            "$@"
+          }
+
+          run_with_retry swift test --filter NetworkPeerLoopbackTests
+
   xcode-test:
     name: Xcode Project Tests
     runs-on: macos-15
@@ -40,4 +53,23 @@ jobs:
             -project PeerConnectivity.xcodeproj \
             -scheme PeerConnectivity \
             -destination 'platform=iOS Simulator,name=iPhone 16' \
-            -configuration Debug
+            -configuration Debug \
+            -skip-testing:PeerConnectivityTests/NetworkPeerLoopbackTests
+
+      - name: Run Network loopback tests
+        env:
+          PEERCONNECTIVITY_RUN_NETWORK_E2E: "1"
+        run: |
+          run_with_retry() {
+            "$@" && return 0
+            echo "Network loopback test command failed; retrying once..."
+            sleep 5
+            "$@"
+          }
+
+          run_with_retry xcodebuild test \
+            -project PeerConnectivity.xcodeproj \
+            -scheme PeerConnectivity \
+            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            -configuration Debug \
+            -only-testing:PeerConnectivityTests/NetworkPeerLoopbackTests

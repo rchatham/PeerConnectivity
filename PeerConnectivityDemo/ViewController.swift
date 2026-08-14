@@ -33,7 +33,11 @@ class ViewController: UIViewController {
     }
 
     fileprivate lazy var pcm : PeerConnectionManager = {
-        let pcm = PeerConnectionManager(serviceType: "local")
+        let arguments = ProcessInfo.processInfo.arguments
+        let requestedDisplayName = ViewController.argumentValue(for: "PCDisplayName") ?? ProcessInfo.processInfo.hostName
+        let displayName = Peer.sanitizedDisplayName(requestedDisplayName)
+        let backend : PeerConnectionBackend = arguments.contains("PCNetworkBackend") ? .networkFramework : .multipeerConnectivity
+        let pcm = PeerConnectionManager(serviceType: "local", displayName: displayName, backend: backend)
         pcm.listenOn({ [weak self] event in
             self?.handlePeerConnectionEvent(event)
         }, withKey: "demo.events")
@@ -94,6 +98,9 @@ class ViewController: UIViewController {
         configureActions()
         refreshUI()
         appendLog(kind: "app.ready", detail: "Local peer: \(pcm.peer.displayName)")
+        if ProcessInfo.processInfo.arguments.contains("PCAutoStart") {
+            startNetworking()
+        }
     }
 
     override func viewDidDisappear(_ animated: Bool) {
@@ -112,6 +119,12 @@ extension ViewController : UITextFieldDelegate {
 }
 
 private extension ViewController {
+    static func argumentValue(for key: String) -> String? {
+        let arguments = ProcessInfo.processInfo.arguments
+        guard let index = arguments.firstIndex(of: key), arguments.indices.contains(index + 1) else { return nil }
+        return arguments[index + 1]
+    }
+
     func configureLayout() {
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         contentStack.translatesAutoresizingMaskIntoConstraints = false
@@ -507,14 +520,17 @@ private extension ViewController {
         case .ready:
             appendLog(kind: "session.ready", detail: "Manager ready")
         case .started:
+            print("PeerConnectivityDemo started networking")
             appendLog(kind: "session.started", detail: mode.rawValue)
         case .ended:
             appendLog(kind: "session.ended", detail: "Manager stopped")
         case .devicesChanged(let peer, let peers):
+            print("PeerConnectivityDemo devices changed: \(peer.displayName) \(peer.status) connected: \(peers.map { $0.displayName })")
             connectedPeers = peers
             if !peers.isEmpty { checkedItems.insert(.peerConnected) }
             appendLog(kind: "peers.connected.changed", detail: "Changed: \(peer.displayName) [\(statusText(peer.status))]", peers: peers)
         case .foundPeer(let peer):
+            print("PeerConnectivityDemo found peer: \(peer.displayName)")
             checkedItems.insert(.peerDiscovered)
             appendLog(kind: "peer.found", detail: peer.displayName, peers: [peer])
         case .foundPeerWithDiscoveryInfo(let peer, let discoveryInfo):

@@ -8,6 +8,7 @@
 
 import Foundation
 import Network
+import Security
 
 @available(iOS 13.0, macOS 10.15, *)
 internal protocol NetworkPeerListening {
@@ -24,6 +25,8 @@ internal protocol NetworkPeerBrowsing {
 @available(iOS 13.0, macOS 10.15, *)
 internal final class NetworkPeerConnection : NetworkPeerConnectionCancellable {
 
+    internal typealias TLSMinimumVersionSetter = (sec_protocol_options_t, tls_protocol_version_t) -> Void
+    internal typealias TLSMaximumVersionSetter = (sec_protocol_options_t, tls_protocol_version_t) -> Void
     internal typealias StateHandler = (NWConnection.State) -> Void
     internal typealias DataHandler = (PeerNetworkFrame) -> Void
     internal typealias InvalidFrameHandler = () -> Void
@@ -31,7 +34,7 @@ internal final class NetworkPeerConnection : NetworkPeerConnectionCancellable {
 
     fileprivate let connection : NWConnection
     fileprivate let queue : DispatchQueue
-    fileprivate let stateHandler : StateHandler?
+    fileprivate var stateHandler : StateHandler?
     fileprivate var dataHandler : DataHandler?
     fileprivate let invalidFrameHandler : InvalidFrameHandler?
     fileprivate let handshakeEncoder : HandshakeEncoder
@@ -40,11 +43,12 @@ internal final class NetworkPeerConnection : NetworkPeerConnectionCancellable {
 
     internal init(endpoint: NWEndpoint,
         queue: DispatchQueue = DispatchQueue(label: "PeerConnectivity.NetworkPeerConnection"),
+        security: PeerConnectionNetworkSecurity = .unauthenticated,
         stateHandler: StateHandler? = nil,
         dataHandler: DataHandler? = nil,
         invalidFrameHandler: InvalidFrameHandler? = nil,
         handshakeEncoder: @escaping HandshakeEncoder = { try JSONEncoder().encode($0) }) {
-        self.connection = NWConnection(to: endpoint, using: NetworkPeerConnection.parameters())
+        self.connection = NWConnection(to: endpoint, using: NetworkPeerConnection.parameters(security: security))
         self.queue = queue
         self.stateHandler = stateHandler
         self.dataHandler = dataHandler
@@ -68,6 +72,10 @@ internal final class NetworkPeerConnection : NetworkPeerConnectionCancellable {
 
     internal func setDataHandler(_ dataHandler: DataHandler?) {
         self.dataHandler = dataHandler
+    }
+
+    internal func setStateHandler(_ stateHandler: StateHandler?) {
+        self.stateHandler = stateHandler
     }
 
     internal func start() {
@@ -114,7 +122,10 @@ internal final class NetworkPeerConnection : NetworkPeerConnectionCancellable {
             if let data = data, !data.isEmpty, !self.processReceivedData(data) {
                 return
             }
-            guard error == nil, !isComplete else { return }
+            guard error == nil, !isComplete else {
+                self.cancel()
+                return
+            }
             self.receiveNextFrame()
         }
     }
@@ -137,12 +148,32 @@ internal final class NetworkPeerConnection : NetworkPeerConnectionCancellable {
         }
     }
 
-    internal static func parameters() -> NWParameters {
-        // Network transport remains internal scaffolding; before exposing it publicly,
-        // provide app-configurable TLS identity or PSK verification for authenticated sessions.
-        let parameters = NWParameters(tls: NWProtocolTLS.Options(), tcp: NWProtocolTCP.Options())
+    internal static func parameters(security: PeerConnectionNetworkSecurity = .unauthenticated,
+        minimumTLSVersionSetter: TLSMinimumVersionSetter = sec_protocol_options_set_min_tls_protocol_version,
+        maximumTLSVersionSetter: TLSMaximumVersionSetter = sec_protocol_options_set_max_tls_protocol_version)
+        -> NWParameters {
+        let parameters : NWParameters
+        switch security {
+        case .unauthenticated:
+            parameters = NWParameters.tcp
+        case .preSharedKey(let key):
+            precondition(!key.isEmpty, "PeerConnectivity: Network pre-shared key must not be empty")
+            let options = NWProtocolTLS.Options()
+            minimumTLSVersionSetter(options.securityProtocolOptions, .TLSv12)
+            maximumTLSVersionSetter(options.securityProtocolOptions, .TLSv12)
+            sec_protocol_options_add_pre_shared_key(options.securityProtocolOptions,
+                dispatchData(from: key),
+                dispatchData(from: Data("PeerConnectivity.NetworkFramework.PSK.v1".utf8)))
+            parameters = NWParameters(tls: options, tcp: NWProtocolTCP.Options())
+        }
         parameters.includePeerToPeer = true
         return parameters
+    }
+
+    fileprivate static func dispatchData(from data: Data) -> dispatch_data_t {
+        return data.withUnsafeBytes { buffer in
+            return DispatchData(bytes: buffer) as dispatch_data_t
+        }
     }
 }
 
@@ -161,13 +192,14 @@ internal final class NetworkPeerListener : NetworkPeerListening {
     internal init(serviceType: ServiceType,
         identity: PeerIdentity? = nil,
         queue: DispatchQueue = DispatchQueue(label: "PeerConnectivity.NetworkPeerListener"),
+        security: PeerConnectionNetworkSecurity = .unauthenticated,
         connectionHandler: ConnectionHandler? = nil,
         stateHandler: StateHandler? = nil,
         connectionFactory: @escaping (NWConnection, DispatchQueue) -> NetworkPeerConnection = { connection, queue in
             return NetworkPeerConnection(connection: connection, queue: queue)
         }) throws {
         let service = PeerNetworkBonjourService(serviceType: serviceType)
-        let listener = try NWListener(using: NetworkPeerConnection.parameters())
+        let listener = try NWListener(using: NetworkPeerConnection.parameters(security: security))
         if let identity = identity {
             let txtRecord = NWTXTRecord(PeerNetworkDiscoveryInfo(identity: identity).txtRecordDictionary)
             listener.service = NWListener.Service(name: nil, type: service.bonjourType, domain: nil, txtRecord: txtRecord)
@@ -212,11 +244,12 @@ internal final class NetworkPeerBrowser : NetworkPeerBrowsing {
 
     internal init(serviceType: ServiceType,
         queue: DispatchQueue = DispatchQueue(label: "PeerConnectivity.NetworkPeerBrowser"),
+        security: PeerConnectionNetworkSecurity = .unauthenticated,
         resultHandler: ResultHandler? = nil,
         stateHandler: StateHandler? = nil) {
         let service = PeerNetworkBonjourService(serviceType: serviceType)
-        let descriptor = NWBrowser.Descriptor.bonjour(type: service.bonjourType, domain: nil)
-        browser = NWBrowser(for: descriptor, using: NetworkPeerConnection.parameters())
+        let descriptor = NWBrowser.Descriptor.bonjourWithTXTRecord(type: service.bonjourType, domain: nil)
+        browser = NWBrowser(for: descriptor, using: NetworkPeerConnection.parameters(security: security))
         self.queue = queue
         self.resultHandler = resultHandler
         self.stateHandler = stateHandler

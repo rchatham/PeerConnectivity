@@ -44,6 +44,7 @@
 		30OBSTEST2607210002 /* ObservableThreadSafetyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30OBSTEST2607210001 /* ObservableThreadSafetyTests.swift */; };
 		30NETADAPTTEST2607302 /* NetworkPeerTransportAdapterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30NETADAPTTEST2607301 /* NetworkPeerTransportAdapterTests.swift */; };
 		30BACKENDTEST2607302 /* PeerConnectionBackendTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30BACKENDTEST2607301 /* PeerConnectionBackendTests.swift */; };
+		30LOOPBACKTEST2608062 /* NetworkPeerLoopbackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30LOOPBACKTEST2608061 /* NetworkPeerLoopbackTests.swift */; };
 		30SECURITY26060300000001 /* PeerSecurityConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30SECURITY26060300000002 /* PeerSecurityConfiguration.swift */; };
 		30SECURITY26060300000003 /* PeerSecurityConfigurationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30SECURITY26060300000004 /* PeerSecurityConfigurationTests.swift */; };
 		B20000022F30600000000001 /* ObservableTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000022F30600000000002 /* ObservableTests.swift */; };
@@ -81,6 +82,7 @@
 		30OBSTEST2607210001 /* ObservableThreadSafetyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservableThreadSafetyTests.swift; sourceTree = "<group>"; };
 		30NETADAPTTEST2607301 /* NetworkPeerTransportAdapterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkPeerTransportAdapterTests.swift; sourceTree = "<group>"; };
 		30BACKENDTEST2607301 /* PeerConnectionBackendTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeerConnectionBackendTests.swift; sourceTree = "<group>"; };
+		30LOOPBACKTEST2608061 /* NetworkPeerLoopbackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkPeerLoopbackTests.swift; sourceTree = "<group>"; };
 		B20000022F30600000000002 /* ObservableTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservableTests.swift; sourceTree = "<group>"; };
 		B20000022F30600000000004 /* PeerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeerTests.swift; sourceTree = "<group>"; };
 		3080C7DB1D80A1D600AF9EA3 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = Sources/Info.plist; sourceTree = "<group>"; };
@@ -191,6 +193,7 @@
 				30OBSTEST2607210001 /* ObservableThreadSafetyTests.swift */,
 				30NETADAPTTEST2607301 /* NetworkPeerTransportAdapterTests.swift */,
 				30BACKENDTEST2607301 /* PeerConnectionBackendTests.swift */,
+				30LOOPBACKTEST2608061 /* NetworkPeerLoopbackTests.swift */,
 				30PEERMSG2602020000000001 /* PeerMessageTests.swift */,
 				30SECURITY26060300000004 /* PeerSecurityConfigurationTests.swift */,
 				B20000022F30600000000002 /* ObservableTests.swift */,
@@ -355,6 +358,7 @@
 				30OBSTEST2607210002 /* ObservableThreadSafetyTests.swift in Sources */,
 				30NETADAPTTEST2607302 /* NetworkPeerTransportAdapterTests.swift in Sources */,
 				30BACKENDTEST2607302 /* PeerConnectionBackendTests.swift in Sources */,
+				30LOOPBACKTEST2608062 /* NetworkPeerLoopbackTests.swift in Sources */,
 				30PEERMSG2602020000000002 /* PeerMessageTests.swift in Sources */,
 				30SECURITY26060300000003 /* PeerSecurityConfigurationTests.swift in Sources */,
 				B20000022F30600000000001 /* ObservableTests.swift in Sources */,

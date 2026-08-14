@@ -81,9 +81,12 @@ extension PeerMessage {
  Backend implementation used by `PeerConnectionManager`.
 
  The default backend is `.multipeerConnectivity`, preserving existing runtime behavior.
- The `.networkFramework` backend is an opt-in migration path and does not yet provide
- full parity for MultipeerConnectivity browser UI, streams, resource transfer, or
- app-provided discovery metadata.
+ The `.networkFramework` backend is an opt-in migration path. It supports Bonjour
+ discovery, automatic/custom peer connection, reliable `Data`, and `PeerMessage`
+ exchange. It does not yet support MultipeerConnectivity browser UI, data streams,
+ resource transfer, or app-provided discovery metadata. Use
+ `networkSecurity: .preSharedKey(_:)` with `.networkFramework` to require an
+ authenticated encrypted connection.
  */
 public enum PeerConnectionBackend : Equatable {
     /**
@@ -92,10 +95,28 @@ public enum PeerConnectionBackend : Equatable {
     case multipeerConnectivity
     /**
      Use Apple's Network framework. This backend is experimental and currently supports
-     discovery, connection scaffolding, and reliable data transport only. App-provided
-     `discoveryInfo` is ignored, and discovery events report `nil` metadata.
+     discovery, automatic/custom peer connection, reliable data transport, and
+     `PeerMessage` exchange only. App-provided `discoveryInfo` is ignored, and discovery
+     events report `nil` metadata.
      */
     case networkFramework
+}
+
+/**
+ Security configuration for Network framework connections.
+ */
+public enum PeerConnectionNetworkSecurity : Equatable {
+    /**
+     Use plaintext TCP with no authentication. This mode is available only as migration
+     scaffolding and must not be used for sensitive data.
+     */
+    case unauthenticated
+    /**
+     Use TLS 1.2 with a pre-shared key. Apple's external PSK API does not support TLS 1.3,
+     so negotiation is pinned to TLS 1.2 with no protocol or plaintext fallback. Peers must
+     be initialized with the same non-empty key to connect successfully.
+     */
+    case preSharedKey(Data)
 }
 
 /**
@@ -108,6 +129,9 @@ public enum PeerConnectionType : Int {
     case automatic = 0
     /**
      Connection type providing the browser view controller and advertiser assistant giving the user the ability to handle connections with nearby peers.
+
+     With `.networkFramework`, this mode starts without MultipeerConnectivity UI; use
+     `.foundPeer` / `.lostPeer` events and `invitePeer(_:withContext:timeout:)` from app UI.
      */
     case inviteOnly
     /**
@@ -179,6 +203,13 @@ public class PeerConnectionManager {
      discovery metadata parity.
      */
     public let backend : PeerConnectionBackend
+
+    /**
+     Security configuration used by Network framework connections.
+
+     This value is ignored by the MultipeerConnectivity backend.
+     */
+    public let networkSecurity : PeerConnectionNetworkSecurity
     
     /**
      Access to the local peer representing the user.
@@ -292,13 +323,16 @@ public class PeerConnectionManager {
      
      - parameter serviceType: The requested service type describing the channel on which peers are able to connect. Use `isValidServiceType(_:)` to validate caller-provided values before initialization.
      - parameter connectionType: Takes a PeerConnectionType case determining the default behavior of the framework.
-     - parameter displayName: The local user's display name to other peers. Display names are visible to nearby peers and must be no more than 63 bytes when UTF-8 encoded.
+     - parameter displayName: The local user's display name to other peers. Display names are visible to nearby peers; empty or overlong values are sanitized to a non-empty maximum of 63 UTF-8 bytes.
      - parameter securityConfiguration: Security settings used to create the underlying MultipeerConnectivity session.
      - parameter discoveryInfo: Public, unauthenticated metadata advertised to nearby browsers.
        The Network framework backend currently ignores this value, and its discovered peers
        report `nil` discovery info.
      - parameter invitationPolicy: Policy used to decide whether incoming invitations are accepted in `.automatic` mode.
      - parameter backend: Backend implementation to use. Defaults to `.multipeerConnectivity`.
+     - parameter networkSecurity: Security configuration for `.networkFramework`. Defaults to
+       `.unauthenticated` for source compatibility; use `.preSharedKey(_:)` for authenticated
+       encrypted Network framework sessions.
      
      - Returns: A fully initialized `PeerConnectionManager`.
      */
@@ -314,7 +348,8 @@ public class PeerConnectionManager {
                 securityConfiguration: PeerSecurityConfiguration = .default,
                 discoveryInfo: PeerDiscoveryInfo? = nil,
                 invitationPolicy: PeerInvitationPolicy = .acceptAll,
-                backend: PeerConnectionBackend = .multipeerConnectivity) {
+                backend: PeerConnectionBackend = .multipeerConnectivity,
+                networkSecurity: PeerConnectionNetworkSecurity = .unauthenticated) {
         self.init(serviceType: serviceType,
             connectionType: connectionType,
             displayName: displayName,
@@ -322,7 +357,8 @@ public class PeerConnectionManager {
             discoveryInfo: discoveryInfo,
             invitationPolicy: invitationPolicy,
             backend: backend,
-            transportFactory: PeerConnectionManager.transportFactory(for: backend),
+            networkSecurity: networkSecurity,
+            transportFactory: PeerConnectionManager.transportFactory(for: backend, networkSecurity: networkSecurity),
             shouldRegisterSharedManager: true)
     }
 
@@ -332,6 +368,8 @@ public class PeerConnectionManager {
         securityConfiguration: PeerSecurityConfiguration = .default,
         discoveryInfo: PeerDiscoveryInfo? = nil,
         invitationPolicy: PeerInvitationPolicy = .acceptAll,
+        backend: PeerConnectionBackend = .multipeerConnectivity,
+        networkSecurity: PeerConnectionNetworkSecurity = .unauthenticated,
         transportFactory: PeerConnectionTransportFactory) {
         self.init(serviceType: serviceType,
             connectionType: connectionType,
@@ -340,6 +378,7 @@ public class PeerConnectionManager {
             discoveryInfo: discoveryInfo,
             invitationPolicy: invitationPolicy,
             backend: transportFactory.backend,
+            networkSecurity: networkSecurity,
             transportFactory: transportFactory,
             shouldRegisterSharedManager: false)
     }
@@ -351,12 +390,20 @@ public class PeerConnectionManager {
         discoveryInfo: PeerDiscoveryInfo?,
         invitationPolicy: PeerInvitationPolicy,
         backend: PeerConnectionBackend,
+        networkSecurity: PeerConnectionNetworkSecurity,
         transportFactory: PeerConnectionTransportFactory,
         shouldRegisterSharedManager: Bool) {
         self.connectionType = connectionType
         self.backend = backend
+        self.networkSecurity = networkSecurity
         self.serviceType = serviceType
-        self.peer = Peer(displayName: displayName)
+        let sanitizedDisplayName = Peer.sanitizedDisplayName(displayName)
+        switch backend {
+        case .multipeerConnectivity:
+            self.peer = Peer(displayName: sanitizedDisplayName)
+        case .networkFramework:
+            self.peer = Peer(networkDisplayName: sanitizedDisplayName)
+        }
         self.securityConfiguration = securityConfiguration
         self.discoveryInfo = discoveryInfo
         self.invitationPolicy = invitationPolicy
@@ -399,13 +446,14 @@ public class PeerConnectionManager {
         return false
     }
 
-    private static func transportFactory(for backend: PeerConnectionBackend) -> PeerConnectionTransportFactory {
+    private static func transportFactory(for backend: PeerConnectionBackend,
+        networkSecurity: PeerConnectionNetworkSecurity) -> PeerConnectionTransportFactory {
         switch backend {
         case .multipeerConnectivity:
             return .multipeerConnectivity
         case .networkFramework:
             if #available(iOS 13.0, macOS 10.15, *) {
-                return .networkFramework
+                return .networkFramework(security: networkSecurity)
             }
             fatalError("PeerConnectivity: Network framework backend requires iOS 13.0 or macOS 10.15")
         }
@@ -518,7 +566,10 @@ extension PeerConnectionManager {
     }
     
     /**
-     Use to invite peers that have been found locally to join a MultipeerConnectivity session.
+     Use to invite peers that have been found locally to join the current session.
+
+     With `.networkFramework`, `context` and `timeout` are currently ignored and the
+     discovered peer endpoint is connected directly when available.
      
      - parameter peer: `Peer` object to invite to current session.
      - parameter withContext: `Data` object associated with the invitation.
@@ -588,11 +639,14 @@ extension PeerConnectionManager {
 
     /**
      Send a data stream to a connected user. This method throws an error if the stream cannot be established. This method returns the NSOutputStream with which you can send events to the connected users.
+
+     The Network framework backend does not support data streams yet and throws a
+     `PeerConnectivity.NetworkPeerSessionTransport` error.
      
      - parameter streamName: The name of the stream to be established between two users.
      - parameter toPeer: The peer with which to start a data stream
      
-     - Throws: Propagates errors thrown by Apple's MultipeerConnectivity framework.
+     - Throws: Propagates errors thrown by Apple's MultipeerConnectivity framework, or a Network backend unsupported-operation error.
      
      - Returns: The OutputStream for sending information to the specified `Peer` object.
      */
@@ -603,6 +657,10 @@ extension PeerConnectionManager {
     
     /**
      Send a resource with a specified url for retrieval on a connected device. This method can send a resource to multiple peers and returns an Progress associated with each Peer. This method takes an error completion handler if the resource fails to send.
+
+     The Network framework backend does not support resource transfer yet. It returns
+     `nil` progress for each requested peer and calls the completion handler with a
+     `PeerConnectivity.NetworkPeerSessionTransport` error.
      
      - parameter resourceURL: The url that the resource will be passed with for retrieval.
      - parameter withName: The name with which the progress is associated with.
@@ -824,7 +882,8 @@ extension PeerConnectionManager {
             let eventTransfer = SendableTransfer(event)
             DispatchQueue.main.async {
                 guard let manager = managerTransfer.value,
-                      manager.isCurrentTransportEventGeneration(generation) else { return }
+                      manager.isCurrentTransportEventGeneration(generation),
+                      manager.backend == .multipeerConnectivity else { return }
                 let peerCount = manager.connectedPeers.count
 
                 switch eventTransfer.value {
@@ -906,7 +965,8 @@ extension PeerConnectionManager {
      Takes a `PeerConnectionEventListener` to respond to events.
 
      Event delivery is asynchronous. Back-to-back events emitted from synchronous
-     call sites are delivered in FIFO submission order.
+     call sites are not guaranteed to be delivered in FIFO order by this simple
+     actor-backed bridge.
      
      - parameter listener: Takes a `PeerConnectionEventListener`.
      - parameter performListenerInBackground: Default is `false`. Set to `true` to perform the listener asyncronously.

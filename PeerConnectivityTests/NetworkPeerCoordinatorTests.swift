@@ -128,13 +128,30 @@ final class NetworkPeerCoordinatorTests : XCTestCase {
         harness.coordinator.addPendingConnection(connection, direction: .outbound)
         harness.coordinator.receiveFrame(handshakeFrame(remoteIdentity), from: connection)
         harness.coordinator.removeConnection(connection)
+        harness.coordinator.removeConnection(connection)
         await fulfillment(of: [expectation], timeout: 1)
 
+        XCTAssertEqual(connection.cancelCallCount, 1)
         XCTAssertTrue(harness.coordinator.connectedPeers.isEmpty)
-        let peer = try XCTUnwrap(harness.sessionEvents.compactMap { devicesChangedPeer(from: $0) }
-            .first { $0.status == .notConnected })
+        let disconnectedPeers = harness.sessionEvents.compactMap { devicesChangedPeer(from: $0) }
+            .filter { $0.status == .notConnected }
+        let peer = try XCTUnwrap(disconnectedPeers.first)
+        XCTAssertEqual(disconnectedPeers.count, 1)
         XCTAssertEqual(peer, Peer(identity: remoteIdentity, status: .notConnected))
         XCTAssertEqual(peer.status, .notConnected)
+    }
+
+    internal func testRemovePendingConnectionCancelsWithoutSessionEvent() async {
+        let harness = await makeHarness()
+        let connection = MockCoordinatorConnection()
+
+        harness.coordinator.addPendingConnection(connection, direction: .outbound)
+        let sessionEventCount = harness.sessionEvents.count
+        harness.coordinator.removeConnection(connection)
+
+        XCTAssertEqual(connection.cancelCallCount, 1)
+        XCTAssertEqual(harness.sessionEvents.count, sessionEventCount)
+        XCTAssertTrue(harness.coordinator.connectedPeers.isEmpty)
     }
 
     internal func testRemovingDuplicateLoserDoesNotRemoveWinningConnection() async throws {
@@ -189,12 +206,74 @@ final class NetworkPeerCoordinatorTests : XCTestCase {
         XCTAssertTrue(harness.coordinator.connectedPeers.isEmpty)
     }
 
+    internal func testHandshakeTimeoutCancelsPendingConnection() {
+        let harness = Harness(localPeer: Peer(identity: identity("local"), status: .currentUser),
+            policy: NetworkPeerConnectionPolicy(handshakeTimeout: 0.01))
+        let connection = MockCoordinatorConnection()
+
+        harness.coordinator.addPendingConnection(connection, direction: .outbound)
+        RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+
+        XCTAssertEqual(connection.cancelCallCount, 1)
+        XCTAssertTrue(harness.coordinator.connectedPeers.isEmpty)
+    }
+
+    internal func testPendingConnectionLimitCancelsExcessConnection() async {
+        let harness = await makeHarness(policy: NetworkPeerConnectionPolicy(maxPendingConnections: 1))
+        let first = MockCoordinatorConnection()
+        let second = MockCoordinatorConnection()
+
+        harness.coordinator.addPendingConnection(first, direction: .outbound)
+        harness.coordinator.addPendingConnection(second, direction: .outbound)
+
+        XCTAssertEqual(first.cancelCallCount, 0)
+        XCTAssertEqual(second.cancelCallCount, 1)
+    }
+
+    internal func testConnectedPeerLimitCancelsExcessConnection() async {
+        let harness = await makeHarness(policy: NetworkPeerConnectionPolicy(maxConnectedPeers: 1))
+        let first = MockCoordinatorConnection()
+        let second = MockCoordinatorConnection()
+
+        harness.coordinator.addPendingConnection(first, direction: .outbound)
+        harness.coordinator.receiveFrame(handshakeFrame(identity("first")), from: first)
+        harness.coordinator.addPendingConnection(second, direction: .outbound)
+
+        XCTAssertEqual(second.cancelCallCount, 1)
+        XCTAssertEqual(harness.coordinator.connectedPeers, [Peer(identity: identity("first"), status: .connected)])
+    }
+
+    internal func testConnectedPeerLimitRejectsHandshakeWhenLimitReached() async {
+        let harness = await makeHarness(policy: NetworkPeerConnectionPolicy(maxPendingConnections: 2, maxConnectedPeers: 1))
+        let first = MockCoordinatorConnection()
+        let second = MockCoordinatorConnection()
+
+        harness.coordinator.addPendingConnection(first, direction: .outbound)
+        harness.coordinator.addPendingConnection(second, direction: .outbound)
+        harness.coordinator.receiveFrame(handshakeFrame(identity("first")), from: first)
+        harness.coordinator.receiveFrame(handshakeFrame(identity("second")), from: second)
+
+        XCTAssertEqual(second.cancelCallCount, 1)
+        XCTAssertEqual(harness.coordinator.connectedPeers, [Peer(identity: identity("first"), status: .connected)])
+    }
+
     internal func testInvalidHandshakeCancelsPendingConnection() async {
         let harness = await makeHarness()
         let connection = MockCoordinatorConnection()
 
         harness.coordinator.addPendingConnection(connection, direction: .outbound)
         harness.coordinator.receiveFrame(PeerNetworkFrame(kind: .handshake, payload: Data([1, 2, 3])), from: connection)
+
+        XCTAssertEqual(connection.cancelCallCount, 1)
+        XCTAssertTrue(harness.coordinator.connectedPeers.isEmpty)
+    }
+
+    internal func testUnsupportedHandshakeVersionCancelsPendingConnection() async {
+        let harness = await makeHarness()
+        let connection = MockCoordinatorConnection()
+
+        harness.coordinator.addPendingConnection(connection, direction: .outbound)
+        harness.coordinator.receiveFrame(handshakeFrame(identity("remote"), protocolVersion: 999), from: connection)
 
         XCTAssertEqual(connection.cancelCallCount, 1)
         XCTAssertTrue(harness.coordinator.connectedPeers.isEmpty)
@@ -272,6 +351,27 @@ final class NetworkPeerCoordinatorTests : XCTestCase {
         XCTAssertTrue(harness.coordinator.connectedPeers.isEmpty)
     }
 
+    internal func testDuplicateIdentityCannotSpoofRegisteredConnection() async {
+        let harness = await makeHarness(localIdentifier: "alocal")
+        let registered = MockCoordinatorConnection()
+        let duplicate = MockCoordinatorConnection()
+        let remoteIdentity = identity("remote")
+        let payload = Data([9, 8, 7])
+
+        harness.coordinator.addPendingConnection(registered, direction: .outbound)
+        harness.coordinator.receiveFrame(handshakeFrame(remoteIdentity), from: registered)
+        registered.clearSentFrames()
+        harness.coordinator.addPendingConnection(duplicate, direction: .inbound)
+        harness.coordinator.receiveFrame(handshakeFrame(remoteIdentity), from: duplicate)
+        duplicate.clearSentFrames()
+        harness.coordinator.sendData(payload)
+
+        XCTAssertEqual(duplicate.cancelCallCount, 1)
+        XCTAssertEqual(duplicate.sentFrames, [])
+        XCTAssertEqual(registered.sentFrames, [PeerNetworkFrame(kind: .data, payload: payload)])
+        XCTAssertEqual(harness.coordinator.connectedPeers, [Peer(identity: remoteIdentity, status: .connected)])
+    }
+
     private func assertRejectedHandshake(identifier: String) async {
         let harness = await makeHarness()
         let connection = MockCoordinatorConnection()
@@ -312,22 +412,21 @@ final class NetworkPeerCoordinatorTests : XCTestCase {
         return expectation
     }
 
-    private func makeHarness(
-        localIdentifier: String = "local",
+    private func makeHarness(localIdentifier: String = "local",
+        policy: NetworkPeerConnectionPolicy = NetworkPeerConnectionPolicy(),
         handshakeEncoder: @escaping NetworkPeerCoordinator<MockCoordinatorConnection>.HandshakeEncoder = {
             try JSONEncoder().encode($0)
-        }
-    ) async -> Harness {
-        let harness = Harness(
-            localPeer: Peer(identity: identity(localIdentifier), status: .currentUser),
-            handshakeEncoder: handshakeEncoder
-        )
+        }) async -> Harness {
+        let harness = Harness(localPeer: Peer(identity: identity(localIdentifier), status: .currentUser),
+            policy: policy,
+            handshakeEncoder: handshakeEncoder)
         await harness.observeEvents()
         return harness
     }
 
-    private func handshakeFrame(_ identity: PeerIdentity) -> PeerNetworkFrame {
-        let handshake = PeerNetworkHandshake(identity: identity)
+    private func handshakeFrame(_ identity: PeerIdentity,
+        protocolVersion: Int = PeerNetworkHandshake.currentProtocolVersion) -> PeerNetworkFrame {
+        let handshake = PeerNetworkHandshake(identity: identity, protocolVersion: protocolVersion)
         let payload = try! JSONEncoder().encode(handshake)
         return PeerNetworkFrame(kind: .handshake, payload: payload)
     }
@@ -357,15 +456,17 @@ private final class Harness {
     internal private(set) var sessionEvents : [PeerSessionEvent] = []
     internal var sessionEventPredicates : [((PeerSessionEvent) -> Bool, XCTestExpectation)] = []
 
-    internal init(
-        localPeer: Peer,
-        handshakeEncoder: @escaping NetworkPeerCoordinator<MockCoordinatorConnection>.HandshakeEncoder
-    ) {
+    internal init(localPeer: Peer,
+        policy: NetworkPeerConnectionPolicy = NetworkPeerConnectionPolicy(),
+        handshakeEncoder: @escaping NetworkPeerCoordinator<MockCoordinatorConnection>.HandshakeEncoder = {
+            try JSONEncoder().encode($0)
+        }) {
         let sessionObserver = Observable<PeerSessionEvent>(.none)
         self.localPeer = localPeer
         self.coordinator = NetworkPeerCoordinator<MockCoordinatorConnection>(
             localPeer: localPeer,
             sessionObserver: sessionObserver,
+            policy: policy,
             handshakeEncoder: handshakeEncoder
         )
 

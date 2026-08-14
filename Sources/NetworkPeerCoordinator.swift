@@ -8,6 +8,23 @@
 
 import Foundation
 
+internal struct NetworkPeerConnectionPolicy : Equatable {
+    internal let handshakeTimeout : TimeInterval
+    internal let maxPendingConnections : Int
+    internal let maxConnectedPeers : Int
+
+    internal init(handshakeTimeout: TimeInterval = 10,
+        maxPendingConnections: Int = 16,
+        maxConnectedPeers: Int = 8) {
+        precondition(handshakeTimeout > 0, "PeerConnectivity: Network handshake timeout must be positive")
+        precondition(maxPendingConnections > 0, "PeerConnectivity: Network pending connection limit must be positive")
+        precondition(maxConnectedPeers > 0, "PeerConnectivity: Network connected peer limit must be positive")
+        self.handshakeTimeout = handshakeTimeout
+        self.maxPendingConnections = maxPendingConnections
+        self.maxConnectedPeers = maxConnectedPeers
+    }
+}
+
 internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending> {
 
     internal typealias HandshakeEncoder = (PeerNetworkHandshake) throws -> Data
@@ -15,6 +32,7 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
     fileprivate struct PendingConnection {
         internal let connection : Connection
         internal let direction : NetworkPeerConnectionDirection
+        internal let timeout : DispatchWorkItem
     }
 
     fileprivate let localPeer : Peer
@@ -22,17 +40,20 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
     fileprivate let dataSender : NetworkPeerDataSender<Connection>
     fileprivate let queue = DispatchQueue(label: "PeerConnectivity.NetworkPeerCoordinator")
     fileprivate let sessionObserver : Observable<PeerSessionEvent>
+    fileprivate let policy : NetworkPeerConnectionPolicy
     fileprivate let handshakeEncoder : HandshakeEncoder
     fileprivate var pendingConnections : [ObjectIdentifier:PendingConnection] = [:]
     fileprivate var connectionIdentities : [ObjectIdentifier:PeerIdentity] = [:]
 
     internal init(localPeer: Peer,
         sessionObserver: Observable<PeerSessionEvent>,
+        policy: NetworkPeerConnectionPolicy = NetworkPeerConnectionPolicy(),
         handshakeEncoder: @escaping HandshakeEncoder = { try JSONEncoder().encode($0) }) {
         self.localPeer = localPeer
         self.registry = NetworkPeerConnectionRegistry(localIdentity: localPeer.identity)
         self.dataSender = NetworkPeerDataSender(registry: registry)
         self.sessionObserver = sessionObserver
+        self.policy = policy
         self.handshakeEncoder = handshakeEncoder
     }
 
@@ -44,20 +65,36 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
 
     internal func addPendingConnection(_ connection: Connection, direction: NetworkPeerConnectionDirection) {
         queue.sync {
-            pendingConnections[ObjectIdentifier(connection)] = PendingConnection(connection: connection, direction: direction)
+            guard registry.connectedPeerIdentities.count < policy.maxConnectedPeers,
+                pendingConnections.count < policy.maxPendingConnections else {
+                connection.cancel()
+                return
+            }
+            let identifier = ObjectIdentifier(connection)
+            pendingConnections[identifier]?.timeout.cancel()
+            let timeout = DispatchWorkItem { [weak self, weak connection] in
+                guard let connection = connection else { return }
+                self?.expirePendingConnection(connection)
+            }
+            pendingConnections[identifier] = PendingConnection(connection: connection,
+                direction: direction,
+                timeout: timeout)
+            queue.asyncAfter(deadline: .now() + policy.handshakeTimeout, execute: timeout)
             sendHandshake(on: connection)
         }
     }
 
     internal func receiveFrame(_ frame: PeerNetworkFrame, from connection: Connection) {
-        queue.sync {
+        let event : PeerSessionEvent? = queue.sync {
             switch frame.kind {
             case .handshake:
-                receiveHandshake(frame.payload, from: connection)
+                return receiveHandshake(frame.payload, from: connection)
             case .data:
-                receiveData(frame.payload, from: connection)
+                return receiveData(frame.payload, from: connection)
             }
         }
+        guard let event = event else { return }
+        sessionObserver.update(event)
     }
 
     internal func sendData(_ data: Data, toPeers peers: [Peer] = []) {
@@ -67,65 +104,89 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
     }
 
     internal func removeConnection(_ connection: Connection) {
-        queue.sync {
+        var connectionToCancel : Connection?
+        let event : PeerSessionEvent? = queue.sync {
             let identifier = ObjectIdentifier(connection)
-            pendingConnections.removeValue(forKey: identifier)
-            guard let identity = connectionIdentities.removeValue(forKey: identifier) else { return }
-            guard registry.connection(for: identity) === connection else { return }
+            if let pending = pendingConnections.removeValue(forKey: identifier) {
+                pending.timeout.cancel()
+                connectionToCancel = pending.connection
+            }
+            guard let identity = connectionIdentities.removeValue(forKey: identifier) else { return nil }
+            guard registry.connection(for: identity) === connection else { return nil }
             registry.remove(identity: identity)
-            sessionObserver.update(.devicesChanged(peer: Peer(identity: identity, status: .notConnected)))
+            connectionToCancel = connection
+            return .devicesChanged(peer: Peer(identity: identity, status: .notConnected))
         }
+        connectionToCancel?.cancel()
+        guard let event = event else { return }
+        sessionObserver.update(event)
     }
 
     internal func cancelAllConnections() {
         queue.sync {
-            pendingConnections.values.forEach { $0.connection.cancel() }
+            pendingConnections.values.forEach {
+                $0.timeout.cancel()
+                $0.connection.cancel()
+            }
             pendingConnections.removeAll()
             connectionIdentities.removeAll()
             registry.cancelAll()
         }
     }
 
-    fileprivate func receiveHandshake(_ data: Data, from connection: Connection) {
+    fileprivate func receiveHandshake(_ data: Data, from connection: Connection) -> PeerSessionEvent? {
         guard let handshake = try? JSONDecoder().decode(PeerNetworkHandshake.self, from: data),
             handshake.protocolVersion == PeerNetworkHandshake.currentProtocolVersion else {
             rejectHandshake(from: connection)
-            return
+            return nil
         }
 
         guard PeerIdentity.isValidIdentifier(handshake.identity.identifier),
             Peer.isValidDisplayName(handshake.identity.displayName),
             handshake.identity != localPeer.identity else {
             rejectHandshake(from: connection)
-            return
+            return nil
         }
 
         let identifier = ObjectIdentifier(connection)
         let pending = pendingConnections.removeValue(forKey: identifier)
+        pending?.timeout.cancel()
+        guard registry.connectedPeerIdentities.count < policy.maxConnectedPeers || registry.connection(for: handshake.identity) != nil else {
+            connection.cancel()
+            return nil
+        }
         let direction = pending?.direction ?? NetworkPeerConnectionDirection.inbound
         let wasConnected = registry.connection(for: handshake.identity) != nil
         let isRegistered = registry.register(connection, for: handshake.identity, direction: direction)
-        guard isRegistered else { return }
+        guard isRegistered else { return nil }
 
         removeConnectionIdentity(for: handshake.identity)
         connectionIdentities[identifier] = handshake.identity
-        guard !wasConnected else { return }
-        sessionObserver.update(.devicesChanged(peer: Peer(identity: handshake.identity, status: .connected)))
+        guard !wasConnected else { return nil }
+        return .devicesChanged(peer: Peer(identity: handshake.identity, status: .connected))
     }
 
     fileprivate func rejectHandshake(from connection: Connection) {
         let identifier = ObjectIdentifier(connection)
-        guard pendingConnections.removeValue(forKey: identifier) != nil else { return }
-        connection.cancel()
+        guard let pending = pendingConnections.removeValue(forKey: identifier) else { return }
+        pending.timeout.cancel()
+        pending.connection.cancel()
+    }
+
+    fileprivate func expirePendingConnection(_ connection: Connection) {
+        let identifier = ObjectIdentifier(connection)
+        guard let pending = pendingConnections.removeValue(forKey: identifier) else { return }
+        pending.timeout.cancel()
+        pending.connection.cancel()
     }
 
     fileprivate func removeConnectionIdentity(for identity: PeerIdentity) {
         connectionIdentities = connectionIdentities.filter { $0.value != identity }
     }
 
-    fileprivate func receiveData(_ data: Data, from connection: Connection) {
-        guard let identity = connectionIdentities[ObjectIdentifier(connection)] else { return }
-        sessionObserver.update(.didReceiveData(peer: Peer(identity: identity, status: .connected), data: data))
+    fileprivate func receiveData(_ data: Data, from connection: Connection) -> PeerSessionEvent? {
+        guard let identity = connectionIdentities[ObjectIdentifier(connection)] else { return nil }
+        return .didReceiveData(peer: Peer(identity: identity, status: .connected), data: data)
     }
 
     fileprivate func sendHandshake(on connection: Connection) {
