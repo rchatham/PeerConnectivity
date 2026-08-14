@@ -29,7 +29,6 @@ internal struct PeerNetworkDiscoveryInfo : Equatable {
     fileprivate static let displayNameKey = "pc-name"
     fileprivate static let protocolVersionKey = "pc-v"
     fileprivate static let maxTXTEntryByteLength = 255
-    fileprivate static let maxIdentifierByteLength = 180
     fileprivate static let maxDisplayNameByteLength = 247
 
     internal let identity : PeerIdentity
@@ -37,7 +36,7 @@ internal struct PeerNetworkDiscoveryInfo : Equatable {
 
     internal init(identity: PeerIdentity, protocolVersion: Int = PeerNetworkHandshake.currentProtocolVersion) {
         let identifier = PeerNetworkDiscoveryInfo.truncate(identity.identifier,
-            toUTF8ByteCount: PeerNetworkDiscoveryInfo.maxIdentifierByteLength)
+            toUTF8ByteCount: PeerIdentity.maxIdentifierByteLength)
         let displayName = PeerNetworkDiscoveryInfo.truncate(identity.displayName,
             toUTF8ByteCount: PeerNetworkDiscoveryInfo.maxDisplayNameByteLength)
         self.identity = PeerIdentity(identifier: identifier, displayName: displayName)
@@ -58,9 +57,8 @@ internal struct PeerNetworkDiscoveryInfo : Equatable {
             let protocolVersionText = txtRecordDictionary[PeerNetworkDiscoveryInfo.protocolVersionKey],
             let protocolVersion = Int(protocolVersionText),
             protocolVersion == PeerNetworkHandshake.currentProtocolVersion,
-            !identifier.isEmpty,
+            PeerIdentity.isValidIdentifier(identifier),
             !displayName.isEmpty,
-            identifier.utf8.count <= PeerNetworkDiscoveryInfo.maxIdentifierByteLength,
             displayName.utf8.count <= PeerNetworkDiscoveryInfo.maxDisplayNameByteLength,
             PeerNetworkDiscoveryInfo.isTXTEntryByteSafe(key: PeerNetworkDiscoveryInfo.identifierKey,
                 value: identifier),
