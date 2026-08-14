@@ -126,6 +126,10 @@ public final class PeerBrowserModel {
         }
         observationRequested = false
         observationGeneration += 1
+        storedDiscoveredPeers.removeAll()
+        let handler = peersChangedHandler
+        let generation = observationGeneration
+        notifyStopped(handler, generation: generation)
         let previousTransition = observationTransition
         let manager = self.manager
         let listenerKey = self.listenerKey
@@ -227,6 +231,17 @@ public final class PeerBrowserModel {
             self.lock.unlock()
             guard shouldNotify else { return }
             handler?(peers)
+        }
+    }
+
+    fileprivate func notifyStopped(_ handler: PeersChangedHandler?, generation: Int) {
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.lock.lock()
+            let shouldNotify = !self.observationRequested && self.observationGeneration == generation
+            self.lock.unlock()
+            guard shouldNotify else { return }
+            handler?([])
         }
     }
 }

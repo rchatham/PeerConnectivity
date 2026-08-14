@@ -38,6 +38,7 @@ private final class BackendSelectorMockSessionTransport : PeerSessionTransport {
 private struct BackendSelectorFactoryHarness {
     internal var factory : PeerConnectionTransportFactory {
         return PeerConnectionTransportFactory(
+            backend: .networkFramework,
             makeSession: { peer, _, _ in
                 return BackendSelectorMockSessionTransport(peer: peer)
             },
@@ -113,8 +114,8 @@ final class PeerConnectionBackendTests : XCTestCase {
     internal func testManagersSanitizeDisplayNamesForBothBackends() {
         guard #available(iOS 13.0, macOS 10.15, *) else { return }
 
-        let requestedDisplayName = String(repeating: "🙂", count: 20)
-        let expectedDisplayName = String(repeating: "🙂", count: 15)
+        let requestedDisplayName = String(repeating: "a", count: 40) + "👨‍👩‍👧‍👦" + "suffix"
+        let expectedDisplayName = String(repeating: "a", count: 40)
         let multipeerManager = PeerConnectionManager(serviceType: "backend-mc-name",
             displayName: requestedDisplayName,
             backend: .multipeerConnectivity)
@@ -205,13 +206,14 @@ final class PeerConnectionBackendTests : XCTestCase {
         manager.stop()
     }
 
-    internal func testTransportFactoryInitializerRemainsMultipeerConnectivityBackend() {
+    internal func testCustomNonMultipeerFactoryReportsItsBackendWithoutExposingMultipeerSession() {
         let harness = BackendSelectorFactoryHarness()
         let manager = PeerConnectionManager(serviceType: "backend-custom-factory",
             displayName: "Local",
             transportFactory: harness.factory)
 
-        XCTAssertEqual(manager.backend, .multipeerConnectivity)
+        XCTAssertEqual(manager.backend, .networkFramework)
+        XCTAssertNil(manager.availableMultipeerSession)
         XCTAssertFalse(manager.isUsingMultipeerConnectivityTransport)
         XCTAssertFalse(manager.isUsingNetworkFrameworkTransport)
     }

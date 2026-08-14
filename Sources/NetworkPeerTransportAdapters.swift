@@ -21,24 +21,12 @@ internal final class NetworkPeerSessionTransport : PeerSessionTransport {
         return coordinator.connectedPeers
     }
 
-    internal convenience init(peer: Peer,
-        sessionObserver: Observable<PeerSessionEvent>,
-        security: PeerConnectionNetworkSecurity = .unauthenticated) {
-        let browserObserver = Observable<PeerBrowserEvent>(.none)
-        self.init(peer: peer,
-            sessionObserver: sessionObserver,
-            browserObserver: browserObserver,
-            security: security)
-    }
-
     internal init(peer: Peer,
         sessionObserver: Observable<PeerSessionEvent>,
-        browserObserver: Observable<PeerBrowserEvent>,
         security: PeerConnectionNetworkSecurity = .unauthenticated) {
         self.peer = peer
         let coordinator = NetworkPeerCoordinator<NetworkPeerConnection>(localPeer: peer,
-            sessionObserver: sessionObserver,
-            browserObserver: browserObserver)
+            sessionObserver: sessionObserver)
         self.coordinator = coordinator
         self.security = security
         self.listener = FailedNetworkPeerListener()
@@ -101,14 +89,6 @@ internal final class NetworkPeerSessionTransport : PeerSessionTransport {
         configureConnection(connection)
         coordinator.addPendingConnection(connection, direction: .outbound)
         connection.start()
-    }
-
-    internal func foundPeer(identity: PeerIdentity) {
-        coordinator.foundPeer(identity: identity)
-    }
-
-    internal func lostPeer(identity: PeerIdentity) {
-        coordinator.lostPeer(identity: identity)
     }
 
     fileprivate func configureConnection(_ connection: NetworkPeerConnection) {

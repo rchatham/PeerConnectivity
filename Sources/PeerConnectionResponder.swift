@@ -141,13 +141,13 @@ internal class PeerConnectionResponder {
     
     @discardableResult internal func addListener(_ listener: @escaping PeerConnectionEventListener, forKey key: String) -> PeerConnectionResponder {
         storeListener(listener, forKey: key)
-        peerEventObserver.addObserver(listener, key: key)
+        peerEventObserver.addObserver(listener, key: key, replayCurrentValue: false)
         return self
     }
     
     internal func addListenerAsync(_ listener: @escaping PeerConnectionEventListener, forKey key: String) async {
         storeListener(listener, forKey: key)
-        await peerEventObserver.addObserverAsync(listener, key: key)
+        await peerEventObserver.addObserverAsync(listener, key: key, replayCurrentValue: false)
     }
 
     @discardableResult internal func addListeners(_ listeners: [String:PeerConnectionEventListener]) -> PeerConnectionResponder {

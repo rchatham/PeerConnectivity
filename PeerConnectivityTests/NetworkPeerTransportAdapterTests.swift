@@ -213,8 +213,7 @@ final class NetworkPeerTransportAdapterTests : XCTestCase {
     private func makeSessionTransport(peer: Peer = Peer(displayName: "Local"),
         listener: NetworkPeerListening = MockNetworkPeerListener()) -> NetworkPeerSessionTransport {
         let coordinator = NetworkPeerCoordinator<NetworkPeerConnection>(localPeer: peer,
-            sessionObserver: Observable<PeerSessionEvent>(.none),
-            browserObserver: Observable<PeerBrowserEvent>(.none))
+            sessionObserver: Observable<PeerSessionEvent>(.none))
         return NetworkPeerSessionTransport(peer: peer, coordinator: coordinator, listener: listener)
     }
 }
