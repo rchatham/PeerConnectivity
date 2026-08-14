@@ -74,6 +74,7 @@ private final class PeerBrowserModelHarness {
 
     internal var factory : PeerConnectionTransportFactory {
         return PeerConnectionTransportFactory(
+            backend: .multipeerConnectivity,
             makeSession: { [weak self] peer, _, observer in
                 self?.sessionObserver = observer
                 return BrowserModelMockSessionTransport(peer: peer)
@@ -165,17 +166,33 @@ final class PeerBrowserModelTests : XCTestCase {
         XCTAssertEqual(harness.browser.invitedPeers, [peer])
     }
 
-    internal func testStopObservingRemovesModelListener() async {
+    internal func testStopObservingClearsPeersNotifiesEmptyAndRemovesModelListener() async {
         let harness = PeerBrowserModelHarness()
         let manager = makeManager(harness: harness)
         let listenerKey = "PeerBrowserModelTests.stopObserving"
-        let model = PeerBrowserModel(manager: manager, listenerKey: listenerKey)
         let peer = Peer(identity: PeerIdentity(identifier: "remote", displayName: "Remote"), status: .notConnected)
+        let foundExpectation = expectation(description: "Model found peer")
+        let clearedExpectation = expectation(description: "Model cleared peers")
+        var foundPeer = false
+        let model = PeerBrowserModel(manager: manager, listenerKey: listenerKey) { peers in
+            if peers == [peer] && !foundPeer {
+                foundPeer = true
+                foundExpectation.fulfill()
+            } else if peers.isEmpty && foundPeer {
+                clearedExpectation.fulfill()
+            }
+        }
 
         model.startObserving()
         await startBrowsingOnly(manager)
+        await harness.browserObserver?.updateAsync(.foundPeer(peer, discoveryInfo: nil))
+        await fulfillment(of: [foundExpectation], timeout: 1)
+        XCTAssertEqual(model.discoveredPeers, [peer])
+
         model.stopObserving()
+        XCTAssertTrue(model.discoveredPeers.isEmpty)
         await model.waitForPendingObservationTransition()
+        await fulfillment(of: [clearedExpectation], timeout: 1)
         await harness.browserObserver?.updateAsync(.foundPeer(peer, discoveryInfo: nil))
 
         await shortAsyncDelay()
