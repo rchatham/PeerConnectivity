@@ -95,8 +95,9 @@ public enum PeerConnectionNetworkSecurity : Equatable {
      */
     case unauthenticated
     /**
-     Use TLS with a pre-shared key. Peers must be initialized with the same non-empty key
-     to connect successfully.
+     Use TLS 1.2 with a pre-shared key. Apple's external PSK API does not support TLS 1.3,
+     so negotiation is pinned to TLS 1.2 with no protocol or plaintext fallback. Peers must
+     be initialized with the same non-empty key to connect successfully.
      */
     case preSharedKey(Data)
 }

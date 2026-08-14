@@ -68,7 +68,7 @@ let manager = PeerConnectionManager(serviceType: "local",
     networkSecurity: security)
 ```
 
-`PeerConnectionNetworkSecurity.preSharedKey(_:)` configures TLS with a pre-shared key. Peers must use the same non-empty key to complete the TLS handshake. This authenticates each endpoint only as a member of the key-sharing group, not as a particular person, device, account, or installation.
+`PeerConnectionNetworkSecurity.preSharedKey(_:)` configures TLS with a pre-shared key and requires exactly TLS 1.2. Apple's external PSK API, `sec_protocol_options_add_pre_shared_key`, supports PSK negotiation only in TLS 1.2, not TLS 1.3, so the transport pins both its minimum and maximum protocol versions to TLS 1.2. The modern minimum- and maximum-version setters are available across the Network backend's deployment range (iOS 13.0+ and macOS 10.15+). Peers must use the same non-empty key to complete the TLS handshake; negotiation failure does not fall back to another TLS version or to plaintext. This authenticates each endpoint only as a member of the key-sharing group, not as a particular person, device, account, or installation.
 
 Guidance for app-managed secrets:
 
@@ -149,7 +149,7 @@ A reusable SwiftUI or UIKit Network browser is intentionally deferred. Peer sele
 | `.receivedStream` | ✅ | ❌ MultipeerConnectivity-only; never emitted |
 | `.startedReceivingResource` / `.finishedReceivingResource` | ✅ | ❌ MultipeerConnectivity-only; never emitted |
 | `multipeerSession` | ✅ | ❌ programmer error |
-| TLS-PSK transport security | MC-managed | ✅ with `.preSharedKey` |
+| TLS-PSK transport security | MC-managed | ✅ TLS 1.2 only with `.preSharedKey` |
 
 ## Sending data and messages
 

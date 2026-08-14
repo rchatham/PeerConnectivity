@@ -8,6 +8,7 @@
 
 import XCTest
 import Network
+import Security
 @testable import PeerConnectivity
 
 private enum HandshakeEncodingTestError : Error {
@@ -50,12 +51,22 @@ final class PeerNetworkProtocolTests : XCTestCase {
         XCTAssertEqual(decoded, discoveryInfo)
     }
 
+    internal func testDiscoveryInfoAcceptsExactBoundaryIdentifier() {
+        let identifier = String(repeating: "a", count: PeerIdentity.maxIdentifierByteLength)
+        let dictionary = PeerNetworkDiscoveryInfo(
+            identity: PeerIdentity(identifier: identifier, displayName: "Remote Peer")
+        ).txtRecordDictionary
+
+        XCTAssertEqual(identifier.utf8.count, PeerIdentity.maxIdentifierByteLength)
+        XCTAssertEqual(PeerNetworkDiscoveryInfo(txtRecordDictionary: dictionary)?.identity.identifier, identifier)
+    }
+
     internal func testDiscoveryInfoConstrainsASCIIValuesToTxtEntryByteLimits() {
         let identity = PeerIdentity(identifier: String(repeating: "a", count: 400),
             displayName: String(repeating: "b", count: 400))
         let discoveryInfo = PeerNetworkDiscoveryInfo(identity: identity)
 
-        XCTAssertEqual(discoveryInfo.identity.identifier.utf8.count, 180)
+        XCTAssertEqual(discoveryInfo.identity.identifier.utf8.count, PeerIdentity.maxIdentifierByteLength)
         XCTAssertEqual(discoveryInfo.identity.displayName.utf8.count, 247)
         assertTXTEntriesAreByteSafe(discoveryInfo.txtRecordDictionary)
     }
@@ -65,7 +76,7 @@ final class PeerNetworkProtocolTests : XCTestCase {
             displayName: String(repeating: "🙂", count: 100))
         let discoveryInfo = PeerNetworkDiscoveryInfo(identity: identity)
 
-        XCTAssertEqual(discoveryInfo.identity.identifier.utf8.count, 180)
+        XCTAssertEqual(discoveryInfo.identity.identifier.utf8.count, PeerIdentity.maxIdentifierByteLength)
         XCTAssertEqual(discoveryInfo.identity.displayName.utf8.count, 244)
         XCTAssertEqual(discoveryInfo.identity.identifier, String(repeating: "é", count: 90))
         XCTAssertEqual(discoveryInfo.identity.displayName, String(repeating: "🙂", count: 61))
@@ -102,7 +113,7 @@ final class PeerNetworkProtocolTests : XCTestCase {
             "pc-v": String(PeerNetworkHandshake.currentProtocolVersion),
         ]))
         XCTAssertNil(PeerNetworkDiscoveryInfo(txtRecordDictionary: [
-            "pc-id": String(repeating: "a", count: 181),
+            "pc-id": String(repeating: "a", count: PeerIdentity.maxIdentifierByteLength + 1),
             "pc-name": "Remote Peer",
             "pc-v": String(PeerNetworkHandshake.currentProtocolVersion),
         ]))
@@ -111,6 +122,36 @@ final class PeerNetworkProtocolTests : XCTestCase {
             "pc-name": String(repeating: "b", count: 248),
             "pc-v": String(PeerNetworkHandshake.currentProtocolVersion),
         ]))
+    }
+
+    @available(iOS 13.0, macOS 10.15, *)
+    internal func testPreSharedKeyParametersSetTLS12MinimumAndMaximumVersions() {
+        var receivedMinimumVersions : [tls_protocol_version_t] = []
+        var receivedMaximumVersions : [tls_protocol_version_t] = []
+
+        _ = NetworkPeerConnection.parameters(
+            security: .preSharedKey(Data("test-secret".utf8)),
+            minimumTLSVersionSetter: { _, version in receivedMinimumVersions.append(version) },
+            maximumTLSVersionSetter: { _, version in receivedMaximumVersions.append(version) }
+        )
+
+        XCTAssertEqual(receivedMinimumVersions, [.TLSv12])
+        XCTAssertEqual(receivedMaximumVersions, [.TLSv12])
+    }
+
+    @available(iOS 13.0, macOS 10.15, *)
+    internal func testUnauthenticatedParametersDoNotConfigureTLSVersions() {
+        var minimumSetterCallCount = 0
+        var maximumSetterCallCount = 0
+
+        _ = NetworkPeerConnection.parameters(
+            security: .unauthenticated,
+            minimumTLSVersionSetter: { _, _ in minimumSetterCallCount += 1 },
+            maximumTLSVersionSetter: { _, _ in maximumSetterCallCount += 1 }
+        )
+
+        XCTAssertEqual(minimumSetterCallCount, 0)
+        XCTAssertEqual(maximumSetterCallCount, 0)
     }
 
     @available(iOS 13.0, macOS 10.15, *)

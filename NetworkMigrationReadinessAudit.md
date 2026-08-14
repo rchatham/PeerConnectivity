@@ -31,7 +31,7 @@ Verified against `Sources`, `PeerConnectivityTests`, and the current stacked doc
 - [x] TCP message framing handles partial/coalesced input, rejects unknown/oversized frames, and caps a payload at 1 MiB.
 - [x] Reliable `Data` and typed `PeerMessage` exchange, targeted sends, broadcasts, duplicate-connection resolution, disconnect, and reconnect paths are implemented.
 - [x] Coordinator state is serialized and currently bounds handshakes to 10 seconds, pending connections to 16, and connected peers to 8.
-- [x] `.preSharedKey` enables TLS-PSK transport; `.unauthenticated` is explicitly documented as plaintext diagnostics/migration compatibility only.
+- [x] `.preSharedKey` enables external-PSK transport pinned to TLS 1.2 as both the minimum and maximum, with no fallback to another TLS version or plaintext; `.unauthenticated` is explicitly documented as a separate plaintext diagnostics/migration compatibility mode.
 - [x] Observable/listener mutation is synchronized and concurrency tests cover registration, removal, and delivery.
 - [x] Unit tests cover protocol parsing, state mapping, duplicate handling, caps, timeout behavior, transport adapters, manager routing, and browser-model behavior.
 - [x] Opt-in loopback coverage exercises discovery, service isolation, bidirectional/large typed messages, multi-peer broadcast, PSK mismatch, and reconnect. CI isolates and retries these real Network/Bonjour tests.
