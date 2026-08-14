@@ -26,6 +26,7 @@ internal protocol NetworkPeerBrowsing {
 internal final class NetworkPeerConnection : NetworkPeerConnectionCancellable {
 
     internal typealias TLSMinimumVersionSetter = (sec_protocol_options_t, tls_protocol_version_t) -> Void
+    internal typealias TLSMaximumVersionSetter = (sec_protocol_options_t, tls_protocol_version_t) -> Void
     internal typealias StateHandler = (NWConnection.State) -> Void
     internal typealias DataHandler = (PeerNetworkFrame) -> Void
     internal typealias InvalidFrameHandler = () -> Void
@@ -148,7 +149,8 @@ internal final class NetworkPeerConnection : NetworkPeerConnectionCancellable {
     }
 
     internal static func parameters(security: PeerConnectionNetworkSecurity = .unauthenticated,
-        minimumTLSVersionSetter: TLSMinimumVersionSetter = sec_protocol_options_set_min_tls_protocol_version)
+        minimumTLSVersionSetter: TLSMinimumVersionSetter = sec_protocol_options_set_min_tls_protocol_version,
+        maximumTLSVersionSetter: TLSMaximumVersionSetter = sec_protocol_options_set_max_tls_protocol_version)
         -> NWParameters {
         let parameters : NWParameters
         switch security {
@@ -158,6 +160,7 @@ internal final class NetworkPeerConnection : NetworkPeerConnectionCancellable {
             precondition(!key.isEmpty, "PeerConnectivity: Network pre-shared key must not be empty")
             let options = NWProtocolTLS.Options()
             minimumTLSVersionSetter(options.securityProtocolOptions, .TLSv12)
+            maximumTLSVersionSetter(options.securityProtocolOptions, .TLSv12)
             sec_protocol_options_add_pre_shared_key(options.securityProtocolOptions,
                 dispatchData(from: key),
                 dispatchData(from: Data("PeerConnectivity.NetworkFramework.PSK.v1".utf8)))
