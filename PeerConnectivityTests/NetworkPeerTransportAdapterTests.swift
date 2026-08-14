@@ -118,16 +118,18 @@ final class NetworkPeerTransportAdapterTests : XCTestCase {
         transport.lostEndpoint(endpoint, identity: identity)
         await fulfillment(of: [foundExpectation, lostExpectation], timeout: 1)
 
-        let foundPeers = events.compactMap { event -> Peer? in
-            guard case .foundPeer(let peer, _) = event else { return nil }
-            return peer
+        let foundEvents = events.compactMap { event -> (Peer, PeerDiscoveryInfo?)? in
+            guard case .foundPeer(let peer, let discoveryInfo) = event else { return nil }
+            return (peer, discoveryInfo)
         }
         let lostPeers = events.compactMap { event -> Peer? in
             guard case .lostPeer(let peer) = event else { return nil }
             return peer
         }
-        XCTAssertEqual(foundPeers.first?.identity, lostPeers.first?.identity)
-        XCTAssertEqual(foundPeers.first?.displayName, "Remote")
+        XCTAssertEqual(foundEvents.first?.0.identity, lostPeers.first?.identity)
+        XCTAssertEqual(foundEvents.first?.0.displayName, "Remote")
+        XCTAssertNil(foundEvents.first?.1,
+            "Network discovery must report nil until app-provided discoveryInfo is supported")
     }
 
     internal func testBrowserTransportIgnoresSelfEndpoint() async {
