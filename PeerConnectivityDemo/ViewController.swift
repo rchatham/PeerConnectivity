@@ -185,7 +185,9 @@ private extension ViewController {
             self?.discoveredPeers = peers
             self?.refreshUI()
         }
-        browserModel.startObserving()
+        if selectedConnectionBehavior == .requireInvitation {
+            browserModel.startObserving()
+        }
     }
 
     func configureLayout() {
@@ -636,7 +638,9 @@ private extension ViewController {
         case .lostPeer(let peer):
             appendLog(kind: "peer.lost", detail: peer.displayName, peers: [peer])
         case .nearbyPeersChanged(let peers):
-            discoveredPeers = peers
+            if selectedConnectionBehavior == .automatic {
+                discoveredPeers = peers
+            }
             if !peers.isEmpty { checkedItems.insert(.peerDiscovered) }
             appendLog(kind: "peers.nearby.changed", detail: "\(peers.count) nearby", peers: peers)
         case .receivedData(let peer, let data):
