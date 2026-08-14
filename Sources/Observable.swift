@@ -8,6 +8,26 @@
 
 import Foundation
 
+fileprivate final class ObservableOperationQueue : @unchecked Sendable {
+    fileprivate typealias Operation = () async -> Void
+
+    private let lock = NSLock()
+    private var tail = Task<Void, Never> {}
+
+    @discardableResult
+    fileprivate func submit(_ operation: @escaping Operation) -> Task<Void, Never> {
+        lock.lock()
+        let previous = tail
+        let task = Task {
+            await previous.value
+            await operation()
+        }
+        tail = task
+        lock.unlock()
+        return task
+    }
+}
+
 internal actor Observable<T> {
     internal typealias Observer = (T) -> Void
 
@@ -20,6 +40,7 @@ internal actor Observable<T> {
     }
 
     fileprivate var observers : [String:Observer] = [:]
+    nonisolated fileprivate let operationQueue = ObservableOperationQueue()
 
     internal var observerCount : Int {
         return observers.count
@@ -31,9 +52,8 @@ internal actor Observable<T> {
 
     /// Schedules observer registration from synchronous callers.
     ///
-    /// This simple actor bridge does not guarantee FIFO ordering between separate
-    /// synchronous calls because each call is bridged through its own `Task`. Use
-    /// the async methods below when a caller must wait for a mutation to apply.
+    /// Synchronous submissions share a serialized task chain so observer lifecycle
+    /// changes and updates are applied in call order without blocking the caller.
     @discardableResult
     nonisolated internal func addObserver(_ observer: @escaping Observer) -> String {
         let key = UUID().uuidString
@@ -42,42 +62,67 @@ internal actor Observable<T> {
     }
 
     nonisolated internal func addObserver(_ observer: @escaping Observer, key: String) {
-        Task { await addObserverAsync(observer, key: key) }
+        operationQueue.submit { [weak self] in
+            await self?.storeObserver(observer, key: key)
+        }
     }
 
     nonisolated internal func removeObserver(forKey key: String) {
-        Task { await removeObserverAsync(forKey: key) }
+        operationQueue.submit { [weak self] in
+            await self?.removeStoredObserver(forKey: key)
+        }
     }
 
     nonisolated internal func removeAllObservers() {
-        Task { await removeAllObserversAsync() }
+        operationQueue.submit { [weak self] in
+            await self?.removeStoredObservers()
+        }
     }
 
     nonisolated internal func update(_ newValue: T) {
-        Task { await updateAsync(newValue) }
+        operationQueue.submit { [weak self] in
+            await self?.setValue(newValue)
+        }
     }
 
     @discardableResult
-    internal func addObserverAsync(_ observer: @escaping Observer) -> String {
+    nonisolated internal func addObserverAsync(_ observer: @escaping Observer) async -> String {
         let key = UUID().uuidString
-        addObserverAsync(observer, key: key)
+        await addObserverAsync(observer, key: key)
         return key
     }
 
-    internal func addObserverAsync(_ observer: @escaping Observer, key: String) {
-        storeObserver(observer, key: key)
+    nonisolated internal func addObserverAsync(_ observer: @escaping Observer, key: String) async {
+        let task = operationQueue.submit { [weak self] in
+            await self?.storeObserver(observer, key: key)
+        }
+        await task.value
     }
 
-    internal func removeObserverAsync(forKey key: String) {
-        removeStoredObserver(forKey: key)
+    nonisolated internal func removeObserverAsync(forKey key: String) async {
+        let task = operationQueue.submit { [weak self] in
+            await self?.removeStoredObserver(forKey: key)
+        }
+        await task.value
     }
 
-    internal func removeAllObserversAsync() {
-        removeStoredObservers()
+    nonisolated internal func removeAllObserversAsync() async {
+        let task = operationQueue.submit { [weak self] in
+            await self?.removeStoredObservers()
+        }
+        await task.value
     }
 
-    internal func updateAsync(_ newValue: T) {
-        setValue(newValue)
+    nonisolated internal func updateAsync(_ newValue: T) async {
+        let task = operationQueue.submit { [weak self] in
+            await self?.setValue(newValue)
+        }
+        await task.value
+    }
+
+    nonisolated internal func flush() async {
+        let task = operationQueue.submit {}
+        await task.value
     }
 
     fileprivate func storeObserver(_ observer: @escaping Observer, key: String) {

@@ -107,4 +107,48 @@ class ObservableTests: XCTestCase {
         await fulfillment(of: [expectation], timeout: 1)
         XCTAssertEqual(received, [3])
     }
+
+    func testObservableSynchronousLifecycleAndUpdatesRemainFIFO() async {
+        let observable = Observable<Int>(0)
+        var received : [Int] = []
+
+        for value in 1...100 {
+            let key = "listener-\(value)"
+            observable.addObserver({ received.append($0) }, key: key)
+            observable.update(value)
+            observable.removeObserver(forKey: key)
+        }
+        await observable.flush()
+
+        XCTAssertEqual(received, Array(0...99).flatMap { [$0, $0 + 1] })
+    }
+
+    func testObservableSynchronousAddThenUpdateRemainsFIFO() async {
+        let observable = Observable<Int>(0)
+        var received : [Int] = []
+
+        observable.addObserver({ received.append($0) }, key: "listener")
+        for value in 1...100 {
+            observable.update(value)
+        }
+        await observable.flush()
+
+        XCTAssertEqual(received, Array(0...100))
+    }
+
+    func testObservableSynchronousRemoveThenUpdateRemainsFIFO() async {
+        let observable = Observable<Int>(0)
+        var received : [Int] = []
+
+        await observable.addObserverAsync({ received.append($0) }, key: "listener")
+        observable.removeObserver(forKey: "listener")
+        for value in 1...100 {
+            observable.update(value)
+        }
+        await observable.flush()
+
+        let finalValue = await observable.value
+        XCTAssertEqual(received, [0])
+        XCTAssertEqual(finalValue, 100)
+    }
 }
