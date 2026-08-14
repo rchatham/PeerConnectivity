@@ -358,7 +358,7 @@ public class PeerConnectionManager {
             securityConfiguration: securityConfiguration,
             discoveryInfo: discoveryInfo,
             invitationPolicy: invitationPolicy,
-            backend: backend,
+            backend: transportFactory.backend,
             networkSecurity: networkSecurity,
             transportFactory: transportFactory,
             shouldRegisterSharedManager: false)

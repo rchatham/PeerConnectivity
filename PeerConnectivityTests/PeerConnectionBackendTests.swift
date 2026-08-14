@@ -38,6 +38,7 @@ private final class BackendSelectorMockSessionTransport : PeerSessionTransport {
 private struct BackendSelectorFactoryHarness {
     internal var factory : PeerConnectionTransportFactory {
         return PeerConnectionTransportFactory(
+            backend: .networkFramework,
             makeSession: { peer, _, _ in
                 return BackendSelectorMockSessionTransport(peer: peer)
             },
@@ -205,13 +206,14 @@ final class PeerConnectionBackendTests : XCTestCase {
         manager.stop()
     }
 
-    internal func testTransportFactoryInitializerRemainsMultipeerConnectivityBackend() {
+    internal func testCustomNonMultipeerFactoryReportsItsBackendWithoutExposingMultipeerSession() {
         let harness = BackendSelectorFactoryHarness()
         let manager = PeerConnectionManager(serviceType: "backend-custom-factory",
             displayName: "Local",
             transportFactory: harness.factory)
 
-        XCTAssertEqual(manager.backend, .multipeerConnectivity)
+        XCTAssertEqual(manager.backend, .networkFramework)
+        XCTAssertNil(manager.availableMultipeerSession)
         XCTAssertFalse(manager.isUsingMultipeerConnectivityTransport)
         XCTAssertFalse(manager.isUsingNetworkFrameworkTransport)
     }

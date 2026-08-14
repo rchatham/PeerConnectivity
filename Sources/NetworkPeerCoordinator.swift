@@ -27,6 +27,8 @@ internal struct NetworkPeerConnectionPolicy : Equatable {
 
 internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending> {
 
+    internal typealias HandshakeEncoder = (PeerNetworkHandshake) throws -> Data
+
     fileprivate struct PendingConnection {
         internal let connection : Connection
         internal let direction : NetworkPeerConnectionDirection
@@ -38,22 +40,21 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
     fileprivate let dataSender : NetworkPeerDataSender<Connection>
     fileprivate let queue = DispatchQueue(label: "PeerConnectivity.NetworkPeerCoordinator")
     fileprivate let sessionObserver : Observable<PeerSessionEvent>
-    fileprivate let browserObserver : Observable<PeerBrowserEvent>
     fileprivate let policy : NetworkPeerConnectionPolicy
+    fileprivate let handshakeEncoder : HandshakeEncoder
     fileprivate var pendingConnections : [ObjectIdentifier:PendingConnection] = [:]
     fileprivate var connectionIdentities : [ObjectIdentifier:PeerIdentity] = [:]
-    fileprivate var discoveredPeers : [PeerIdentity:Peer] = [:]
 
     internal init(localPeer: Peer,
         sessionObserver: Observable<PeerSessionEvent>,
-        browserObserver: Observable<PeerBrowserEvent>,
-        policy: NetworkPeerConnectionPolicy = NetworkPeerConnectionPolicy()) {
+        policy: NetworkPeerConnectionPolicy = NetworkPeerConnectionPolicy(),
+        handshakeEncoder: @escaping HandshakeEncoder = { try JSONEncoder().encode($0) }) {
         self.localPeer = localPeer
         self.registry = NetworkPeerConnectionRegistry(localIdentity: localPeer.identity)
         self.dataSender = NetworkPeerDataSender(registry: registry)
         self.sessionObserver = sessionObserver
-        self.browserObserver = browserObserver
         self.policy = policy
+        self.handshakeEncoder = handshakeEncoder
     }
 
     internal var connectedPeers : [Peer] {
@@ -133,27 +134,6 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
         }
     }
 
-    internal func foundPeer(identity: PeerIdentity) {
-        let event : PeerBrowserEvent? = queue.sync {
-            guard identity != localPeer.identity else { return nil }
-            let peer = Peer(identity: identity, status: .notConnected)
-            discoveredPeers[identity] = peer
-            return .foundPeer(peer, discoveryInfo: nil)
-        }
-        guard let event = event else { return }
-        browserObserver.update(event)
-    }
-
-    internal func lostPeer(identity: PeerIdentity) {
-        let event : PeerBrowserEvent? = queue.sync {
-            guard identity != localPeer.identity else { return nil }
-            let peer = discoveredPeers.removeValue(forKey: identity) ?? Peer(identity: identity, status: .notConnected)
-            return .lostPeer(peer)
-        }
-        guard let event = event else { return }
-        browserObserver.update(event)
-    }
-
     fileprivate func receiveHandshake(_ data: Data, from connection: Connection) -> PeerSessionEvent? {
         guard let handshake = try? JSONDecoder().decode(PeerNetworkHandshake.self, from: data),
             handshake.protocolVersion == PeerNetworkHandshake.currentProtocolVersion else {
@@ -207,7 +187,13 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
 
     fileprivate func sendHandshake(on connection: Connection) {
         let handshake = PeerNetworkHandshake(identity: localPeer.identity)
-        guard let payload = try? JSONEncoder().encode(handshake) else { return }
-        connection.sendFrame(PeerNetworkFrame(kind: .handshake, payload: payload))
+
+        do {
+            let payload = try handshakeEncoder(handshake)
+            connection.sendFrame(PeerNetworkFrame(kind: .handshake, payload: payload))
+        } catch {
+            NSLog("%@", "PeerConnectivity: Failed to encode Network handshake; canceling connection")
+            rejectHandshake(from: connection)
+        }
     }
 }
