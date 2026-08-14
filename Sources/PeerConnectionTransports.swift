@@ -54,6 +54,7 @@ internal protocol PeerAdvertiserAssisstantTransport {
 }
 
 internal struct PeerConnectionTransportFactory {
+    internal let backend : PeerConnectionBackend
     internal let makeSession : (Peer, PeerSecurityConfiguration, Observable<PeerSessionEvent>) -> PeerSessionTransport
     internal let makeBrowser : (PeerSessionTransport, ServiceType, Observable<PeerBrowserEvent>) -> PeerBrowserTransport
     internal let makeAdvertiser : (PeerSessionTransport, ServiceType, PeerDiscoveryInfo?, Observable<PeerAdvertiserEvent>) -> PeerAdvertiserTransport
@@ -61,6 +62,7 @@ internal struct PeerConnectionTransportFactory {
 
     @available(iOS 13.0, macOS 10.15, *)
     internal static let networkFramework = PeerConnectionTransportFactory(
+        backend: .networkFramework,
         makeSession: { peer, _, observer in
             return NetworkPeerSessionTransport(peer: peer, sessionObserver: observer)
         },
@@ -82,6 +84,7 @@ internal struct PeerConnectionTransportFactory {
     )
 
     internal static let multipeerConnectivity = PeerConnectionTransportFactory(
+        backend: .multipeerConnectivity,
         makeSession: { peer, securityConfiguration, observer in
             let eventProducer = PeerSessionEventProducer(observer: observer)
             return PeerSession(peer: peer,

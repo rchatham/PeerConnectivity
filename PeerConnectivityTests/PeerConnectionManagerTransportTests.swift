@@ -113,6 +113,7 @@ private final class PeerConnectionTransportHarness {
 
     internal var factory : PeerConnectionTransportFactory {
         return PeerConnectionTransportFactory(
+            backend: .networkFramework,
             makeSession: { [weak self] peer, _, observer in
                 let session = MockPeerSessionTransport(peer: peer)
                 self?.session = session
