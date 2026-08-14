@@ -47,6 +47,10 @@ internal enum PeerNetworkFrameDecodeResult {
     case invalid
 }
 
+internal enum PeerNetworkFrameDecoderError : Error, Equatable {
+    case invalidFrame
+}
+
 internal struct PeerNetworkFrame : Equatable {
 
     fileprivate static let headerLength = 5
@@ -106,10 +110,13 @@ internal struct PeerNetworkFrame : Equatable {
 internal struct PeerNetworkFrameDecoder {
 
     fileprivate var buffer = Data()
+    fileprivate var isTerminal = false
 
     internal init() {}
 
-    internal mutating func append(_ data: Data) -> [PeerNetworkFrame] {
+    internal mutating func append(_ data: Data) throws -> [PeerNetworkFrame] {
+        guard !isTerminal else { throw PeerNetworkFrameDecoderError.invalidFrame }
+
         buffer.append(data)
         var frames : [PeerNetworkFrame] = []
         var consumedBytes = 0
@@ -127,7 +134,8 @@ internal struct PeerNetworkFrameDecoder {
                 return frames
             case .invalid:
                 buffer.removeAll(keepingCapacity: true)
-                return frames
+                isTerminal = true
+                throw PeerNetworkFrameDecoderError.invalidFrame
             }
         }
 

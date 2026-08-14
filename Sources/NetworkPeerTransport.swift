@@ -14,24 +14,29 @@ internal final class NetworkPeerConnection : NetworkPeerConnectionCancellable {
 
     internal typealias StateHandler = (NWConnection.State) -> Void
     internal typealias DataHandler = (PeerNetworkFrame) -> Void
+    internal typealias InvalidFrameHandler = () -> Void
     internal typealias HandshakeEncoder = (PeerNetworkHandshake) throws -> Data
 
     fileprivate let connection : NWConnection
     fileprivate let queue : DispatchQueue
     fileprivate let stateHandler : StateHandler?
     fileprivate let dataHandler : DataHandler?
+    fileprivate let invalidFrameHandler : InvalidFrameHandler?
     fileprivate let handshakeEncoder : HandshakeEncoder
     fileprivate var frameDecoder = PeerNetworkFrameDecoder()
+    fileprivate var isReceiveTerminal = false
 
     internal init(endpoint: NWEndpoint,
         queue: DispatchQueue = DispatchQueue(label: "PeerConnectivity.NetworkPeerConnection"),
         stateHandler: StateHandler? = nil,
         dataHandler: DataHandler? = nil,
+        invalidFrameHandler: InvalidFrameHandler? = nil,
         handshakeEncoder: @escaping HandshakeEncoder = { try JSONEncoder().encode($0) }) {
         self.connection = NWConnection(to: endpoint, using: NetworkPeerConnection.parameters())
         self.queue = queue
         self.stateHandler = stateHandler
         self.dataHandler = dataHandler
+        self.invalidFrameHandler = invalidFrameHandler
         self.handshakeEncoder = handshakeEncoder
     }
 
@@ -39,11 +44,13 @@ internal final class NetworkPeerConnection : NetworkPeerConnectionCancellable {
         queue: DispatchQueue = DispatchQueue(label: "PeerConnectivity.NetworkPeerConnection"),
         stateHandler: StateHandler? = nil,
         dataHandler: DataHandler? = nil,
+        invalidFrameHandler: InvalidFrameHandler? = nil,
         handshakeEncoder: @escaping HandshakeEncoder = { try JSONEncoder().encode($0) }) {
         self.connection = connection
         self.queue = queue
         self.stateHandler = stateHandler
         self.dataHandler = dataHandler
+        self.invalidFrameHandler = invalidFrameHandler
         self.handshakeEncoder = handshakeEncoder
     }
 
@@ -64,6 +71,11 @@ internal final class NetworkPeerConnection : NetworkPeerConnectionCancellable {
     }
 
     internal func sendFrame(_ frame: PeerNetworkFrame, completion: ((NWError?) -> Void)? = nil) {
+        guard frame.payload.count <= PeerNetworkFrame.maxPayloadLength else {
+            completion?(.posix(.EMSGSIZE))
+            return
+        }
+
         connection.send(content: frame.encoded(), completion: .contentProcessed { error in
             completion?(error)
         })
@@ -81,13 +93,31 @@ internal final class NetworkPeerConnection : NetworkPeerConnectionCancellable {
 
     fileprivate func receiveNextFrame() {
         connection.receive(minimumIncompleteLength: 1, maximumLength: 65536) { [weak self] data, _, isComplete, error in
-            if let data = data, !data.isEmpty {
-                self?.frameDecoder.append(data).forEach { frame in
-                    self?.dataHandler?(frame)
-                }
+            guard let self else { return }
+
+            if let data = data, !data.isEmpty, !self.processReceivedData(data) {
+                return
             }
             guard error == nil, !isComplete else { return }
-            self?.receiveNextFrame()
+            self.receiveNextFrame()
+        }
+    }
+
+    /// Decodes received bytes and cancels the connection when the stream becomes invalid.
+    @discardableResult
+    internal func processReceivedData(_ data: Data) -> Bool {
+        guard !isReceiveTerminal else { return false }
+
+        do {
+            try frameDecoder.append(data).forEach { frame in
+                dataHandler?(frame)
+            }
+            return true
+        } catch {
+            isReceiveTerminal = true
+            connection.cancel()
+            invalidFrameHandler?()
+            return false
         }
     }
 
