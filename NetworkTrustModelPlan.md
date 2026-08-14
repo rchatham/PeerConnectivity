@@ -9,9 +9,9 @@ This document defines the security boundary of the experimental Network framewor
 The Network backend has two modes:
 
 - `.unauthenticated` is plaintext TCP and provides neither confidentiality nor peer authentication.
-- `.preSharedKey` passes one app-provided key and the fixed PSK identity label `PeerConnectivity.NetworkFramework.PSK.v1` to `sec_protocol_options_add_pre_shared_key` on both listener and outbound connections.
+- `.preSharedKey` passes one app-provided key and the fixed PSK identity label `PeerConnectivity.NetworkFramework.PSK.v1` to `sec_protocol_options_add_pre_shared_key` on both listener and outbound connections. Apple's external PSK API supports PSK negotiation only in TLS 1.2, so the transport sets both its minimum and maximum protocol versions to TLS 1.2. Negotiation cannot fall back to another TLS version or to plaintext.
 
-Apple's Security framework describes those inputs as the PSK and its PSK identity. TLS 1.3 defines a PSK identity as a **label for a key**, not as the authenticated identity of the endpoint using that key. The fixed PeerConnectivity label therefore selects the protocol's shared key; it does not identify Alice, Bob, a device, or an installation.
+Apple's Security framework describes the external-PSK inputs as the PSK and its PSK identity. A PSK identity is a **label for a key**, not the authenticated identity of the endpoint using that key. The fixed PeerConnectivity label therefore selects the protocol's shared key; it does not identify Alice, Bob, a device, or an installation.
 
 A successful current TLS-PSK connection establishes only that the remote endpoint knows the same group secret. It provides encrypted, integrity-protected transport against parties outside that group. It does **not** establish which individual group member is connected.
 
@@ -28,7 +28,7 @@ TLS protection prevents a non-member from modifying a connected member's handsha
 Apps using `.preSharedKey` should meet all of these requirements:
 
 1. **Generate at least 256 random bits (32 bytes)** with a cryptographically secure random-number generator. This is a conservative project requirement above TLS's baseline security level.
-2. Do not use passwords, passphrases, display names, service names, UUID text, predictable tokens, or demo strings directly as PSKs. TLS 1.3 warns that low-entropy external PSKs permit offline dictionary attacks against an observed handshake.
+2. Do not use passwords, passphrases, display names, service names, UUID text, predictable tokens, or demo strings directly as PSKs. Low-entropy external PSKs can permit offline dictionary attacks against an observed handshake; pinning this transport to TLS 1.2 does not make password-like key material safe.
 3. Provision the key over an authenticated channel and store it using platform-appropriate protected storage. Do not embed a production group key in source, examples, logs, Bonjour metadata, or the application bundle.
 4. Scope a key to one app/environment and one intended authorization group. Do not reuse it across unrelated protocols, production and test environments, or groups with different privileges.
 5. Rotate the key when membership changes or compromise is suspected. Group rotation removes future access but cannot identify which member used a previously shared key and does not provide post-compromise security for later handshakes while the old key remains valid.
@@ -125,7 +125,7 @@ This is intentionally not a public API proposal yet.
 
 The claims above were checked against:
 
-- [`Sources/NetworkPeerTransport.swift`](Sources/NetworkPeerTransport.swift): current PSK setup uses `sec_protocol_options_add_pre_shared_key` with one app key and a fixed protocol label.
+- [`Sources/NetworkPeerTransport.swift`](Sources/NetworkPeerTransport.swift): current PSK setup uses `sec_protocol_options_add_pre_shared_key` with one app key and a fixed protocol label, and pins both the minimum and maximum protocol versions to TLS 1.2 with no protocol or plaintext fallback.
 - [`Sources/PeerNetworkProtocol.swift`](Sources/PeerNetworkProtocol.swift): Bonjour and handshake identities contain self-asserted identifier/display-name fields and no proof of possession.
 - [`Sources/NetworkPeerCoordinator.swift`](Sources/NetworkPeerCoordinator.swift): a valid protocol handshake identity is registered without an individual credential check.
 - Apple SDK `Security.framework/Headers/SecProtocolOptions.h`: `sec_protocol_options_add_pre_shared_key` accepts a PSK plus its PSK identity; the same API surface provides PSK selection, local certificate identity, and trust verification callbacks.
@@ -134,4 +134,4 @@ The claims above were checked against:
 - [TLS 1.3, RFC 8446 Appendix E.7](https://www.rfc-editor.org/rfc/rfc8446.html#appendix-E.7): avoid cross-protocol PSK reuse.
 - [HKDF, RFC 5869 §§3–4](https://www.rfc-editor.org/rfc/rfc5869.html#section-3): bind derivation to context using `info`; HKDF cannot amplify password entropy.
 
-Apple header descriptions establish available platform mechanisms, not a complete PeerConnectivity protocol design. Each future option still needs focused platform prototyping and security review before implementation.
+The TLS 1.3 references above inform general external-PSK key hygiene and future protocol design; they do not describe the current transport version. The current external-PSK transport requires exactly TLS 1.2. Apple header descriptions establish available platform mechanisms, not a complete PeerConnectivity protocol design. Each future option still needs focused platform prototyping and security review before implementation.

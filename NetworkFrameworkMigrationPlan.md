@@ -80,7 +80,7 @@ Relevant Network framework APIs:
   - `NSBonjourServices`
 - Network framework is connection-oriented, not an `MCSession`-style symmetric mesh abstraction.
 - Peer-to-peer Wi-Fi/Bluetooth/AWDL behavior requires `NWParameters.includePeerToPeer = true` and on-device testing.
-- Network TLS-PSK authenticates shared-key group membership, not an individual peer. Peer identities remain self-asserted until the [Network trust model plan](NetworkTrustModelPlan.md) binds them to pairwise key material, a certificate/pinned key, a signed credential, or app-provided verification.
+- Network external-PSK transport pins both its minimum and maximum to TLS 1.2 with no fallback to another TLS version or plaintext. It authenticates shared-key group membership, not an individual peer. Peer identities remain self-asserted until the [Network trust model plan](NetworkTrustModelPlan.md) binds them to pairwise key material, a certificate/pinned key, a signed credential, or app-provided verification.
 - Network coordinator state must be serialized and bounded; current wiring keeps handshake timeout and connection caps internal until defaults are validated across CI and device testing. Discovery caps and idle timeouts remain production-hardening follow-ups before accepting untrusted inbound traffic at scale.
 - Public `multipeerSession: MCSession` prevents completely removing MultipeerConnectivity without a breaking API change; a source-compatible transition release requires dual backend support.
 - `MCBrowserViewController` has no Network framework equivalent.
