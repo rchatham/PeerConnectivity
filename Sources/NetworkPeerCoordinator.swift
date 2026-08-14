@@ -10,6 +10,8 @@ import Foundation
 
 internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending> {
 
+    internal typealias HandshakeEncoder = (PeerNetworkHandshake) throws -> Data
+
     fileprivate struct PendingConnection {
         internal let connection : Connection
         internal let direction : NetworkPeerConnectionDirection
@@ -21,18 +23,21 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
     fileprivate let queue = DispatchQueue(label: "PeerConnectivity.NetworkPeerCoordinator")
     fileprivate let sessionObserver : Observable<PeerSessionEvent>
     fileprivate let browserObserver : Observable<PeerBrowserEvent>
+    fileprivate let handshakeEncoder : HandshakeEncoder
     fileprivate var pendingConnections : [ObjectIdentifier:PendingConnection] = [:]
     fileprivate var connectionIdentities : [ObjectIdentifier:PeerIdentity] = [:]
     fileprivate var discoveredPeers : [PeerIdentity:Peer] = [:]
 
     internal init(localPeer: Peer,
         sessionObserver: Observable<PeerSessionEvent>,
-        browserObserver: Observable<PeerBrowserEvent>) {
+        browserObserver: Observable<PeerBrowserEvent>,
+        handshakeEncoder: @escaping HandshakeEncoder = { try JSONEncoder().encode($0) }) {
         self.localPeer = localPeer
         self.registry = NetworkPeerConnectionRegistry(localIdentity: localPeer.identity)
         self.dataSender = NetworkPeerDataSender(registry: registry)
         self.sessionObserver = sessionObserver
         self.browserObserver = browserObserver
+        self.handshakeEncoder = handshakeEncoder
     }
 
     internal var connectedPeers : [Peer] {
@@ -128,7 +133,8 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
     }
 
     fileprivate func rejectHandshake(from connection: Connection) {
-        pendingConnections.removeValue(forKey: ObjectIdentifier(connection))
+        let identifier = ObjectIdentifier(connection)
+        guard pendingConnections.removeValue(forKey: identifier) != nil else { return }
         connection.cancel()
     }
 
@@ -143,7 +149,13 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
 
     fileprivate func sendHandshake(on connection: Connection) {
         let handshake = PeerNetworkHandshake(identity: localPeer.identity)
-        guard let payload = try? JSONEncoder().encode(handshake) else { return }
-        connection.sendFrame(PeerNetworkFrame(kind: .handshake, payload: payload))
+
+        do {
+            let payload = try handshakeEncoder(handshake)
+            connection.sendFrame(PeerNetworkFrame(kind: .handshake, payload: payload))
+        } catch {
+            NSLog("%@", "PeerConnectivity: Failed to encode Network handshake; canceling connection")
+            rejectHandshake(from: connection)
+        }
     }
 }

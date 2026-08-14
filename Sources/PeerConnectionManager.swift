@@ -879,8 +879,7 @@ extension PeerConnectionManager {
      Takes a `PeerConnectionEventListener` to respond to events.
 
      Event delivery is asynchronous. Back-to-back events emitted from synchronous
-     call sites are not guaranteed to be delivered in FIFO order by this simple
-     actor-backed bridge.
+     call sites are delivered in FIFO submission order.
      
      - parameter listener: Takes a `PeerConnectionEventListener`.
      - parameter performListenerInBackground: Default is `false`. Set to `true` to perform the listener asyncronously.
