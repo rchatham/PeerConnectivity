@@ -141,7 +141,8 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
             return nil
         }
 
-        guard handshake.identity != localPeer.identity else {
+        guard Peer.isValidDisplayName(handshake.identity.displayName),
+            handshake.identity != localPeer.identity else {
             rejectHandshake(from: connection)
             return nil
         }
@@ -165,8 +166,10 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
     }
 
     fileprivate func rejectHandshake(from connection: Connection) {
-        pendingConnections.removeValue(forKey: ObjectIdentifier(connection))?.timeout.cancel()
-        connection.cancel()
+        let identifier = ObjectIdentifier(connection)
+        guard let pending = pendingConnections.removeValue(forKey: identifier) else { return }
+        pending.timeout.cancel()
+        pending.connection.cancel()
     }
 
     fileprivate func expirePendingConnection(_ connection: Connection) {
