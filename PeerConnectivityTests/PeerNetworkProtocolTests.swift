@@ -114,6 +114,42 @@ final class PeerNetworkProtocolTests : XCTestCase {
     }
 
     @available(iOS 13.0, macOS 10.15, *)
+    internal func testOversizedOutboundFrameCompletesWithError() {
+        let connection = NetworkPeerConnection(endpoint: .hostPort(host: "localhost", port: 9))
+        let frame = PeerNetworkFrame(
+            kind: .data,
+            payload: Data(count: PeerNetworkFrame.maxPayloadLength + 1)
+        )
+        var receivedError : NWError?
+
+        connection.sendFrame(frame) { error in
+            receivedError = error
+        }
+
+        guard case .posix(.EMSGSIZE)? = receivedError else {
+            return XCTFail("Expected EMSGSIZE for an oversized outbound frame")
+        }
+    }
+
+    @available(iOS 13.0, macOS 10.15, *)
+    internal func testConnectionCancelsAndStopsDecodingAfterOversizedFrame() {
+        var invalidFrameCallCount = 0
+        var receivedFrames : [PeerNetworkFrame] = []
+        let connection = NetworkPeerConnection(
+            endpoint: .hostPort(host: "localhost", port: 9),
+            dataHandler: { receivedFrames.append($0) },
+            invalidFrameHandler: { invalidFrameCallCount += 1 }
+        )
+        let oversizedLength = UInt32(PeerNetworkFrame.maxPayloadLength + 1)
+        let validFrame = PeerNetworkFrame(kind: .data, payload: Data([1, 2, 3]))
+
+        XCTAssertFalse(connection.processReceivedData(frameHeader(kind: .data, payloadLength: oversizedLength)))
+        XCTAssertFalse(connection.processReceivedData(validFrame.encoded()))
+        XCTAssertEqual(invalidFrameCallCount, 1)
+        XCTAssertTrue(receivedFrames.isEmpty)
+    }
+
+    @available(iOS 13.0, macOS 10.15, *)
     internal func testHandshakeEncodingFailureCompletesWithError() {
         let connection = NetworkPeerConnection(
             endpoint: .hostPort(host: "localhost", port: 9),
@@ -162,26 +198,52 @@ final class PeerNetworkProtocolTests : XCTestCase {
         XCTAssertNil(PeerNetworkFrame.decode(data))
     }
 
-    internal func testFrameDecoderClearsOversizedFrame() {
+    internal func testFrameDecoderRejectsOversizedHeaderTerminally() {
         let oversizedLength = UInt32(PeerNetworkFrame.maxPayloadLength + 1)
         let validFrame = PeerNetworkFrame(kind: .data, payload: Data([1, 2, 3]))
         var decoder = PeerNetworkFrameDecoder()
 
-        XCTAssertTrue(decoder.append(frameHeader(kind: .data, payloadLength: oversizedLength)).isEmpty)
-        XCTAssertEqual(decoder.append(validFrame.encoded()), [validFrame])
+        XCTAssertThrowsError(try decoder.append(frameHeader(kind: .data, payloadLength: oversizedLength))) { error in
+            XCTAssertEqual(error as? PeerNetworkFrameDecoderError, .invalidFrame)
+        }
+        XCTAssertThrowsError(try decoder.append(validFrame.encoded())) { error in
+            XCTAssertEqual(error as? PeerNetworkFrameDecoderError, .invalidFrame)
+        }
     }
 
-    internal func testFrameDecoderBuffersPartialFrame() {
+    internal func testFrameDecoderRejectsFragmentedOversizedHeaderTerminally() throws {
+        let oversizedLength = UInt32(PeerNetworkFrame.maxPayloadLength + 1)
+        let header = frameHeader(kind: .data, payloadLength: oversizedLength)
+        let splitIndex = header.index(header.startIndex, offsetBy: 3)
+        var decoder = PeerNetworkFrameDecoder()
+
+        XCTAssertTrue(try decoder.append(Data(header[..<splitIndex])).isEmpty)
+        XCTAssertThrowsError(try decoder.append(Data(header[splitIndex...]))) { error in
+            XCTAssertEqual(error as? PeerNetworkFrameDecoderError, .invalidFrame)
+        }
+        XCTAssertThrowsError(try decoder.append(Data(repeating: 0, count: 64))) { error in
+            XCTAssertEqual(error as? PeerNetworkFrameDecoderError, .invalidFrame)
+        }
+    }
+
+    internal func testFrameDecoderAcceptsMaximumPayloadLength() throws {
+        let frame = PeerNetworkFrame(kind: .data, payload: Data(count: PeerNetworkFrame.maxPayloadLength))
+        var decoder = PeerNetworkFrameDecoder()
+
+        XCTAssertEqual(try decoder.append(frame.encoded()), [frame])
+    }
+
+    internal func testFrameDecoderBuffersPartialFrame() throws {
         let frame = PeerNetworkFrame(kind: .handshake, payload: Data([1, 2, 3, 4]))
         let encoded = frame.encoded()
         let splitIndex = encoded.index(encoded.startIndex, offsetBy: 3)
         var decoder = PeerNetworkFrameDecoder()
 
-        XCTAssertTrue(decoder.append(Data(encoded[..<splitIndex])).isEmpty)
-        XCTAssertEqual(decoder.append(Data(encoded[splitIndex...])), [frame])
+        XCTAssertTrue(try decoder.append(Data(encoded[..<splitIndex])).isEmpty)
+        XCTAssertEqual(try decoder.append(Data(encoded[splitIndex...])), [frame])
     }
 
-    internal func testFrameDecoderEmitsCoalescedFrames() {
+    internal func testFrameDecoderEmitsCoalescedFrames() throws {
         let first = PeerNetworkFrame(kind: .handshake, payload: Data([1, 2, 3]))
         let second = PeerNetworkFrame(kind: .data, payload: Data([4, 5, 6]))
         var encoded = Data()
@@ -189,10 +251,10 @@ final class PeerNetworkProtocolTests : XCTestCase {
         encoded.append(second.encoded())
         var decoder = PeerNetworkFrameDecoder()
 
-        XCTAssertEqual(decoder.append(encoded), [first, second])
+        XCTAssertEqual(try decoder.append(encoded), [first, second])
     }
 
-    internal func testFrameDecoderHandlesManyCoalescedFramesBeforePartialFrame() {
+    internal func testFrameDecoderHandlesManyCoalescedFramesBeforePartialFrame() throws {
         let frames = (0..<10_000).map { index in
             return PeerNetworkFrame(kind: .data, payload: Data([UInt8(index % 251)]))
         }
@@ -205,15 +267,15 @@ final class PeerNetworkProtocolTests : XCTestCase {
         encoded.append(partialData[..<splitIndex])
         var decoder = PeerNetworkFrameDecoder()
 
-        XCTAssertEqual(decoder.append(encoded), frames)
-        XCTAssertEqual(decoder.append(Data(partialData[splitIndex...])), [partialFrame])
+        XCTAssertEqual(try decoder.append(encoded), frames)
+        XCTAssertEqual(try decoder.append(Data(partialData[splitIndex...])), [partialFrame])
     }
 
-    internal func testFrameDecoderPreservesFrameKind() {
+    internal func testFrameDecoderPreservesFrameKind() throws {
         let frame = PeerNetworkFrame(kind: .handshake, payload: Data([7, 8, 9]))
         var decoder = PeerNetworkFrameDecoder()
 
-        let decoded = decoder.append(frame.encoded())
+        let decoded = try decoder.append(frame.encoded())
 
         XCTAssertEqual(decoded.first?.kind, .handshake)
         XCTAssertEqual(decoded.first?.payload, frame.payload)
