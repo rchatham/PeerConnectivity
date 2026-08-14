@@ -122,7 +122,6 @@ internal final class NetworkPeerConnection : NetworkPeerConnectionCancellable {
             }
             guard error == nil, !isComplete else {
                 self.cancel()
-                self.stateHandler?(.cancelled)
                 return
             }
             self.receiveNextFrame()

@@ -128,12 +128,15 @@ final class NetworkPeerCoordinatorTests : XCTestCase {
         harness.coordinator.addPendingConnection(connection, direction: .outbound)
         harness.coordinator.receiveFrame(handshakeFrame(remoteIdentity), from: connection)
         harness.coordinator.removeConnection(connection)
+        harness.coordinator.removeConnection(connection)
         await fulfillment(of: [expectation], timeout: 1)
 
         XCTAssertEqual(connection.cancelCallCount, 1)
         XCTAssertTrue(harness.coordinator.connectedPeers.isEmpty)
-        let peer = try XCTUnwrap(harness.sessionEvents.compactMap { devicesChangedPeer(from: $0) }
-            .first { $0.status == .notConnected })
+        let disconnectedPeers = harness.sessionEvents.compactMap { devicesChangedPeer(from: $0) }
+            .filter { $0.status == .notConnected }
+        let peer = try XCTUnwrap(disconnectedPeers.first)
+        XCTAssertEqual(disconnectedPeers.count, 1)
         XCTAssertEqual(peer, Peer(identity: remoteIdentity, status: .notConnected))
         XCTAssertEqual(peer.status, .notConnected)
     }
