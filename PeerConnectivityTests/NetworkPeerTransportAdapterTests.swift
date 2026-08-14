@@ -26,15 +26,54 @@ private final class MockNetworkPeerListener : NetworkPeerListening {
 
 @available(iOS 13.0, macOS 10.15, *)
 private final class MockNetworkPeerBrowser : NetworkPeerBrowsing {
-    internal var startCallCount = 0
-    internal var cancelCallCount = 0
+    fileprivate let lock = NSLock()
+    fileprivate var storedStartCallCount = 0
+    fileprivate var storedCancelCallCount = 0
+
+    internal var startCallCount : Int {
+        return locked { storedStartCallCount }
+    }
+
+    internal var cancelCallCount : Int {
+        return locked { storedCancelCallCount }
+    }
 
     internal func start() {
-        startCallCount += 1
+        locked { storedStartCallCount += 1 }
     }
 
     internal func cancel() {
-        cancelCallCount += 1
+        locked { storedCancelCallCount += 1 }
+    }
+
+    fileprivate func locked<T>(_ operation: () -> T) -> T {
+        lock.lock()
+        defer { lock.unlock() }
+        return operation()
+    }
+}
+
+@available(iOS 13.0, macOS 10.15, *)
+private final class ConnectedEndpointRecorder {
+    fileprivate let lock = NSLock()
+    fileprivate var endpoints : [NWEndpoint] = []
+
+    internal func append(_ endpoint: NWEndpoint) {
+        lock.lock()
+        endpoints.append(endpoint)
+        lock.unlock()
+    }
+
+    internal func removeAll() {
+        lock.lock()
+        endpoints.removeAll()
+        lock.unlock()
+    }
+
+    internal func snapshot() -> [NWEndpoint] {
+        lock.lock()
+        defer { lock.unlock() }
+        return endpoints
     }
 }
 
@@ -130,6 +169,53 @@ final class NetworkPeerTransportAdapterTests : XCTestCase {
         XCTAssertEqual(foundEvents.first?.0.displayName, "Remote")
         XCTAssertNil(foundEvents.first?.1,
             "Network discovery must report nil until app-provided discoveryInfo is supported")
+    }
+
+    internal func testBrowserTransportSerializesConcurrentEndpointLifecycle() {
+        guard #available(iOS 13.0, macOS 10.15, *) else { return }
+
+        let recorder = ConnectedEndpointRecorder()
+        let identities = (0..<64).map { index in
+            PeerIdentity(identifier: "remote-\(index)", displayName: "Remote \(index)")
+        }
+        let endpoints = (0..<identities.count).map { index in
+            NWEndpoint.hostPort(host: .ipv4(IPv4Address("127.0.0.1")!),
+                port: NWEndpoint.Port(rawValue: UInt16(20000 + index))!)
+        }
+        let finalEndpoints = (0..<identities.count).map { index in
+            NWEndpoint.hostPort(host: .ipv4(IPv4Address("127.0.0.1")!),
+                port: NWEndpoint.Port(rawValue: UInt16(30000 + index))!)
+        }
+        let transport = NetworkPeerBrowserTransport(session: makeSessionTransport(),
+            browser: MockNetworkPeerBrowser(),
+            browserObserver: Observable<PeerBrowserEvent>(.none),
+            connectToEndpoint: recorder.append)
+
+        DispatchQueue.concurrentPerform(iterations: 2_000) { iteration in
+            let index = iteration % identities.count
+            switch iteration % 4 {
+            case 0:
+                transport.foundEndpoint(endpoints[index], identity: identities[index])
+            case 1:
+                transport.invitePeer(Peer(identity: identities[index], status: .notConnected))
+            case 2:
+                transport.lostEndpoint(endpoints[index], identity: identities[index])
+            default:
+                transport.stopBrowsing()
+            }
+        }
+
+        recorder.removeAll()
+        for index in identities.indices {
+            transport.foundEndpoint(finalEndpoints[index], identity: identities[index])
+        }
+        DispatchQueue.concurrentPerform(iterations: identities.count) { index in
+            transport.invitePeer(Peer(identity: identities[index], status: .notConnected))
+        }
+
+        let connectedEndpoints = recorder.snapshot()
+        XCTAssertEqual(connectedEndpoints.count, finalEndpoints.count)
+        XCTAssertEqual(Set(connectedEndpoints), Set(finalEndpoints))
     }
 
     internal func testBrowserTransportIgnoresSelfEndpoint() async {

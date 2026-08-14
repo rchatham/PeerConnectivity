@@ -114,6 +114,8 @@ internal final class NetworkPeerBrowserTransport : PeerBrowserTransport {
     fileprivate let session : NetworkPeerSessionTransport
     fileprivate let browser : NetworkPeerBrowsing
     fileprivate let browserObserver : Observable<PeerBrowserEvent>
+    fileprivate let connectToEndpoint : (NWEndpoint) -> Void
+    fileprivate let endpointsLock = NSLock()
     fileprivate var endpointsByIdentity : [PeerIdentity:NWEndpoint] = [:]
 
     internal convenience init(session: NetworkPeerSessionTransport,
@@ -130,15 +132,17 @@ internal final class NetworkPeerBrowserTransport : PeerBrowserTransport {
 
     internal init(session: NetworkPeerSessionTransport,
         browser: NetworkPeerBrowsing,
-        browserObserver: Observable<PeerBrowserEvent>) {
+        browserObserver: Observable<PeerBrowserEvent>,
+        connectToEndpoint: ((NWEndpoint) -> Void)? = nil) {
         self.session = session
         self.browser = browser
         self.browserObserver = browserObserver
+        self.connectToEndpoint = connectToEndpoint ?? { endpoint in session.connect(to: endpoint) }
     }
 
     internal func invitePeer(_ peer: Peer, withContext context: Data? = nil, timeout: TimeInterval = 30) {
-        guard let endpoint = endpointsByIdentity[peer.identity] else { return }
-        session.connect(to: endpoint)
+        guard let endpoint = lockedEndpoints({ endpointsByIdentity[peer.identity] }) else { return }
+        connectToEndpoint(endpoint)
     }
 
     internal func startBrowsing() {
@@ -147,7 +151,7 @@ internal final class NetworkPeerBrowserTransport : PeerBrowserTransport {
 
     internal func stopBrowsing() {
         browser.cancel()
-        endpointsByIdentity.removeAll()
+        lockedEndpoints { endpointsByIdentity.removeAll() }
     }
 
     internal func handleBrowserResultChange(_ change: NWBrowser.Result.Change) {
@@ -172,14 +176,20 @@ internal final class NetworkPeerBrowserTransport : PeerBrowserTransport {
 
     internal func foundEndpoint(_ endpoint: NWEndpoint, identity: PeerIdentity) {
         guard !isLocalIdentity(identity) else { return }
-        endpointsByIdentity[identity] = endpoint
+        lockedEndpoints { endpointsByIdentity[identity] = endpoint }
         browserObserver.update(.foundPeer(Peer(identity: identity, status: .notConnected), discoveryInfo: nil))
     }
 
     internal func lostEndpoint(_ endpoint: NWEndpoint, identity: PeerIdentity) {
         guard !isLocalIdentity(identity) else { return }
-        endpointsByIdentity.removeValue(forKey: identity)
+        lockedEndpoints { _ = endpointsByIdentity.removeValue(forKey: identity) }
         browserObserver.update(.lostPeer(Peer(identity: identity, status: .notConnected)))
+    }
+
+    fileprivate func lockedEndpoints<T>(_ operation: () -> T) -> T {
+        endpointsLock.lock()
+        defer { endpointsLock.unlock() }
+        return operation()
     }
 
     fileprivate func identity(from result: NWBrowser.Result) -> PeerIdentity? {
