@@ -34,6 +34,7 @@
 		30NETSTATE2606240002 /* NetworkPeerStateMapping.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30NETSTATE2606240001 /* NetworkPeerStateMapping.swift */; };
 		30NETDATA26062400002 /* NetworkPeerDataSender.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30NETDATA26062400001 /* NetworkPeerDataSender.swift */; };
 		30NETCOORD2606250002 /* NetworkPeerCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30NETCOORD2606250001 /* NetworkPeerCoordinator.swift */; };
+		30NSLOCK260823000002 /* NSLock+Extensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30NSLOCK260823000001 /* NSLock+Extensions.swift */; };
 		30NETREGTEST26062402 /* NetworkPeerConnectionRegistryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30NETREGTEST26062401 /* NetworkPeerConnectionRegistryTests.swift */; };
 		30NETSTATETEST2606242 /* NetworkPeerStateMappingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30NETSTATETEST2606241 /* NetworkPeerStateMappingTests.swift */; };
 		30NETDATATEST2606242 /* NetworkPeerDataSenderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30NETDATATEST2606241 /* NetworkPeerDataSenderTests.swift */; };
@@ -77,6 +78,7 @@
 		30NETSTATE2606240001 /* NetworkPeerStateMapping.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = NetworkPeerStateMapping.swift; path = Sources/NetworkPeerStateMapping.swift; sourceTree = "<group>"; };
 		30NETDATA26062400001 /* NetworkPeerDataSender.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = NetworkPeerDataSender.swift; path = Sources/NetworkPeerDataSender.swift; sourceTree = "<group>"; };
 		30NETCOORD2606250001 /* NetworkPeerCoordinator.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = NetworkPeerCoordinator.swift; path = Sources/NetworkPeerCoordinator.swift; sourceTree = "<group>"; };
+		30NSLOCK260823000001 /* NSLock+Extensions.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; name = "NSLock+Extensions.swift"; path = "Sources/NSLock+Extensions.swift"; sourceTree = "<group>"; };
 		30NETREGTEST26062401 /* NetworkPeerConnectionRegistryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkPeerConnectionRegistryTests.swift; sourceTree = "<group>"; };
 		30NETSTATETEST2606241 /* NetworkPeerStateMappingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkPeerStateMappingTests.swift; sourceTree = "<group>"; };
 		30NETDATATEST2606241 /* NetworkPeerDataSenderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkPeerDataSenderTests.swift; sourceTree = "<group>"; };
@@ -143,6 +145,7 @@
 			children = (
 				3080C7DB1D80A1D600AF9EA3 /* Info.plist */,
 				3080C7DD1D80A1D600AF9EA3 /* Observable.swift */,
+				30NSLOCK260823000001 /* NSLock+Extensions.swift */,
 				30NETREG260624000001 /* NetworkPeerConnectionRegistry.swift */,
 				30NETDATA26062400001 /* NetworkPeerDataSender.swift */,
 				30NETCOORD2606250001 /* NetworkPeerCoordinator.swift */,
@@ -342,6 +345,7 @@
 				30NETSTATE2606240002 /* NetworkPeerStateMapping.swift in Sources */,
 				30NETDATA26062400002 /* NetworkPeerDataSender.swift in Sources */,
 				30NETCOORD2606250002 /* NetworkPeerCoordinator.swift in Sources */,
+				30NSLOCK260823000002 /* NSLock+Extensions.swift in Sources */,
 				30NETTRAN2606240002 /* NetworkPeerTransport.swift in Sources */,
 				30NETADAPT260730002 /* NetworkPeerTransportAdapters.swift in Sources */,
 				3080C7F91D80A1D700AF9EA3 /* PeerConnectionResponder.swift in Sources */,

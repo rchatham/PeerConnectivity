@@ -734,18 +734,15 @@ extension PeerConnectionManager {
 
     @discardableResult
     private func advanceTransportEventGeneration() -> Int {
-        transportEventGenerationLock.lock()
-        let previousGeneration = transportEventGeneration
-        transportEventGeneration += 1
-        transportEventGenerationLock.unlock()
-        return previousGeneration
+        return transportEventGenerationLock.locked {
+            let previousGeneration = transportEventGeneration
+            transportEventGeneration += 1
+            return previousGeneration
+        }
     }
 
     private func currentTransportEventGeneration() -> Int {
-        transportEventGenerationLock.lock()
-        let generation = transportEventGeneration
-        transportEventGenerationLock.unlock()
-        return generation
+        return transportEventGenerationLock.locked { transportEventGeneration }
     }
 
     private func isCurrentTransportEventGeneration(_ generation: Int) -> Bool {
