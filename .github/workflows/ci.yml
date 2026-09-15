@@ -49,10 +49,16 @@ jobs:
 
       - name: Run Xcode tests
         run: |
+          UDID=$(xcrun simctl list devices available | grep -E 'iPhone' | grep -oE '[A-F0-9]{8}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{12}' | head -1)
+          if [ -z "$UDID" ]; then
+            echo "No available iPhone simulator found"
+            exit 1
+          fi
+          echo "Using iPhone simulator: $UDID"
           xcodebuild test \
             -project PeerConnectivity.xcodeproj \
             -scheme PeerConnectivity \
-            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            -destination "platform=iOS Simulator,id=$UDID" \
             -configuration Debug \
             -skip-testing:PeerConnectivityTests/NetworkPeerLoopbackTests
 
@@ -60,6 +66,11 @@ jobs:
         env:
           PEERCONNECTIVITY_RUN_NETWORK_E2E: "1"
         run: |
+          UDID=$(xcrun simctl list devices available | grep -E 'iPhone' | grep -oE '[A-F0-9]{8}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{12}' | head -1)
+          if [ -z "$UDID" ]; then
+            echo "No available iPhone simulator found"
+            exit 1
+          fi
           run_with_retry() {
             "$@" && return 0
             echo "Network loopback test command failed; retrying once..."
@@ -70,6 +81,6 @@ jobs:
           run_with_retry xcodebuild test \
             -project PeerConnectivity.xcodeproj \
             -scheme PeerConnectivity \
-            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            -destination "platform=iOS Simulator,id=$UDID" \
             -configuration Debug \
             -only-testing:PeerConnectivityTests/NetworkPeerLoopbackTests
