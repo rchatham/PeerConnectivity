@@ -117,15 +117,10 @@ internal class PeerConnectionResponder {
 
     internal fileprivate(set) var listeners : [String:PeerConnectionEventListener] {
         get {
-            listenersLock.lock()
-            let currentListeners = storedListeners
-            listenersLock.unlock()
-            return currentListeners
+            return listenersLock.locked { storedListeners }
         }
         set {
-            listenersLock.lock()
-            storedListeners = newValue
-            listenersLock.unlock()
+            listenersLock.locked { storedListeners = newValue }
         }
     }
     
@@ -165,20 +160,14 @@ internal class PeerConnectionResponder {
     }
 
     fileprivate func storeListener(_ listener: @escaping PeerConnectionEventListener, forKey key: String) {
-        listenersLock.lock()
-        storedListeners[key] = listener
-        listenersLock.unlock()
+        listenersLock.locked { storedListeners[key] = listener }
     }
 
     fileprivate func removeStoredListener(forKey key: String) {
-        listenersLock.lock()
-        storedListeners.removeValue(forKey: key)
-        listenersLock.unlock()
+        listenersLock.locked { _ = storedListeners.removeValue(forKey: key) }
     }
 
     fileprivate func removeStoredListeners() {
-        listenersLock.lock()
-        storedListeners.removeAll()
-        listenersLock.unlock()
+        listenersLock.locked { storedListeners.removeAll() }
     }
 }
