@@ -41,18 +41,18 @@ internal final class NetworkPeerConnectionRegistry<Connection: NetworkPeerConnec
     }
 
     internal var connectedPeerIdentities : [PeerIdentity] {
-        return locked { Array(entries.keys) }
+        return lock.locked { Array(entries.keys) }
     }
 
     internal func connection(for identity: PeerIdentity) -> Connection? {
-        return locked { entries[identity]?.connection }
+        return lock.locked { entries[identity]?.connection }
     }
 
     @discardableResult
     internal func register(_ connection: Connection,
         for identity: PeerIdentity,
         direction: NetworkPeerConnectionDirection) -> Bool {
-        return locked {
+        return lock.locked {
             guard let existing = entries[identity] else {
                 entries[identity] = Entry(connection: connection, direction: direction)
                 return true
@@ -71,20 +71,14 @@ internal final class NetworkPeerConnectionRegistry<Connection: NetworkPeerConnec
     }
 
     internal func remove(identity: PeerIdentity) {
-        locked { _ = entries.removeValue(forKey: identity) }
+        lock.locked { _ = entries.removeValue(forKey: identity) }
     }
 
     internal func cancelAll() {
-        locked {
+        lock.locked {
             entries.values.forEach { $0.connection.cancel() }
             entries = [:]
         }
-    }
-
-    fileprivate func locked<T>(_ operation: () -> T) -> T {
-        lock.lock()
-        defer { lock.unlock() }
-        return operation()
     }
 
     internal static func defaultDuplicateResolver(local: PeerIdentity,
