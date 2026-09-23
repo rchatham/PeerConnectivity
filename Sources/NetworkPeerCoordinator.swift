@@ -26,6 +26,8 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
     fileprivate let advertiserObserver : Observable<PeerAdvertiserEvent>
     fileprivate let handshakeEncoder : HandshakeEncoder
     fileprivate var pendingConnections : [ObjectIdentifier:PendingConnection] = [:]
+    internal static var maxPendingConnections : Int { 32 }
+    fileprivate let handshakeTimeout : TimeInterval
     fileprivate var connectionIdentities : [ObjectIdentifier:PeerIdentity] = [:]
     fileprivate var discoveredPeers : [PeerIdentity:Peer] = [:]
 
@@ -33,6 +35,7 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
         sessionObserver: Observable<PeerSessionEvent>,
         browserObserver: Observable<PeerBrowserEvent>,
         advertiserObserver: Observable<PeerAdvertiserEvent>,
+        handshakeTimeout: TimeInterval = 10,
         handshakeEncoder: @escaping HandshakeEncoder = { try JSONEncoder().encode($0) }) {
         self.localPeer = localPeer
         self.registry = NetworkPeerConnectionRegistry(localIdentity: localPeer.identity)
@@ -40,6 +43,7 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
         self.sessionObserver = sessionObserver
         self.browserObserver = browserObserver
         self.advertiserObserver = advertiserObserver
+        self.handshakeTimeout = handshakeTimeout
         self.handshakeEncoder = handshakeEncoder
     }
 
@@ -51,7 +55,19 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
 
     internal func addPendingConnection(_ connection: Connection, direction: NetworkPeerConnectionDirection) {
         queue.sync {
-            pendingConnections[ObjectIdentifier(connection)] = PendingConnection(connection: connection, direction: direction)
+            let identifier = ObjectIdentifier(connection)
+            guard pendingConnections.count < Self.maxPendingConnections,
+                pendingConnections[identifier] == nil,
+                connectionIdentities[identifier] == nil else {
+                connection.cancel()
+                return
+            }
+            pendingConnections[identifier] = PendingConnection(connection: connection, direction: direction)
+            queue.asyncAfter(deadline: .now() + handshakeTimeout) { [weak self, weak connection] in
+                guard let self = self, let connection = connection,
+                    self.pendingConnections.removeValue(forKey: identifier) != nil else { return }
+                connection.cancel()
+            }
             sendHandshake(on: connection)
         }
     }
@@ -95,7 +111,9 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
 
     internal func foundPeer(identity: PeerIdentity) {
         queue.sync {
-            guard identity != localPeer.identity else { return }
+            guard identity != localPeer.identity,
+                PeerIdentity.isValidIdentifier(identity.identifier),
+                Peer.isValidDisplayName(identity.displayName) else { return }
             let peer = Peer(identity: identity, status: .notConnected)
             discoveredPeers[identity] = peer
             browserObserver.update(.foundPeer(peer, discoveryInfo: nil))
@@ -104,7 +122,9 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
 
     internal func lostPeer(identity: PeerIdentity) {
         queue.sync {
-            guard identity != localPeer.identity else { return }
+            guard identity != localPeer.identity,
+                PeerIdentity.isValidIdentifier(identity.identifier),
+                Peer.isValidDisplayName(identity.displayName) else { return }
             let peer = discoveredPeers.removeValue(forKey: identity) ?? Peer(identity: identity, status: .notConnected)
             browserObserver.update(.lostPeer(peer))
         }
@@ -125,8 +145,21 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
         }
 
         let identifier = ObjectIdentifier(connection)
-        let pending = pendingConnections.removeValue(forKey: identifier)
-        let direction = pending?.direction ?? NetworkPeerConnectionDirection.inbound
+        if let registeredIdentity = connectionIdentities[identifier] {
+            guard registeredIdentity != handshake.identity else { return }
+            connectionIdentities.removeValue(forKey: identifier)
+            if registry.connection(for: registeredIdentity) === connection {
+                registry.remove(identity: registeredIdentity)
+                sessionObserver.update(.devicesChanged(peer: Peer(identity: registeredIdentity, status: .notConnected)))
+            }
+            connection.cancel()
+            return
+        }
+        guard let pending = pendingConnections.removeValue(forKey: identifier) else {
+            connection.cancel()
+            return
+        }
+        let direction = pending.direction
         let wasConnected = registry.connection(for: handshake.identity) != nil
         let isRegistered = registry.register(connection, for: handshake.identity, direction: direction)
         guard isRegistered else { return }
