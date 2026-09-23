@@ -105,9 +105,54 @@ final class PeerConnectionBackendTests : XCTestCase {
             backend: .networkFramework)
 
         XCTAssertEqual(manager.backend, .networkFramework)
+        XCTAssertEqual(manager.networkSecurity, .unauthenticated)
         XCTAssertFalse(manager.isUsingMultipeerConnectivityTransport)
         XCTAssertTrue(manager.isUsingNetworkFrameworkTransport)
         XCTAssertNil(manager.availableMultipeerSession)
+    }
+
+    internal func testManagersSanitizeDisplayNamesForBothBackends() {
+        guard #available(iOS 13.0, macOS 10.15, *) else { return }
+
+        let requestedDisplayName = String(repeating: "a", count: 40) + "👨‍👩‍👧‍👦" + "suffix"
+        let expectedDisplayName = String(repeating: "a", count: 40)
+        let multipeerManager = PeerConnectionManager(serviceType: "backend-mc-name",
+            displayName: requestedDisplayName,
+            backend: .multipeerConnectivity)
+        let networkManager = PeerConnectionManager(serviceType: "backend-network-name",
+            displayName: requestedDisplayName,
+            backend: .networkFramework)
+
+        XCTAssertEqual(multipeerManager.peer.displayName, expectedDisplayName)
+        XCTAssertEqual(networkManager.peer.displayName, expectedDisplayName)
+        XCTAssertTrue(Peer.isValidDisplayName(multipeerManager.peer.displayName))
+        XCTAssertTrue(Peer.isValidDisplayName(networkManager.peer.displayName))
+    }
+
+    internal func testNetworkBackendStoresPreSharedKeySecurityWhenAvailable() {
+        guard #available(iOS 13.0, macOS 10.15, *) else { return }
+
+        let security = PeerConnectionNetworkSecurity.preSharedKey(Data("test-secret".utf8))
+        let manager = PeerConnectionManager(serviceType: "backend-network-psk",
+            displayName: "Local",
+            backend: .networkFramework,
+            networkSecurity: security)
+
+        XCTAssertEqual(manager.backend, .networkFramework)
+        XCTAssertEqual(manager.networkSecurity, security)
+        XCTAssertTrue(manager.isUsingNetworkFrameworkTransport)
+    }
+
+    internal func testMultipeerBackendIgnoresNetworkSecurityConfiguration() {
+        let security = PeerConnectionNetworkSecurity.preSharedKey(Data("ignored-secret".utf8))
+        let manager = PeerConnectionManager(serviceType: "backend-mc-sec",
+            displayName: "Local",
+            backend: .multipeerConnectivity,
+            networkSecurity: security)
+
+        XCTAssertEqual(manager.backend, .multipeerConnectivity)
+        XCTAssertEqual(manager.networkSecurity, security)
+        XCTAssertTrue(manager.isUsingMultipeerConnectivityTransport)
     }
 
     internal func testNetworkBackendAutomaticStartUsesNetworkFactoryWhenAvailable() {

@@ -26,6 +26,38 @@ public struct Peer {
     public static func isValidDisplayName(_ displayName: String) -> Bool {
         return !displayName.isEmpty && displayName.lengthOfBytes(using: .utf8) <= 63
     }
+
+    /**
+     Returns a deterministic display name that satisfies MultipeerConnectivity's constraints.
+
+     Overlong names are truncated to a complete `Character` boundary without exceeding 63 UTF-8 bytes.
+     Empty names use the supplied fallback, which is sanitized by the same rules.
+
+     - parameter displayName: Preferred display name.
+     - parameter fallback: Name to use when `displayName` is empty. Defaults to `"Peer"`.
+     - Returns: A non-empty display name no longer than 63 bytes when UTF-8 encoded.
+     */
+    public static func sanitizedDisplayName(_ displayName: String, fallback: String = "Peer") -> String {
+        let candidate = displayName.isEmpty ? fallback : displayName
+        let sanitizedCandidate = displayNamePrefix(candidate)
+        guard sanitizedCandidate.isEmpty else { return sanitizedCandidate }
+
+        let sanitizedFallback = displayNamePrefix(fallback)
+        return sanitizedFallback.isEmpty ? "Peer" : sanitizedFallback
+    }
+
+    fileprivate static func displayNamePrefix(_ displayName: String) -> String {
+        var result = ""
+        var byteCount = 0
+
+        for character in displayName {
+            let characterByteCount = String(character).utf8.count
+            guard byteCount + characterByteCount <= 63 else { break }
+            result.append(character)
+            byteCount += characterByteCount
+        }
+        return result
+    }
     
     /**
      Peer connection status.
@@ -90,6 +122,12 @@ public struct Peer {
     internal init(displayName: String) {
         peerID = MCPeerID(displayName: displayName)
         identity = PeerIdentity(peerID: peerID)
+        status = .currentUser
+    }
+
+    internal init(networkDisplayName displayName: String) {
+        peerID = MCPeerID(displayName: displayName)
+        identity = PeerIdentity(identifier: UUID().uuidString, displayName: displayName)
         status = .currentUser
     }
 }

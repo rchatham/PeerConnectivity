@@ -5,6 +5,7 @@ This plan breaks the remaining MultipeerConnectivity-to-Network migration into i
 ## Guardrails
 
 - Keep current MultipeerConnectivity behavior as the default until Network parity is proven.
+- Keep Network connection policy values internal until the backend has enough device/CI validation to justify stable public configuration semantics.
 - Preserve public API/source compatibility where practical; deprecate MC-specific APIs before removing or replacing them.
 - Avoid workaround layers. Add an abstraction only when it replaces an existing dependency surface or removes duplicated logic.
 - Prefer simple, direct implementations over compatibility shims.
@@ -62,6 +63,7 @@ Acceptance criteria:
 
 - Complete bidirectional reliable data parity for `PeerMessage` use cases.
 - Add handshake timeout, idle timeout, connection caps, and discovery caps.
+- Keep policy values internal until their defaults are validated across CI and device testing.
 - Keep TLS enabled and add app-configurable identity or PSK verification before public Network use.
 - Add malformed-frame, oversized-frame, timeout, and cap tests.
 

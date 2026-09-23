@@ -8,6 +8,7 @@
 
 import XCTest
 import Network
+import Security
 @testable import PeerConnectivity
 
 private enum HandshakeEncodingTestError : Error {
@@ -121,6 +122,36 @@ final class PeerNetworkProtocolTests : XCTestCase {
             "pc-name": String(repeating: "b", count: 248),
             "pc-v": String(PeerNetworkHandshake.currentProtocolVersion),
         ]))
+    }
+
+    @available(iOS 13.0, macOS 10.15, *)
+    internal func testPreSharedKeyParametersSetTLS12MinimumAndMaximumVersions() {
+        var receivedMinimumVersions : [tls_protocol_version_t] = []
+        var receivedMaximumVersions : [tls_protocol_version_t] = []
+
+        _ = NetworkPeerConnection.parameters(
+            security: .preSharedKey(Data("test-secret".utf8)),
+            minimumTLSVersionSetter: { _, version in receivedMinimumVersions.append(version) },
+            maximumTLSVersionSetter: { _, version in receivedMaximumVersions.append(version) }
+        )
+
+        XCTAssertEqual(receivedMinimumVersions, [.TLSv12])
+        XCTAssertEqual(receivedMaximumVersions, [.TLSv12])
+    }
+
+    @available(iOS 13.0, macOS 10.15, *)
+    internal func testUnauthenticatedParametersDoNotConfigureTLSVersions() {
+        var minimumSetterCallCount = 0
+        var maximumSetterCallCount = 0
+
+        _ = NetworkPeerConnection.parameters(
+            security: .unauthenticated,
+            minimumTLSVersionSetter: { _, _ in minimumSetterCallCount += 1 },
+            maximumTLSVersionSetter: { _, _ in maximumSetterCallCount += 1 }
+        )
+
+        XCTAssertEqual(minimumSetterCallCount, 0)
+        XCTAssertEqual(maximumSetterCallCount, 0)
     }
 
     @available(iOS 13.0, macOS 10.15, *)

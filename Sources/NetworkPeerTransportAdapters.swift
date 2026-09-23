@@ -14,25 +14,31 @@ internal final class NetworkPeerSessionTransport : PeerSessionTransport {
 
     internal let peer : Peer
     fileprivate let coordinator : NetworkPeerCoordinator<NetworkPeerConnection>
+    fileprivate let security : PeerConnectionNetworkSecurity
     fileprivate var listener : NetworkPeerListening
 
     internal var connectedPeers : [Peer] {
         return coordinator.connectedPeers
     }
 
-    internal init(peer: Peer, sessionObserver: Observable<PeerSessionEvent>) {
+    internal init(peer: Peer,
+        sessionObserver: Observable<PeerSessionEvent>,
+        security: PeerConnectionNetworkSecurity = .unauthenticated) {
         self.peer = peer
         let coordinator = NetworkPeerCoordinator<NetworkPeerConnection>(localPeer: peer,
             sessionObserver: sessionObserver)
         self.coordinator = coordinator
+        self.security = security
         self.listener = FailedNetworkPeerListener()
     }
 
     internal init(peer: Peer,
         coordinator: NetworkPeerCoordinator<NetworkPeerConnection>,
-        listener: NetworkPeerListening) {
+        listener: NetworkPeerListening,
+        security: PeerConnectionNetworkSecurity = .unauthenticated) {
         self.peer = peer
         self.coordinator = coordinator
+        self.security = security
         self.listener = listener
     }
 
@@ -43,7 +49,8 @@ internal final class NetworkPeerSessionTransport : PeerSessionTransport {
     internal func configureListener(serviceType: ServiceType) {
         listener = NetworkPeerSessionTransport.makeListener(peer: peer,
             coordinator: coordinator,
-            serviceType: serviceType)
+            serviceType: serviceType,
+            security: security)
     }
 
     internal func stopSession() {
@@ -73,31 +80,52 @@ internal final class NetworkPeerSessionTransport : PeerSessionTransport {
     }
 
     internal func addInboundConnection(_ connection: NetworkPeerConnection) {
-        connection.setDataHandler { [weak self, weak connection] frame in
-            guard let connection = connection else { return }
-            self?.coordinator.receiveFrame(frame, from: connection)
-        }
+        configureConnection(connection)
         coordinator.addPendingConnection(connection, direction: .inbound)
     }
 
     internal func connect(to endpoint: NWEndpoint) {
-        let connection = NetworkPeerConnection(endpoint: endpoint)
-        connection.setDataHandler { [weak self, weak connection] frame in
-            guard let connection = connection else { return }
-            self?.coordinator.receiveFrame(frame, from: connection)
-        }
+        let connection = NetworkPeerConnection(endpoint: endpoint, security: security)
+        configureConnection(connection)
         coordinator.addPendingConnection(connection, direction: .outbound)
         connection.start()
     }
 
+    fileprivate func configureConnection(_ connection: NetworkPeerConnection) {
+        connection.setDataHandler { [weak self, weak connection] frame in
+            guard let connection = connection else { return }
+            self?.coordinator.receiveFrame(frame, from: connection)
+        }
+        connection.setStateHandler { [weak self, weak connection] state in
+            guard let connection = connection else { return }
+            switch state {
+            case .failed, .cancelled:
+                self?.coordinator.removeConnection(connection)
+            default: break
+            }
+        }
+    }
+
     fileprivate static func makeListener(peer: Peer,
         coordinator: NetworkPeerCoordinator<NetworkPeerConnection>,
-        serviceType: ServiceType) -> NetworkPeerListening {
+        serviceType: ServiceType,
+        security: PeerConnectionNetworkSecurity) -> NetworkPeerListening {
         do {
-            return try NetworkPeerListener(serviceType: serviceType, identity: peer.identity, connectionHandler: { connection in
+            return try NetworkPeerListener(serviceType: serviceType,
+                identity: peer.identity,
+                security: security,
+                connectionHandler: { connection in
                 connection.setDataHandler { [weak coordinator, weak connection] frame in
                     guard let connection = connection else { return }
                     coordinator?.receiveFrame(frame, from: connection)
+                }
+                connection.setStateHandler { [weak coordinator, weak connection] state in
+                    guard let connection = connection else { return }
+                    switch state {
+                    case .failed, .cancelled:
+                        coordinator?.removeConnection(connection)
+                    default: break
+                    }
                 }
                 coordinator.addPendingConnection(connection, direction: .inbound)
             })
@@ -120,8 +148,9 @@ internal final class NetworkPeerBrowserTransport : PeerBrowserTransport {
 
     internal convenience init(session: NetworkPeerSessionTransport,
         serviceType: ServiceType,
-        browserObserver: Observable<PeerBrowserEvent>) {
-        let browser = NetworkPeerBrowser(serviceType: serviceType)
+        browserObserver: Observable<PeerBrowserEvent>,
+        security: PeerConnectionNetworkSecurity = .unauthenticated) {
+        let browser = NetworkPeerBrowser(serviceType: serviceType, security: security)
         self.init(session: session,
             browser: browser,
             browserObserver: browserObserver)
