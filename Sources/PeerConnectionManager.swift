@@ -784,6 +784,14 @@ extension PeerConnectionManager {
     }
 
     private func prepareForStart(includeBrowserObservers: Bool, includeAdvertiserObservers: Bool, generation: Int) async {
+        guard isCurrentTransportEventGeneration(generation) else { return }
+        // A stop can run while an awaited registration is in flight. Remove any
+        // late registrations after the last await, not just before starting.
+        defer {
+            if !isCurrentTransportEventGeneration(generation) {
+                removeTransportObservers(for: generation)
+            }
+        }
         if includeBrowserObservers {
             await browserObserver.addObserverAsync({ [weak self] event in
                 guard self?.isCurrentTransportEventGeneration(generation) == true else { return }
@@ -939,6 +947,12 @@ extension PeerConnectionManager {
     }
 
     private func prepareAutomaticInviteObserver(generation: Int) async {
+        guard isCurrentTransportEventGeneration(generation) else { return }
+        defer {
+            if !isCurrentTransportEventGeneration(generation) {
+                removeTransportObservers(for: generation)
+            }
+        }
         await browserObserver.addObserverAsync({ [weak self] event in
             guard self?.isCurrentTransportEventGeneration(generation) == true else { return }
 
