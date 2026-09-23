@@ -80,6 +80,39 @@ final class NetworkPeerCoordinatorTests : XCTestCase {
         XCTAssertEqual(peer.status, .connected)
     }
 
+    internal func testRepeatedHandshakeForSameIdentityPreservesConnection() async {
+        let harness = await makeHarness()
+        let connection = MockCoordinatorConnection()
+        let remoteIdentity = identity("remote")
+        harness.coordinator.addPendingConnection(connection, direction: .outbound)
+        harness.coordinator.receiveFrame(handshakeFrame(remoteIdentity), from: connection)
+        await harness.sessionObserver.flush()
+        let eventCount = harness.sessionEvents.count
+
+        harness.coordinator.receiveFrame(handshakeFrame(remoteIdentity), from: connection)
+        await harness.sessionObserver.flush()
+
+        XCTAssertEqual(connection.cancelCallCount, 0)
+        XCTAssertEqual(harness.coordinator.connectedPeers.map { $0.identity }, [remoteIdentity])
+        XCTAssertEqual(harness.sessionEvents.count, eventCount)
+    }
+
+    internal func testRepeatedHandshakeForDifferentIdentityRemovesOriginalPeer() async {
+        let harness = await makeHarness()
+        let connection = MockCoordinatorConnection()
+        let original = identity("remote")
+        harness.coordinator.addPendingConnection(connection, direction: .outbound)
+        harness.coordinator.receiveFrame(handshakeFrame(original), from: connection)
+
+        harness.coordinator.receiveFrame(handshakeFrame(identity("impostor")), from: connection)
+        await harness.sessionObserver.flush()
+
+        XCTAssertEqual(connection.cancelCallCount, 1)
+        XCTAssertTrue(harness.coordinator.connectedPeers.isEmpty)
+        XCTAssertEqual(harness.sessionEvents.compactMap { devicesChangedPeer(from: $0) }.map { $0.status },
+            [.connected, .notConnected])
+    }
+
     internal func testDataFrameEmitsSessionDataEventForRegisteredPeer() async throws {
         let harness = await makeHarness()
         let connection = MockCoordinatorConnection()
