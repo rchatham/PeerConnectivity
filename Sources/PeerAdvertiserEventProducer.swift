@@ -12,7 +12,7 @@ import MultipeerConnectivity
 internal enum PeerAdvertiserEvent {
     case none
     case didNotStartAdvertisingPeer(Error)
-    case didReceiveInvitationFromPeer(peer: Peer, withContext: Data?, invitationHandler: (Bool, PeerSession) -> Void)
+    case didReceiveInvitationFromPeer(peer: Peer, withContext: Data?, invitationHandler: (Bool, PeerSessionTransport) -> Void)
 }
 
 internal class PeerAdvertiserEventProducer: NSObject {
@@ -30,18 +30,18 @@ extension PeerAdvertiserEventProducer: MCNearbyServiceAdvertiserDelegate {
         NSLog("%@", "didNotStartAdvertisingPeer: \(error)")
         
         let event: PeerAdvertiserEvent = .didNotStartAdvertisingPeer(error)
-        self.observer.value = event
+        self.observer.update(event)
     }
     
     internal func advertiser(_ advertiser: MCNearbyServiceAdvertiser, didReceiveInvitationFromPeer peerID: MCPeerID, withContext context: Data?, invitationHandler: @escaping (Bool, MCSession?) -> Void) {
         NSLog("%@", "didReceiveInvitationFromPeer \(peerID)")
         
-        let handler : ((Bool, PeerSession) -> Void) = { (accept, session) in
-            invitationHandler(accept, session.session)
+        let handler : ((Bool, PeerSessionTransport) -> Void) = { (accept, session) in
+            invitationHandler(accept, session.multipeerSession)
         }
         
         let peer = Peer(peerID: peerID, status: .notConnected)
         let event: PeerAdvertiserEvent = .didReceiveInvitationFromPeer(peer: peer, withContext: context, invitationHandler: handler)
-        self.observer.value = event
+        self.observer.update(event)
     }
 }

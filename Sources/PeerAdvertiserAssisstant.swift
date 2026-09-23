@@ -9,14 +9,14 @@
 import Foundation
 import MultipeerConnectivity
 
-internal struct PeerAdvertiserAssisstant {
+internal struct PeerAdvertiserAssisstant : PeerAdvertiserAssisstantTransport {
     
-    fileprivate let session : PeerSession
+    fileprivate let session : PeerSessionTransport
     fileprivate let assisstant : MCAdvertiserAssistant
     internal let discoveryInfo : PeerDiscoveryInfo?
     fileprivate let eventProducer : PeerAdvertiserAssisstantEventProducer?
     
-    internal init(session: PeerSession,
+    internal init(session: PeerSessionTransport,
                   serviceType: ServiceType,
                   discoveryInfo: PeerDiscoveryInfo? = nil,
                   eventProducer: PeerAdvertiserAssisstantEventProducer? = nil) {
@@ -25,7 +25,7 @@ internal struct PeerAdvertiserAssisstant {
         self.eventProducer = eventProducer
         assisstant = MCAdvertiserAssistant(serviceType: serviceType,
                                            discoveryInfo: discoveryInfo,
-                                           session: session.session)
+                                           session: session.multipeerSession)
         if let eventProducer = eventProducer { assisstant.delegate = eventProducer }
     }
     

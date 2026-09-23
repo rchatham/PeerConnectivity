@@ -9,14 +9,14 @@
 import Foundation
 import MultipeerConnectivity
 
-internal struct PeerAdvertiser {
+internal struct PeerAdvertiser : PeerAdvertiserTransport {
     
-    fileprivate let session : PeerSession
+    fileprivate let session : PeerSessionTransport
     fileprivate let advertiser : MCNearbyServiceAdvertiser
     internal let discoveryInfo : PeerDiscoveryInfo?
     fileprivate let eventProducer : PeerAdvertiserEventProducer
     
-    internal init(session: PeerSession,
+    internal init(session: PeerSessionTransport,
                   serviceType: ServiceType,
                   discoveryInfo: PeerDiscoveryInfo? = nil,
                   eventProducer: PeerAdvertiserEventProducer) {

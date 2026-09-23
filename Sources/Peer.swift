@@ -53,11 +53,12 @@ public struct Peer {
      The peer's display name. Display names are visible to nearby peers.
      */
     public var displayName : String {
-        return peerID.displayName
+        return identity.displayName
     }
     
     
     
+    internal let identity : PeerIdentity
     internal let peerID : MCPeerID
     
     /**
@@ -72,7 +73,14 @@ public struct Peer {
      - parameter status: The peer's connection status.
      */
     public init(peerID: MCPeerID, status: Status) {
+        self.identity = PeerIdentity(peerID: peerID)
         self.peerID = peerID
+        self.status = status
+    }
+
+    internal init(identity: PeerIdentity, status: Status) {
+        self.identity = identity
+        self.peerID = MCPeerID(displayName: identity.displayName)
         self.status = status
     }
     
@@ -81,18 +89,28 @@ public struct Peer {
      */
     internal init(displayName: String) {
         peerID = MCPeerID(displayName: displayName)
+        identity = PeerIdentity(peerID: peerID)
         status = .currentUser
+    }
+}
+
+extension PeerIdentity {
+    internal init(peerID: MCPeerID) {
+        guard let data = try? NSKeyedArchiver.archivedData(withRootObject: peerID, requiringSecureCoding: true) else {
+            preconditionFailure("PeerConnectivity: Failed to archive MCPeerID using secure coding")
+        }
+        self.init(identifier: data.base64EncodedString(), displayName: peerID.displayName)
     }
 }
 
 extension Peer : Hashable, Equatable {
     /// :nodoc:
     public func hash(into hasher: inout Hasher) {
-        hasher.combine(peerID)
+        hasher.combine(identity)
     }
 
     /// :nodoc:
     public static func ==(lhs: Peer, rhs: Peer) -> Bool {
-        return lhs.peerID == rhs.peerID
+        return lhs.identity == rhs.identity
     }
 }

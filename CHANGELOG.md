@@ -7,6 +7,9 @@
   - New: `PeerConnectivityUI` browser peer filtering with discovery metadata
   - Compatibility: `foundPeer` remains emitted alongside `foundPeerWithDiscoveryInfo`, so listeners should handle one discovery event to avoid processing the same peer twice
   - Compatibility: automatic non-manual invitation policies still emit `.receivedInvitation` for observation, but the event handler is a no-op and policy decisions remain authoritative
+  - Packaging: the core target now links both Network.framework and MultipeerConnectivity.framework
+  - Tooling: the Swift package manifest uses Swift tools 6.0, so SwiftPM consumers need a Swift 6 toolchain (Xcode 16 or newer); the library remains compiled in Swift 5 language mode
+  - Platforms: the minimum supported versions increase to iOS 13 and macOS 10.15; CocoaPods consumers need an Xcode version with those platform SDKs (Xcode 11 or newer)
 
 * **0.7.0** Fixed deprecated NSKeyedUnarchiver and added modern type-safe messaging API
   - Fixed: Replaced deprecated `NSKeyedUnarchiver.unarchiveObject(with:)` with secure coding API

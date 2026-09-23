@@ -60,7 +60,7 @@ extension PeerSessionEventProducer: MCSessionDelegate {
         
         if let peer {
             let event: PeerSessionEvent = .devicesChanged(peer: peer)
-            self.observer.value = event
+            self.observer.update(event)
         }
     }
     
@@ -69,7 +69,7 @@ extension PeerSessionEventProducer: MCSessionDelegate {
         
         let peer = Peer(peerID: peerID, status: .connected)
         let event: PeerSessionEvent = .didReceiveData(peer: peer, data: data)
-        self.observer.value = event
+        self.observer.update(event)
     }
     
     internal func session(_ session: MCSession, didReceive stream: InputStream, withName streamName: String, fromPeer peerID: MCPeerID) {
@@ -77,7 +77,7 @@ extension PeerSessionEventProducer: MCSessionDelegate {
         
         let peer = Peer(peerID: peerID, status: .connected)
         let event: PeerSessionEvent = .didReceiveStream(peer: peer, stream: stream, name: streamName)
-        self.observer.value = event
+        self.observer.update(event)
     }
     
     internal func session(_ session: MCSession, didStartReceivingResourceWithName resourceName: String, fromPeer peerID: MCPeerID, with progress: Progress) {
@@ -85,7 +85,7 @@ extension PeerSessionEventProducer: MCSessionDelegate {
         
         let peer = Peer(peerID: peerID, status: .connected)
         let event: PeerSessionEvent = .startedReceivingResource(peer: peer, name: resourceName, progress: progress)
-        self.observer.value = event
+        self.observer.update(event)
     }
     
     internal func session(_ session: MCSession, didFinishReceivingResourceWithName resourceName: String, fromPeer peerID: MCPeerID, at localURL: URL?, withError error: Error?) {
@@ -93,7 +93,7 @@ extension PeerSessionEventProducer: MCSessionDelegate {
         
         let peer = Peer(peerID: peerID, status: .connected)
         let event: PeerSessionEvent = .finishedReceivingResource(peer: peer, name: resourceName, url: localURL, error: error)
-        self.observer.value = event
+        self.observer.update(event)
     }
     
     internal func session(_ session: MCSession, didReceiveCertificate certificate: [Any]?, fromPeer peerID: MCPeerID, certificateHandler: @escaping (Bool) -> Void) {
@@ -101,6 +101,6 @@ extension PeerSessionEventProducer: MCSessionDelegate {
         
         let peer = Peer(peerID: peerID, status: .connected)
         let event: PeerSessionEvent = .didReceiveCertificate(peer: peer, certificate: certificate, handler: certificateHandler)
-        self.observer.value = event
+        self.observer.update(event)
     }
 }
