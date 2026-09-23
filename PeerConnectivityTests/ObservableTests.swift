@@ -24,6 +24,20 @@ class ObservableTests: XCTestCase {
         XCTAssertEqual(received, [7])
     }
 
+    func testObservableCanSkipCurrentValueAndReceiveFutureUpdates() async throws {
+        let observable = Observable<Int>(7)
+        var received : [Int] = []
+
+        await observable.addObserverAsync({ value in
+            received.append(value)
+        }, replayCurrentValue: false)
+        XCTAssertTrue(received.isEmpty)
+
+        await observable.updateAsync(8)
+
+        XCTAssertEqual(received, [8])
+    }
+
     func testObservableNotifiesObserversWhenValueChanges() async throws {
         let observable = Observable<String>("initial")
         var received : [String] = []
