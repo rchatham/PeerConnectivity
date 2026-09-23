@@ -271,6 +271,15 @@ final class PeerConnectionManagerTransportTests : XCTestCase {
         }
 
         await fulfillment(of: [receivedData], timeout: 1)
+        await harness.sessionObserver?.flush()
+        await harness.browserObserver?.flush()
+        await harness.advertiserObserver?.flush()
+        let sessionCount = await harness.sessionObserver?.observerCount
+        let browserCount = await harness.browserObserver?.observerCount
+        let advertiserCount = await harness.advertiserObserver?.observerCount
+        XCTAssertEqual(sessionCount, 2)
+        XCTAssertEqual(browserCount, 3)
+        XCTAssertEqual(advertiserCount, 0)
     }
 
     internal func testRapidStartThenStopEventsRemainFIFO() async {
@@ -299,10 +308,19 @@ final class PeerConnectionManagerTransportTests : XCTestCase {
         }
 
         await fulfillment(of: [startsCompleted], timeout: 2)
+        await harness.sessionObserver?.flush()
+        await harness.browserObserver?.flush()
+        await harness.advertiserObserver?.flush()
         await manager.removeListenerForKeyAsync("lifecycle")
 
         let expected = ["ready"] + Array(repeating: ["ended", "ready"], count: 100).flatMap { $0 }
-        XCTAssertEqual(lifecycleEvents, expected)
+        XCTAssertEqual(lifecycleEvents.filter { $0 != "started" }, expected)
+        let sessionCount = await harness.sessionObserver?.observerCount
+        let browserCount = await harness.browserObserver?.observerCount
+        let advertiserCount = await harness.advertiserObserver?.observerCount
+        XCTAssertEqual(sessionCount, 0)
+        XCTAssertEqual(browserCount, 0)
+        XCTAssertEqual(advertiserCount, 0)
     }
 
     private func startBrowsingOnly(_ manager: PeerConnectionManager) async {
