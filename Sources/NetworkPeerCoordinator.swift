@@ -65,13 +65,14 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
 
     internal func addPendingConnection(_ connection: Connection, direction: NetworkPeerConnectionDirection) {
         queue.sync {
+            let identifier = ObjectIdentifier(connection)
             guard registry.connectedPeerIdentities.count < policy.maxConnectedPeers,
-                pendingConnections.count < policy.maxPendingConnections else {
+                pendingConnections.count < policy.maxPendingConnections,
+                pendingConnections[identifier] == nil,
+                connectionIdentities[identifier] == nil else {
                 connection.cancel()
                 return
             }
-            let identifier = ObjectIdentifier(connection)
-            pendingConnections[identifier]?.timeout.cancel()
             let timeout = DispatchWorkItem { [weak self, weak connection] in
                 guard let connection = connection else { return }
                 self?.expirePendingConnection(connection)
@@ -149,13 +150,27 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
         }
 
         let identifier = ObjectIdentifier(connection)
-        let pending = pendingConnections.removeValue(forKey: identifier)
-        pending?.timeout.cancel()
+        if let registeredIdentity = connectionIdentities[identifier] {
+            guard registeredIdentity != handshake.identity else { return nil }
+            connectionIdentities.removeValue(forKey: identifier)
+            guard registry.connection(for: registeredIdentity) === connection else {
+                connection.cancel()
+                return nil
+            }
+            registry.remove(identity: registeredIdentity)
+            connection.cancel()
+            return .devicesChanged(peer: Peer(identity: registeredIdentity, status: .notConnected))
+        }
+        guard let pending = pendingConnections.removeValue(forKey: identifier) else {
+            connection.cancel()
+            return nil
+        }
+        pending.timeout.cancel()
         guard registry.connectedPeerIdentities.count < policy.maxConnectedPeers || registry.connection(for: handshake.identity) != nil else {
             connection.cancel()
             return nil
         }
-        let direction = pending?.direction ?? NetworkPeerConnectionDirection.inbound
+        let direction = pending.direction
         let wasConnected = registry.connection(for: handshake.identity) != nil
         let isRegistered = registry.register(connection, for: handshake.identity, direction: direction)
         guard isRegistered else { return nil }
