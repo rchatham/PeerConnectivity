@@ -12,7 +12,6 @@ import MultipeerConnectivity
 internal protocol PeerSessionTransport {
     var peer : Peer { get }
     var connectedPeers : [Peer] { get }
-    var multipeerSession : MCSession { get }
 
     func startSession()
     func stopSession()
@@ -22,6 +21,11 @@ internal protocol PeerSessionTransport {
         withName name: String,
         toPeer peer: Peer,
         withCompletionHandler completion: ((Error?)->Void)?) -> Progress?
+}
+
+internal protocol MultipeerSessionTransport : PeerSessionTransport {
+    var multipeerSession : MCSession { get }
+
     func nearbyConnectionDataForPeer(_ peer: Peer, withCompletionHandler completion: @escaping (Data?, Error?)->Void)
     func connectPeer(_ peer: Peer, withNearbyConnectionData data: Data)
     func cancelConnectPeer(_ peer: Peer)
@@ -50,12 +54,37 @@ internal protocol PeerAdvertiserAssisstantTransport {
 }
 
 internal struct PeerConnectionTransportFactory {
+    internal let backend : PeerConnectionBackend
     internal let makeSession : (Peer, PeerSecurityConfiguration, Observable<PeerSessionEvent>) -> PeerSessionTransport
     internal let makeBrowser : (PeerSessionTransport, ServiceType, Observable<PeerBrowserEvent>) -> PeerBrowserTransport
     internal let makeAdvertiser : (PeerSessionTransport, ServiceType, PeerDiscoveryInfo?, Observable<PeerAdvertiserEvent>) -> PeerAdvertiserTransport
     internal let makeAdvertiserAssisstant : (PeerSessionTransport, ServiceType, PeerDiscoveryInfo?, Observable<PeerAdvertiserAssisstantEvent>) -> PeerAdvertiserAssisstantTransport
 
+    @available(iOS 13.0, macOS 10.15, *)
+    internal static let networkFramework = PeerConnectionTransportFactory(
+        backend: .networkFramework,
+        makeSession: { peer, _, observer in
+            return NetworkPeerSessionTransport(peer: peer, sessionObserver: observer)
+        },
+        makeBrowser: { session, serviceType, observer in
+            guard let session = session as? NetworkPeerSessionTransport else {
+                fatalError("PeerConnectivity: Network browser requires NetworkPeerSessionTransport")
+            }
+            return NetworkPeerBrowserTransport(session: session, serviceType: serviceType, browserObserver: observer)
+        },
+        makeAdvertiser: { session, serviceType, _, observer in
+            guard let session = session as? NetworkPeerSessionTransport else {
+                fatalError("PeerConnectivity: Network advertiser requires NetworkPeerSessionTransport")
+            }
+            return NetworkPeerAdvertiserTransport(session: session, serviceType: serviceType, advertiserObserver: observer)
+        },
+        makeAdvertiserAssisstant: { _, _, _, _ in
+            return NetworkPeerAdvertiserAssisstantTransport()
+        }
+    )
+
     internal static let multipeerConnectivity = PeerConnectionTransportFactory(
+        backend: .multipeerConnectivity,
         makeSession: { peer, securityConfiguration, observer in
             let eventProducer = PeerSessionEventProducer(observer: observer)
             return PeerSession(peer: peer,
@@ -63,6 +92,9 @@ internal struct PeerConnectionTransportFactory {
                                eventProducer: eventProducer)
         },
         makeBrowser: { session, serviceType, observer in
+            guard let session = session as? MultipeerSessionTransport else {
+                fatalError("PeerConnectivity: Multipeer browser requires MultipeerSessionTransport")
+            }
             let eventProducer = PeerBrowserEventProducer(observer: observer)
             return PeerBrowser(session: session, serviceType: serviceType, eventProducer: eventProducer)
         },
@@ -74,6 +106,9 @@ internal struct PeerConnectionTransportFactory {
                                   eventProducer: eventProducer)
         },
         makeAdvertiserAssisstant: { session, serviceType, discoveryInfo, observer in
+            guard let session = session as? MultipeerSessionTransport else {
+                fatalError("PeerConnectivity: Multipeer advertiser assistant requires MultipeerSessionTransport")
+            }
             let eventProducer = PeerAdvertiserAssisstantEventProducer(observer: observer)
             return PeerAdvertiserAssisstant(session: session,
                                             serviceType: serviceType,

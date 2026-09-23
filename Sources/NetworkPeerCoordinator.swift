@@ -22,27 +22,20 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
     fileprivate let dataSender : NetworkPeerDataSender<Connection>
     fileprivate let queue = DispatchQueue(label: "PeerConnectivity.NetworkPeerCoordinator")
     fileprivate let sessionObserver : Observable<PeerSessionEvent>
-    fileprivate let browserObserver : Observable<PeerBrowserEvent>
-    fileprivate let advertiserObserver : Observable<PeerAdvertiserEvent>
     fileprivate let handshakeEncoder : HandshakeEncoder
     fileprivate var pendingConnections : [ObjectIdentifier:PendingConnection] = [:]
     internal static var maxPendingConnections : Int { 32 }
     fileprivate let handshakeTimeout : TimeInterval
     fileprivate var connectionIdentities : [ObjectIdentifier:PeerIdentity] = [:]
-    fileprivate var discoveredPeers : [PeerIdentity:Peer] = [:]
 
     internal init(localPeer: Peer,
         sessionObserver: Observable<PeerSessionEvent>,
-        browserObserver: Observable<PeerBrowserEvent>,
-        advertiserObserver: Observable<PeerAdvertiserEvent>,
         handshakeTimeout: TimeInterval = 10,
         handshakeEncoder: @escaping HandshakeEncoder = { try JSONEncoder().encode($0) }) {
         self.localPeer = localPeer
         self.registry = NetworkPeerConnectionRegistry(localIdentity: localPeer.identity)
         self.dataSender = NetworkPeerDataSender(registry: registry)
         self.sessionObserver = sessionObserver
-        self.browserObserver = browserObserver
-        self.advertiserObserver = advertiserObserver
         self.handshakeTimeout = handshakeTimeout
         self.handshakeEncoder = handshakeEncoder
     }
@@ -109,26 +102,6 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
         }
     }
 
-    internal func foundPeer(identity: PeerIdentity) {
-        queue.sync {
-            guard identity != localPeer.identity,
-                PeerIdentity.isValidIdentifier(identity.identifier),
-                Peer.isValidDisplayName(identity.displayName) else { return }
-            let peer = Peer(identity: identity, status: .notConnected)
-            discoveredPeers[identity] = peer
-            browserObserver.update(.foundPeer(peer, discoveryInfo: nil))
-        }
-    }
-
-    internal func lostPeer(identity: PeerIdentity) {
-        queue.sync {
-            guard identity != localPeer.identity,
-                PeerIdentity.isValidIdentifier(identity.identifier),
-                Peer.isValidDisplayName(identity.displayName) else { return }
-            let peer = discoveredPeers.removeValue(forKey: identity) ?? Peer(identity: identity, status: .notConnected)
-            browserObserver.update(.lostPeer(peer))
-        }
-    }
 
     fileprivate func receiveHandshake(_ data: Data, from connection: Connection) {
         guard let handshake = try? JSONDecoder().decode(PeerNetworkHandshake.self, from: data),

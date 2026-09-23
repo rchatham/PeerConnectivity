@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+      - feature/**
+
+permissions:
+  contents: read
+
+jobs:
+  swift-test:
+    name: Swift Package Tests
+    runs-on: macos-15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Print Xcode version
+        run: xcodebuild -version
+
+      - name: Run Swift package tests
+        run: swift test
+
+  xcode-test:
+    name: Xcode Project Tests
+    runs-on: macos-15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Print Xcode version
+        run: xcodebuild -version
+
+      - name: Run Xcode tests
+        run: |
+          UDID=$(xcrun simctl list devices available | grep -E 'iPhone' | grep -oE '[A-F0-9]{8}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{12}' | head -1)
+          if [ -z "$UDID" ]; then
+            echo "No available iPhone simulator found"
+            exit 1
+          fi
+          echo "Using iPhone simulator: $UDID"
+          xcodebuild test \
+            -project PeerConnectivity.xcodeproj \
+            -scheme PeerConnectivity \
+            -destination "platform=iOS Simulator,id=$UDID" \
+            -configuration Debug
