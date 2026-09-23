@@ -40,7 +40,13 @@ Add the UI helper product only when you need UIKit browser view controller suppo
 
 CocoaPods and Carthage are no longer the recommended distribution paths for new releases.
 
-The staged migration toward Apple's Network framework is tracked in [NetworkFrameworkMigrationPlan.md](NetworkFrameworkMigrationPlan.md), with follow-up PR sequencing in [NetworkMigrationPRPlan.md](NetworkMigrationPRPlan.md), the stronger identity roadmap in [NetworkTrustModelPlan.md](NetworkTrustModelPlan.md), and the authoritative stable/default/removal gates in [NetworkMigrationReadinessAudit.md](NetworkMigrationReadinessAudit.md).
+## Migration documentation
+
+- Start with the app-developer [MultipeerConnectivity to Network.framework Migration Guide](MultipeerConnectivityToNetworkMigrationGuide.md).
+- Coding agents can follow the repository-local [`migrate-multipeer-to-network` skill](.agents/skills/migrate-multipeer-to-network/SKILL.md).
+- See the [Network backend guide](NetworkBackendGuide.md) for the current production setup and support matrix.
+- Consult the [readiness audit](NetworkMigrationReadinessAudit.md) for authoritative stable/default/removal gates and the [trust model plan](NetworkTrustModelPlan.md) for the stronger identity roadmap.
+- The original staged architecture and implementation sequence remain in [NetworkFrameworkMigrationPlan.md](NetworkFrameworkMigrationPlan.md) and [NetworkMigrationPRPlan.md](NetworkMigrationPRPlan.md).
 
 ## Experimental Network framework backend
 
@@ -159,14 +165,16 @@ A reusable Network browser view is intentionally deferred until app-owned integr
 ## Demo App
 
 Run `PeerConnectivityDemo.xcodeproj` on two simulators or devices. Before starting, select the
-backend (**Multipeer** or **Network**) and connection behavior (**Automatic** or **Require
-Invitation**). Automatic uses the selected backend's `.automatic` behavior. Require Invitation
-uses `.custom`, `PeerBrowserModel`, and visible app-owned invite actions for either backend. The
-demo remembers each backend's selection while running and preserves the existing defaults:
-Multipeer automatic, Network require invitation. All combinations retain advertising and browsing
-controls, connection state, typed message history, raw data and resource exercises, structured
-event logging, troubleshooting guidance, and the physical-test checklist. Discovery metadata
-events are logged as `peer.found.metadata` when nearby peers advertise Bonjour TXT record values.
+backend (**Multipeer** or **Network**), connection behavior (**Automatic** or **Require
+Invitation**), and backend-specific security. Multipeer offers compatible optional encryption or
+required encryption; because the demo has a nil identity and accepts all certificates, neither
+setting authenticates peers and both remain MITM-vulnerable. Network offers unauthenticated plain
+TCP or TLS with a strictly validated 32+-byte Base64 shared key. TLS-PSK authenticates group
+membership, not individual identity, and invalid input blocks Start without downgrading. The demo
+remembers each backend's selection while running; security and connection behavior remain
+independent and disabled while networking runs. See [`PeerConnectivityDemo/README.md`](PeerConnectivityDemo/README.md)
+for key handling, debug-only launch arguments, and the full validation flow. Both peers must select
+the same backend; no interoperability bridge is included.
 
 ## API Compatibility Notes
 
