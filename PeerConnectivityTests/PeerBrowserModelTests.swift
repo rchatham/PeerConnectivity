@@ -145,7 +145,7 @@ final class PeerBrowserModelTests : XCTestCase {
         await startBrowsingOnly(manager)
         await harness.browserObserver?.updateAsync(.foundPeer(foundPeer, discoveryInfo: nil))
         await fulfillment(of: [foundExpectation], timeout: 1)
-        await harness.sessionObserver?.updateAsync(.devicesChanged(peer: connectedPeer))
+        await harness.sessionObserver?.updateAsync(.devicesChanged(peer: connectedPeer, connectedPeers: [connectedPeer]))
 
         await fulfillment(of: [connectedExpectation], timeout: 1)
         XCTAssertEqual(model.discoveredPeers.first?.status, .connected)
