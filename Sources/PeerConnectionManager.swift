@@ -824,8 +824,7 @@ extension PeerConnectionManager {
             guard self?.isCurrentTransportEventGeneration(generation) == true else { return }
 
             switch event {
-            case .devicesChanged(peer: let peer):
-                guard let connectedPeers = self?.connectedPeers else { break }
+            case .devicesChanged(peer: let peer, connectedPeers: let connectedPeers):
                 self?.emit(.devicesChanged(peer: peer, connectedPeers: connectedPeers))
             case .didReceiveData(peer: let peer, data: let data):
                 self?.emit(.receivedData(peer: peer, data: data))
@@ -892,7 +891,7 @@ extension PeerConnectionManager {
                 let peerCount = manager.connectedPeers.count
 
                 switch eventTransfer.value {
-                case .devicesChanged(peer: let peer) where peerCount <= 0:
+                case .devicesChanged(peer: let peer, connectedPeers: _) where peerCount <= 0:
                     switch peer.status {
                     case .notConnected:
                         manager.refresh()
