@@ -58,9 +58,12 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
     }
 
     internal var connectedPeers : [Peer] {
-        return queue.sync {
-            registry.connectedPeerIdentities.map { Peer(identity: $0, status: .connected) }
-        }
+        return queue.sync { connectedPeerSnapshot() }
+    }
+
+    /// Capture membership while the coordinator's mutation queue is held.
+    fileprivate func connectedPeerSnapshot() -> [Peer] {
+        return registry.connectedPeerIdentities.map { Peer(identity: $0, status: .connected) }
     }
 
     internal func addPendingConnection(_ connection: Connection, direction: NetworkPeerConnectionDirection) {
@@ -116,7 +119,8 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
             guard registry.connection(for: identity) === connection else { return nil }
             registry.remove(identity: identity)
             connectionToCancel = connection
-            return .devicesChanged(peer: Peer(identity: identity, status: .notConnected))
+            return .devicesChanged(peer: Peer(identity: identity, status: .notConnected),
+                connectedPeers: connectedPeerSnapshot())
         }
         connectionToCancel?.cancel()
         guard let event = event else { return }
@@ -159,7 +163,8 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
             }
             registry.remove(identity: registeredIdentity)
             connection.cancel()
-            return .devicesChanged(peer: Peer(identity: registeredIdentity, status: .notConnected))
+            return .devicesChanged(peer: Peer(identity: registeredIdentity, status: .notConnected),
+                connectedPeers: connectedPeerSnapshot())
         }
         guard let pending = pendingConnections.removeValue(forKey: identifier) else {
             connection.cancel()
@@ -178,7 +183,8 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
         removeConnectionIdentity(for: handshake.identity)
         connectionIdentities[identifier] = handshake.identity
         guard !wasConnected else { return nil }
-        return .devicesChanged(peer: Peer(identity: handshake.identity, status: .connected))
+        return .devicesChanged(peer: Peer(identity: handshake.identity, status: .connected),
+            connectedPeers: connectedPeerSnapshot())
     }
 
     fileprivate func rejectHandshake(from connection: Connection) {

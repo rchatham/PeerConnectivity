@@ -11,7 +11,7 @@ import MultipeerConnectivity
 
 internal enum PeerSessionEvent {
     case none
-    case devicesChanged(peer: Peer)
+    case devicesChanged(peer: Peer, connectedPeers: [Peer])
     case didReceiveData(peer: Peer, data: Data)
     case didReceiveStream(peer: Peer, stream: Stream, name: String)
     case startedReceivingResource(peer: Peer, name: String, progress: Progress)
@@ -59,7 +59,8 @@ extension PeerSessionEventProducer: MCSessionDelegate {
         }
         
         if let peer {
-            let event: PeerSessionEvent = .devicesChanged(peer: peer)
+            let connectedPeers = session.connectedPeers.map { Peer(peerID: $0, status: .connected) }
+            let event: PeerSessionEvent = .devicesChanged(peer: peer, connectedPeers: connectedPeers)
             self.observer.update(event)
         }
     }
