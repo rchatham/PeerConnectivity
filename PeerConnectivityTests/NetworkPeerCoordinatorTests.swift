@@ -134,6 +134,23 @@ final class NetworkPeerCoordinatorTests : XCTestCase {
         XCTAssertEqual(peer.status, .connected)
     }
 
+    internal func testRapidConnectionChangesPreserveEventTimePeerSnapshots() async {
+        let harness = await makeHarness()
+        let connection = MockCoordinatorConnection()
+        let remoteIdentity = identity("remote")
+
+        harness.coordinator.addPendingConnection(connection, direction: .outbound)
+        harness.coordinator.receiveFrame(handshakeFrame(remoteIdentity), from: connection)
+        harness.coordinator.removeConnection(connection)
+        await harness.sessionObserver.flush()
+
+        let snapshots = harness.sessionEvents.compactMap { event -> [Peer]? in
+            guard case .devicesChanged(_, connectedPeers: let peers) = event else { return nil }
+            return peers
+        }
+        XCTAssertEqual(snapshots, [[Peer(identity: remoteIdentity, status: .connected)], []])
+    }
+
     internal func testRepeatedHandshakeForSameIdentityPreservesConnection() async {
         let harness = await makeHarness()
         let connection = MockCoordinatorConnection()
@@ -424,7 +441,7 @@ final class NetworkPeerCoordinatorTests : XCTestCase {
 
     private func devicesChangedPeer(from event: PeerSessionEvent?) -> Peer? {
         switch event {
-        case .devicesChanged(peer: let peer): return peer
+        case .devicesChanged(peer: let peer, connectedPeers: _): return peer
         default: return nil
         }
     }
