@@ -45,6 +45,30 @@ final class NetworkPeerCoordinatorTests : XCTestCase {
         XCTAssertEqual(handshake.identity, harness.localPeer.identity)
     }
 
+    internal func testGeneratedNetworkPeersCompleteHandshakeWithoutChangingLegacyIdentity() async throws {
+        let firstPeer = Peer(networkDisplayName: "First Peer")
+        let secondPeer = Peer(networkDisplayName: "Second Peer")
+        let first = Harness(localPeer: firstPeer, handshakeTimeout: 10, handshakeEncoder: { try JSONEncoder().encode($0) })
+        let second = Harness(localPeer: secondPeer, handshakeTimeout: 10, handshakeEncoder: { try JSONEncoder().encode($0) })
+        await first.observeEvents()
+        await second.observeEvents()
+        let firstConnection = MockCoordinatorConnection()
+        let secondConnection = MockCoordinatorConnection()
+
+        first.coordinator.addPendingConnection(firstConnection, direction: .outbound)
+        second.coordinator.addPendingConnection(secondConnection, direction: .inbound)
+        first.coordinator.receiveFrame(try XCTUnwrap(secondConnection.sentFrames.first), from: firstConnection)
+        second.coordinator.receiveFrame(try XCTUnwrap(firstConnection.sentFrames.first), from: secondConnection)
+
+        XCTAssertTrue(PeerIdentity.isValidIdentifier(firstPeer.identity.identifier))
+        XCTAssertTrue(PeerIdentity.isValidIdentifier(secondPeer.identity.identifier))
+        XCTAssertEqual(first.coordinator.connectedPeers.map { $0.identity }, [secondPeer.identity])
+        XCTAssertEqual(second.coordinator.connectedPeers.map { $0.identity }, [firstPeer.identity])
+        XCTAssertEqual(firstConnection.cancelCallCount, 0)
+        XCTAssertEqual(secondConnection.cancelCallCount, 0)
+        XCTAssertFalse(PeerIdentity.isValidIdentifier(Peer(displayName: "Legacy Peer").identity.identifier))
+    }
+
     internal func testPendingConnectionLimitRejectsExcessConnections() async {
         let harness = await makeHarness()
         let connections = (0...NetworkPeerCoordinator<MockCoordinatorConnection>.maxPendingConnections).map { _ in
@@ -108,6 +132,23 @@ final class NetworkPeerCoordinatorTests : XCTestCase {
         let peer = try XCTUnwrap(devicesChangedPeer(from: harness.sessionEvents.last))
         XCTAssertEqual(peer, Peer(identity: remoteIdentity, status: .connected))
         XCTAssertEqual(peer.status, .connected)
+    }
+
+    internal func testRapidConnectionChangesPreserveEventTimePeerSnapshots() async {
+        let harness = await makeHarness()
+        let connection = MockCoordinatorConnection()
+        let remoteIdentity = identity("remote")
+
+        harness.coordinator.addPendingConnection(connection, direction: .outbound)
+        harness.coordinator.receiveFrame(handshakeFrame(remoteIdentity), from: connection)
+        harness.coordinator.removeConnection(connection)
+        await harness.sessionObserver.flush()
+
+        let snapshots = harness.sessionEvents.compactMap { event -> [Peer]? in
+            guard case .devicesChanged(_, connectedPeers: let peers) = event else { return nil }
+            return peers
+        }
+        XCTAssertEqual(snapshots, [[Peer(identity: remoteIdentity, status: .connected)], []])
     }
 
     internal func testRepeatedHandshakeForSameIdentityPreservesConnection() async {
@@ -399,7 +440,7 @@ final class NetworkPeerCoordinatorTests : XCTestCase {
 
     private func devicesChangedPeer(from event: PeerSessionEvent?) -> Peer? {
         switch event {
-        case .devicesChanged(peer: let peer): return peer
+        case .devicesChanged(peer: let peer, connectedPeers: _): return peer
         default: return nil
         }
     }
