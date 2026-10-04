@@ -157,6 +157,17 @@ final class PeerConnectionManagerTransportTests : XCTestCase {
         XCTAssertEqual(harness.advertiserAssisstant.stopAdvertisingAssisstantCallCount, 1)
     }
 
+    internal func testNetworkBackendUsesCompactHandshakeIdentity() {
+        let harness = PeerConnectionTransportHarness()
+        let manager = PeerConnectionManager(serviceType: "test-service",
+            displayName: "Local",
+            transportFactory: harness.factory)
+
+        XCTAssertEqual(manager.backend, .networkFramework)
+        XCTAssertTrue(PeerIdentity.isValidIdentifier(manager.peer.identity.identifier))
+        XCTAssertEqual(harness.session?.peer.identity, manager.peer.identity)
+    }
+
     internal func testSendDataUsesInjectedSession() {
         let harness = PeerConnectionTransportHarness()
         let manager = PeerConnectionManager(serviceType: "test-service",
@@ -193,6 +204,33 @@ final class PeerConnectionManagerTransportTests : XCTestCase {
         await harness.sessionObserver?.updateAsync(.didReceiveData(peer: manager.peer, data: data))
 
         await fulfillment(of: [expectation], timeout: 1)
+    }
+
+    internal func testRapidDeviceChangesForwardEventTimeConnectedPeers() async {
+        let harness = PeerConnectionTransportHarness()
+        let manager = PeerConnectionManager(serviceType: "test-service",
+            displayName: "Local",
+            transportFactory: harness.factory)
+        let remote = Peer(peerID: MCPeerID(displayName: "Remote"), status: .connected)
+        let disconnected = Peer(peerID: remote.peerID, status: .notConnected)
+        let delivered = expectation(description: "Both device changes delivered")
+        delivered.expectedFulfillmentCount = 2
+        var snapshots : [[Peer]] = []
+
+        manager.listenOn({ event in
+            guard case .devicesChanged(_, connectedPeers: let peers) = event else { return }
+            snapshots.append(peers)
+            delivered.fulfill()
+        }, performListenerInBackground: true, withKey: "device-snapshots")
+
+        await startBrowsingOnly(manager)
+        harness.session?.connectedPeers = [remote]
+        harness.sessionObserver?.update(.devicesChanged(peer: remote, connectedPeers: [remote]))
+        harness.session?.connectedPeers = []
+        harness.sessionObserver?.update(.devicesChanged(peer: disconnected, connectedPeers: []))
+
+        await fulfillment(of: [delivered], timeout: 1)
+        XCTAssertEqual(snapshots, [[remote], []])
     }
 
     internal func testBrowserEventForwardsFoundPeer() async {

@@ -125,6 +125,7 @@ public struct Peer {
         status = .currentUser
     }
 
+    /// Creates a compact, transport-specific identifier for the Network handshake.
     internal init(networkDisplayName displayName: String) {
         peerID = MCPeerID(displayName: displayName)
         identity = PeerIdentity(identifier: UUID().uuidString, displayName: displayName)
