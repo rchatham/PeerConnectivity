@@ -356,7 +356,9 @@ public class PeerConnectionManager {
         self.connectionType = connectionType
         self.backend = backend
         self.serviceType = serviceType
-        self.peer = Peer(displayName: displayName)
+        self.peer = backend == .networkFramework
+            ? Peer(networkDisplayName: displayName)
+            : Peer(displayName: displayName)
         self.securityConfiguration = securityConfiguration
         self.discoveryInfo = discoveryInfo
         self.invitationPolicy = invitationPolicy

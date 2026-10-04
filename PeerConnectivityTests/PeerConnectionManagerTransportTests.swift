@@ -157,6 +157,17 @@ final class PeerConnectionManagerTransportTests : XCTestCase {
         XCTAssertEqual(harness.advertiserAssisstant.stopAdvertisingAssisstantCallCount, 1)
     }
 
+    internal func testNetworkBackendUsesCompactHandshakeIdentity() {
+        let harness = PeerConnectionTransportHarness()
+        let manager = PeerConnectionManager(serviceType: "test-service",
+            displayName: "Local",
+            transportFactory: harness.factory)
+
+        XCTAssertEqual(manager.backend, .networkFramework)
+        XCTAssertTrue(PeerIdentity.isValidIdentifier(manager.peer.identity.identifier))
+        XCTAssertEqual(harness.session?.peer.identity, manager.peer.identity)
+    }
+
     internal func testSendDataUsesInjectedSession() {
         let harness = PeerConnectionTransportHarness()
         let manager = PeerConnectionManager(serviceType: "test-service",
