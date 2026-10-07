@@ -168,6 +168,24 @@ final class PeerConnectionManagerTransportTests : XCTestCase {
         XCTAssertEqual(harness.session?.peer.identity, manager.peer.identity)
     }
 
+    internal func testNetworkBackendSanitizesOversizedDisplayName() {
+        let harness = PeerConnectionTransportHarness()
+        let manager = PeerConnectionManager(serviceType: "test-service",
+            displayName: String(repeating: "🙂", count: 20),
+            transportFactory: harness.factory)
+
+        XCTAssertEqual(manager.peer.displayName, String(repeating: "🙂", count: 15))
+        XCTAssertTrue(Peer.isValidDisplayName(manager.peer.displayName))
+        XCTAssertTrue(PeerIdentity.isValidIdentifier(manager.peer.identity.identifier))
+    }
+
+    internal func testMultipeerBackendUsesFallbackForEmptyDisplayName() {
+        let manager = PeerConnectionManager(serviceType: "test-service", displayName: "")
+
+        XCTAssertEqual(manager.peer.displayName, "Peer")
+        XCTAssertTrue(Peer.isValidDisplayName(manager.peer.displayName))
+    }
+
     internal func testSendDataUsesInjectedSession() {
         let harness = PeerConnectionTransportHarness()
         let manager = PeerConnectionManager(serviceType: "test-service",
