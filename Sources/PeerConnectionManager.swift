@@ -292,7 +292,7 @@ public class PeerConnectionManager {
      
      - parameter serviceType: The requested service type describing the channel on which peers are able to connect. Use `isValidServiceType(_:)` to validate caller-provided values before initialization.
      - parameter connectionType: Takes a PeerConnectionType case determining the default behavior of the framework.
-     - parameter displayName: The local user's display name to other peers. Display names are visible to nearby peers and must be no more than 63 bytes when UTF-8 encoded.
+     - parameter displayName: The local user's display name to other peers. Display names are visible to nearby peers; empty or overlong values are sanitized to a non-empty maximum of 63 UTF-8 bytes.
      - parameter securityConfiguration: Security settings used to create the underlying MultipeerConnectivity session.
      - parameter discoveryInfo: Public, unauthenticated metadata advertised to nearby browsers.
        The Network framework backend currently ignores this value, and its discovered peers
@@ -356,9 +356,10 @@ public class PeerConnectionManager {
         self.connectionType = connectionType
         self.backend = backend
         self.serviceType = serviceType
+        let sanitizedDisplayName = Peer.sanitizedDisplayName(displayName)
         self.peer = backend == .networkFramework
-            ? Peer(networkDisplayName: displayName)
-            : Peer(displayName: displayName)
+            ? Peer(networkDisplayName: sanitizedDisplayName)
+            : Peer(displayName: sanitizedDisplayName)
         self.securityConfiguration = securityConfiguration
         self.discoveryInfo = discoveryInfo
         self.invitationPolicy = invitationPolicy
