@@ -204,13 +204,13 @@ internal final class NetworkPeerBrowserTransport : PeerBrowserTransport {
     }
 
     internal func foundEndpoint(_ endpoint: NWEndpoint, identity: PeerIdentity) {
-        guard !isLocalIdentity(identity) else { return }
+        guard Peer.isValidDisplayName(identity.displayName), !isLocalIdentity(identity) else { return }
         lockedEndpoints { endpointsByIdentity[identity] = endpoint }
         browserObserver.update(.foundPeer(Peer(identity: identity, status: .notConnected), discoveryInfo: nil))
     }
 
     internal func lostEndpoint(_ endpoint: NWEndpoint, identity: PeerIdentity) {
-        guard !isLocalIdentity(identity) else { return }
+        guard Peer.isValidDisplayName(identity.displayName), !isLocalIdentity(identity) else { return }
         lockedEndpoints { _ = endpointsByIdentity.removeValue(forKey: identity) }
         browserObserver.update(.lostPeer(Peer(identity: identity, status: .notConnected)))
     }
