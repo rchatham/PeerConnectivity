@@ -64,13 +64,14 @@ Acceptance criteria:
 - Complete bidirectional reliable data parity for `PeerMessage` use cases.
 - Add handshake timeout, idle timeout, connection caps, and discovery caps.
 - Keep policy values internal until their defaults are validated across CI and device testing.
-- Keep TLS enabled and add app-configurable identity or PSK verification before public Network use.
+- Keep TLS enabled. Treat TLS-PSK as group-membership authentication only, and follow [NetworkTrustModelPlan.md](NetworkTrustModelPlan.md) before claiming individual peer identity.
 - Add malformed-frame, oversized-frame, timeout, and cap tests.
 
 ### PR 6: Public API migration and deprecations
 
 - Add framework-neutral public accessors where MC types currently leak through.
-- Deprecate MC-specific APIs that block a complete migration, including `multipeerSession`, stream APIs, resource APIs, and browser-controller APIs where needed.
+- Deprecate MC-specific APIs only where they block source-compatible Network-backed operation, such as `multipeerSession` or browser-controller APIs where needed.
+- Keep `sendDataStream`, `sendResourceAtURL`, and their receive events available for MultipeerConnectivity consumers; document them as unsupported by the current Network backend rather than deprecating them.
 - Document replacement paths and compatibility behavior.
 
 ### PR 7: Simplification/refactor pass
@@ -80,18 +81,18 @@ Acceptance criteria:
 - Require a clear justification for any new layer that remains.
 - Prefer net LOC reduction unless tests or docs intentionally increase coverage.
 
-### PR 8: SwiftUI browser replacement
+### PR 8: App-owned browser UI foundation
 
-- Add `PeerBrowserView` and `PeerBrowserModel` driven by framework-neutral discovery and connection events.
-- Use SwiftUI as the primary browser implementation.
-- Provide UIKit bridging through `UIHostingController` or representable wrappers where compatibility requires it.
-- Retain and deprecate old `MCBrowserViewController`-specific paths as compatibility shims only.
-- Add SwiftUI/UI tests for peer listing, selection, cancellation, and connection state updates.
+- Use `PeerBrowserModel`, driven by framework-neutral discovery and connection events, as the supported Network browser foundation.
+- Document a concise integration pattern for app-owned peer lists and approval flows.
+- Defer a reusable `PeerBrowserView` and UIKit bridge until app integrations establish shared requirements.
+- Retain the existing `MCBrowserViewController` path for the MultipeerConnectivity backend.
+- Do not change the default backend or add transport/trust behavior in this UI decision.
 
-### PR 9: End-to-end automation and UI testing
+### PR 9: End-to-end automation and demo testing
 
 - Add a loopback/local integration harness where possible.
-- Add XCUITest coverage for the SwiftUI browser and demo app smoke paths.
+- Add UI smoke coverage for the demo's app-owned browser flow when stable automation is practical.
 - Add CI automation for stable smoke tests.
 - Document manual device checks for Bonjour and Local Network privacy prompts.
 
@@ -99,7 +100,25 @@ Acceptance criteria:
 
 - Update README, migration guide, Info.plist notes, backend-selection docs, and CHANGELOG.
 - Document unsupported or deprecated MC-specific APIs.
+- Record the current parity boundary: Network supports reliable `Data`/`PeerMessage` transport, while stream/resource send APIs and receive events remain MultipeerConnectivity-only.
 - Prepare versioning notes for the deployment-target bump and Network backend opt-in.
+
+### Final planned PR: migration readiness audit
+
+- Reconcile the implemented stack, accepted non-parity, and remaining production evidence.
+- Define separate gates for stable opt-in, default-backend selection, and MultipeerConnectivity removal.
+- Classify optional follow-ups by the first readiness level that requires them.
+- Record release/versioning constraints and a risk register without changing runtime behavior.
+
+The resulting [NetworkMigrationReadinessAudit.md](NetworkMigrationReadinessAudit.md) is authoritative when this historical sequencing plan and the implemented stack differ. It confirms that no optional implementation is needed to merge the experimental opt-in stack, while individual authentication, error observability, resource bounds, and physical-device evidence are required before stable status.
+
+### Future security slice: individual peer identity
+
+- Select one trust mode from [NetworkTrustModelPlan.md](NetworkTrustModelPlan.md) only after focused security and platform review.
+- Keep authenticated principal, stable transport identifier, and mutable display name distinct.
+- Bind the accepted principal to the connection before connected/data events or duplicate resolution trust that identity.
+- Add spoofing, mismatch, replay, revocation, downgrade, and verifier-failure tests in the same implementation PR.
+- Do not combine this work with a default-backend change or a general public policy API.
 
 ## Required Security Gates
 
@@ -108,7 +127,7 @@ Security review is mandatory for PRs that change:
 - Network listener/connection setup.
 - TLS identity, PSK, trust evaluation, or handshake payloads.
 - Untrusted input parsing, frame decoding, or peer identity validation.
-- SwiftUI browser input, peer selection, or invite flows.
+- Reusable browser input, peer selection, or invite flows.
 - Public backend selection or default backend behavior.
 
-Before the Network backend is publicly selectable, peer authentication must be explicit rather than relying on self-asserted display names or unauthenticated handshakes.
+The Network backend is already publicly selectable as an experimental opt-in. Before it is described as production-ready or made the default, individual peer authentication must be explicit rather than relying on a group PSK, self-asserted display names, or unauthenticated handshakes; follow the gates in [NetworkTrustModelPlan.md](NetworkTrustModelPlan.md).

@@ -76,6 +76,45 @@ final class ObservableThreadSafetyTests: XCTestCase {
 
     // MARK: - PeerConnectionResponder
 
+    func testResponderSynchronousListenerSkipsCurrentEventAndReceivesFutureEvent() async {
+        let observable = Observable<PeerConnectionEvent>(.ready)
+        let responder = PeerConnectionResponder(observer: observable)
+        var receivedStarted = false
+
+        responder.addListener({ event in
+            if case .started = event {
+                receivedStarted = true
+            } else {
+                XCTFail("Responder replayed the current event")
+            }
+        }, forKey: "listener")
+        await observable.flush()
+        XCTAssertFalse(receivedStarted)
+
+        await observable.updateAsync(.started)
+
+        XCTAssertTrue(receivedStarted)
+    }
+
+    func testResponderAsyncListenerSkipsCurrentEventAndReceivesFutureEvent() async {
+        let observable = Observable<PeerConnectionEvent>(.ready)
+        let responder = PeerConnectionResponder(observer: observable)
+        var receivedStarted = false
+
+        await responder.addListenerAsync({ event in
+            if case .started = event {
+                receivedStarted = true
+            } else {
+                XCTFail("Responder replayed the current event")
+            }
+        }, forKey: "listener")
+        XCTAssertFalse(receivedStarted)
+
+        await observable.updateAsync(.started)
+
+        XCTAssertTrue(receivedStarted)
+    }
+
     func testResponderAllowsConcurrentListenerRemovalAndEventDelivery() {
         let observable = Observable<PeerConnectionEvent>(.ready)
         let responder = PeerConnectionResponder(observer: observable)

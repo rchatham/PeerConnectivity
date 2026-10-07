@@ -175,6 +175,8 @@ if let somePeerThatIAmConnectedTo = connectedPeers.first {
     // Events can be sent to specific peers
     pcm.sendEvent(event, toPeers: [somePeerThatIAmConnectedTo])
     
+    // Stream and resource APIs require the MultipeerConnectivity backend. The Network
+    // backend supports bounded payloads through sendData or sendMessage instead.
     do {
         let stream = try pcm.sendDataStream(streamName: "some-stream", toPeer: somePeerThatIAmConnectedTo)
         // Do something with stream
@@ -287,7 +289,7 @@ pcm.listenOn({ (event) in
     
 }, withKey: "connectedDevicesChanged")
 
-// Listen to streams
+// Listen to streams (MultipeerConnectivity backend only; Network never emits this event)
 pcm.listenOn({ event in
     
     switch event {
@@ -300,7 +302,7 @@ pcm.listenOn({ event in
     
 }, withKey: "streamListener")
 
-// Receiving resources
+// Receiving resources (MultipeerConnectivity backend only; Network never emits these events)
 pcm.listenOn({ event in
     
     switch event {

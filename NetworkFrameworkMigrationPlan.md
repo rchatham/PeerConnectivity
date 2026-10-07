@@ -4,6 +4,8 @@
 
 Begin migrating PeerConnectivity away from direct MultipeerConnectivity dependence toward Apple's Network framework while preserving public API compatibility where practical.
 
+> Status: this is the original staged architecture plan. The Network backend is now implemented as an experimental opt-in. Use [NetworkMigrationReadinessAudit.md](NetworkMigrationReadinessAudit.md) for the authoritative checklist governing stable status, a default switch, and MultipeerConnectivity removal.
+
 > Note: the iOS 27 MultipeerConnectivity deprecation claim has not yet been verified against Apple SDK headers or release notes. Treat Network framework migration as proactive risk reduction until confirmed.
 
 ## Current State
@@ -56,9 +58,9 @@ Most public event types are already framework-neutral, which makes an incrementa
 | `MCSessionState` / `Peer.Status` | `NWConnection.State` mapping | Must define how `.setup`, `.waiting`, `.preparing`, `.ready`, `.failed`, and `.cancelled` map to existing public statuses/events. |
 | `MCPeerID` | New framework-neutral peer identity | Must preserve display name and stable equality semantics. |
 | `MCSession.send` | `NWConnection.send` + message framing | Network does not preserve message boundaries automatically. |
-| Resource transfer | Custom protocol over `NWConnection` | Later slice; potentially file chunks/progress messages. |
-| Stream transfer | Custom stream abstraction or compatibility shim | Later slice; no one-to-one replacement. |
-| `MCBrowserViewController` | Custom PeerConnectivityUI browser | Required for UI package. |
+| Resource transfer | No Network replacement in the current migration | `sendResourceAtURL` and resource receive events remain MultipeerConnectivity-only. |
+| Stream transfer | No Network replacement in the current migration | `sendDataStream` and stream receive events remain MultipeerConnectivity-only. |
+| `MCBrowserViewController` | `PeerBrowserModel` + app-owned UI | Reusable PeerConnectivityUI replacement deferred pending app validation. |
 
 Relevant Network framework APIs:
 
@@ -78,7 +80,7 @@ Relevant Network framework APIs:
   - `NSBonjourServices`
 - Network framework is connection-oriented, not an `MCSession`-style symmetric mesh abstraction.
 - Peer-to-peer Wi-Fi/Bluetooth/AWDL behavior requires `NWParameters.includePeerToPeer = true` and on-device testing.
-- Network-backed transports must keep TLS enabled before any public backend selection is exposed; peer identities remain self-asserted until a later authentication/trust model binds them to TLS identity or app-provided verification.
+- Network external-PSK transport pins both its minimum and maximum to TLS 1.2 with no fallback to another TLS version or plaintext. It authenticates shared-key group membership, not an individual peer. Peer identities remain self-asserted until the [Network trust model plan](NetworkTrustModelPlan.md) binds them to pairwise key material, a certificate/pinned key, a signed credential, or app-provided verification.
 - Network coordinator state must be serialized and bounded; current wiring keeps handshake timeout and connection caps internal until defaults are validated across CI and device testing. Discovery caps and idle timeouts remain production-hardening follow-ups before accepting untrusted inbound traffic at scale.
 - Public `multipeerSession: MCSession` prevents completely removing MultipeerConnectivity without a breaking API change; a source-compatible transition release requires dual backend support.
 - `MCBrowserViewController` has no Network framework equivalent.
@@ -160,23 +162,28 @@ Acceptance criteria:
 - Data send/receive works for JSON `PeerMessage` payloads.
 - Connection state changes map to existing PeerConnectivity events.
 
-### Phase 4 — Feature parity for data/resource/stream APIs
+### Phase 4 — Reliable data parity and unsupported API decision
 
-Objective: preserve current PeerConnectivity capabilities where possible.
+Objective: preserve reliable data/message behavior while explicitly bounding the current Network backend.
 
-Tasks:
+Decision:
 
-1. Implement reliable data send parity.
-2. Decide whether unreliable send can be supported or should become best-effort over TCP/TLS.
-3. Implement resource transfer protocol with chunking and progress reporting.
-4. Evaluate stream API compatibility and document limitations.
-5. Add protocol-version negotiation for future compatibility.
+- Implement reliable `Data` and `PeerMessage` send parity.
+- Keep `sendDataStream` and `sendResourceAtURL` source-compatible and supported by the MultipeerConnectivity backend.
+- Do not implement a custom Network stream or resource-transfer protocol in this migration stack.
+- Keep `.receivedStream`, `.startedReceivingResource`, and `.finishedReceivingResource` available for MultipeerConnectivity; the Network backend does not emit them.
+- Treat a future Network-native file or streaming protocol as separately scoped work, not as a blocker for the current migration.
+
+Rationale:
+
+Network framework has no one-to-one replacement for these MultipeerConnectivity APIs. Emulation would introduce new framing, flow-control, progress, cancellation, persistence, and protocol-versioning contracts beyond the reliable message transport targeted by this migration.
 
 Acceptance criteria:
 
-- Existing public send APIs either work or have documented migration/deprecation path.
-- Resource transfer has tests for success, failure, and progress callbacks.
-- Any unsupported MC behavior is explicitly documented.
+- Reliable data and typed message APIs work on both backends.
+- Network calls to unsupported send APIs fail explicitly with documented behavior.
+- Documentation directs stream/resource consumers to remain on `.multipeerConnectivity`.
+- Unsupported receive events are documented as MultipeerConnectivity-only.
 
 ### Phase 5 — Public API migration and deprecations
 
@@ -185,7 +192,7 @@ Objective: guide consumers away from MC-specific API.
 Tasks:
 
 1. Add framework-neutral public accessors where needed.
-2. Deprecate `multipeerSession: MCSession` if retaining it blocks Network-backed operation.
+2. Deprecate `multipeerSession: MCSession` if retaining it blocks Network-backed operation. Do not deprecate stream/resource APIs solely because they are MultipeerConnectivity-only; they remain valid on that backend.
 3. Add initializer/configuration to choose `.multipeerConnectivity` vs `.networkFramework` backend for a non-breaking transition release.
 4. Decide whether already-deprecated `sendEvent(_:toPeers:)` and related legacy event observation APIs are removed in a major-version migration or retained through adapters.
 5. Document deployment target changes and Info.plist requirements.
@@ -197,22 +204,22 @@ Acceptance criteria:
 - MC-specific public API is marked deprecated before removal.
 - Migration guide explains breaking changes and fallback behavior.
 
-### Phase 6 — PeerConnectivityUI replacement
+### Phase 6 — App-owned browser UI foundation
 
-Objective: replace `MCBrowserViewController` usage.
+Objective: support Network peer selection without prematurely standardizing reusable UI behavior.
 
-Tasks:
+Decision:
 
-1. Build a custom browser UI backed by framework-neutral discovery events.
-2. Rework `PeerConnectionManager+UI.swift` so browser UI no longer requires direct `multipeerSession` access for Network-backed managers.
-3. Preserve existing PeerConnectivityUI product structure.
-4. Add iOS-only tests where feasible.
-5. Deprecate or remove MC browser assistant after replacement exists.
+- Use the framework-neutral `PeerBrowserModel` as the supported replacement foundation for Network-backed apps.
+- Keep rendering, selection, cancellation, progress, errors, accessibility, and presentation app-owned.
+- Preserve the existing `MCBrowserViewController` path for the MultipeerConnectivity backend.
+- Defer a reusable SwiftUI or UIKit browser until app integrations establish common requirements.
 
 Acceptance criteria:
 
-- UI package no longer depends on `MCBrowserViewController` for Network backend.
-- Existing apps can browse/select peers with Network implementation.
+- Network-backed apps can observe discovered peers and connection status, then invite an app-approved peer through `PeerBrowserModel`.
+- Documentation includes an app-owned UI example and clearly states that reusable browser UI is deferred.
+- No default backend or MultipeerConnectivity browser behavior changes.
 
 ## Testing Plan
 
@@ -252,23 +259,14 @@ xcodebuild test -workspace PeerConnectivity.xcworkspace \
 - Backend selection/deprecation notes.
 - Known limitations vs MultipeerConnectivity.
 
-## Open Questions
+## Resolved decisions and remaining gates
 
-1. Should Network framework be introduced as an opt-in backend first, or should it replace MC internally once stable?
-2. What is the minimum supported OS after migration?
-3. Is preserving `multipeerSession: MCSession` required for a transition release?
-4. Should unreliable send semantics be preserved, deprecated, or documented as best-effort?
-5. Is stream/resource transfer heavily used by consumers, or can those APIs be deprecated?
-6. What service type naming convention should be required for Bonjour compatibility?
-7. What authentication model should be default: no TLS identity, PSK, certificate identity, or app-provided verifier?
-8. When should Network connection policy values become public configuration instead of fixed internal defaults?
+- Network was introduced as an explicit opt-in; MultipeerConnectivity remains the default.
+- Minimum deployment targets are iOS 13 and macOS 10.15.
+- `multipeerSession` remains available during dual-backend transition and must be deprecated before MC removal.
+- Bare service types map to `_<service>._tcp`; already-qualified TCP Bonjour types are preserved.
+- Stream/resource parity is intentionally outside this migration stack; those APIs remain MC-only.
+- Connection policy remains fixed/internal until device and load evidence demonstrates a need for public tuning.
+- Individual peer authentication remains unresolved and is required before stable/default status.
 
-## Immediate Next Step
-
-Implement Phase 1's transport seam and mock-backed tests in this branch:
-
-```text
-feature/network-framework-migration
-```
-
-Keep this first commit behavior-preserving and small so later Network framework work can build on a stable abstraction layer.
+The next work is not another unconditional migration phase. Select follow-ups according to [NetworkMigrationReadinessAudit.md](NetworkMigrationReadinessAudit.md): security identity, error observability, resource bounds, and physical-device evidence come before stable status; default switching and MC removal have later, separate gates.

@@ -12,7 +12,7 @@ internal actor Observable<T> {
     internal typealias Observer = (T) -> Void
 
     fileprivate enum Operation {
-        case addObserver(Observer, key: String, completion: CheckedContinuation<Void, Never>?)
+        case addObserver(Observer, key: String, replayCurrentValue: Bool, completion: CheckedContinuation<Void, Never>?)
         case removeObserver(key: String, completion: CheckedContinuation<Void, Never>?)
         case removeAllObservers(completion: CheckedContinuation<Void, Never>?)
         case update(T, completion: CheckedContinuation<Void, Never>?)
@@ -59,14 +59,26 @@ internal actor Observable<T> {
     /// Synchronous submissions enter the actor's operation stream so observer
     /// lifecycle changes and updates are applied in call order without blocking.
     @discardableResult
-    nonisolated internal func addObserver(_ observer: @escaping Observer) -> String {
+    nonisolated internal func addObserver(
+        _ observer: @escaping Observer,
+        replayCurrentValue: Bool = true
+    ) -> String {
         let key = UUID().uuidString
-        addObserver(observer, key: key)
+        addObserver(observer, key: key, replayCurrentValue: replayCurrentValue)
         return key
     }
 
-    nonisolated internal func addObserver(_ observer: @escaping Observer, key: String) {
-        operationContinuation.yield(.addObserver(observer, key: key, completion: nil))
+    nonisolated internal func addObserver(
+        _ observer: @escaping Observer,
+        key: String,
+        replayCurrentValue: Bool = true
+    ) {
+        operationContinuation.yield(.addObserver(
+            observer,
+            key: key,
+            replayCurrentValue: replayCurrentValue,
+            completion: nil
+        ))
     }
 
     nonisolated internal func removeObserver(forKey key: String) {
@@ -82,15 +94,27 @@ internal actor Observable<T> {
     }
 
     @discardableResult
-    nonisolated internal func addObserverAsync(_ observer: @escaping Observer) async -> String {
+    nonisolated internal func addObserverAsync(
+        _ observer: @escaping Observer,
+        replayCurrentValue: Bool = true
+    ) async -> String {
         let key = UUID().uuidString
-        await addObserverAsync(observer, key: key)
+        await addObserverAsync(observer, key: key, replayCurrentValue: replayCurrentValue)
         return key
     }
 
-    nonisolated internal func addObserverAsync(_ observer: @escaping Observer, key: String) async {
+    nonisolated internal func addObserverAsync(
+        _ observer: @escaping Observer,
+        key: String,
+        replayCurrentValue: Bool = true
+    ) async {
         await enqueueAndWait { completion in
-            .addObserver(observer, key: key, completion: completion)
+            .addObserver(
+                observer,
+                key: key,
+                replayCurrentValue: replayCurrentValue,
+                completion: completion
+            )
         }
     }
 
@@ -135,8 +159,8 @@ internal actor Observable<T> {
 
     fileprivate func perform(_ operation: Operation) {
         switch operation {
-        case let .addObserver(observer, key, completion):
-            storeObserver(observer, key: key)
+        case let .addObserver(observer, key, replayCurrentValue, completion):
+            storeObserver(observer, key: key, replayCurrentValue: replayCurrentValue)
             completion?.resume()
         case let .removeObserver(key, completion):
             removeStoredObserver(forKey: key)
@@ -152,9 +176,15 @@ internal actor Observable<T> {
         }
     }
 
-    fileprivate func storeObserver(_ observer: @escaping Observer, key: String) {
+    fileprivate func storeObserver(
+        _ observer: @escaping Observer,
+        key: String,
+        replayCurrentValue: Bool
+    ) {
         observers[key] = observer
-        observer(value)
+        if replayCurrentValue {
+            observer(value)
+        }
     }
 
     fileprivate func removeStoredObserver(forKey key: String) {
