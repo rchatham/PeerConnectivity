@@ -171,6 +171,31 @@ final class NetworkPeerTransportAdapterTests : XCTestCase {
             "Network discovery must report nil until app-provided discoveryInfo is supported")
     }
 
+    internal func testBrowserTransportRejectsOversizedRemoteTXTDisplayNames() async {
+        guard #available(iOS 13.0, macOS 10.15, *) else { return }
+
+        let observer = Observable<PeerBrowserEvent>(.none)
+        let transport = NetworkPeerBrowserTransport(session: makeSessionTransport(),
+            browser: MockNetworkPeerBrowser(),
+            browserObserver: observer)
+        let endpoint = NWEndpoint.hostPort(host: .ipv4(IPv4Address("127.0.0.1")!), port: 23457)
+        var events : [PeerBrowserEvent] = []
+        await observer.addObserverAsync { event in events.append(event) }
+
+        for displayName in [String(repeating: "a", count: 64), String(repeating: "é", count: 32)] {
+            let txtRecord = ["pc-id": "remote", "pc-name": displayName, "pc-v": "1"]
+            guard let identity = PeerNetworkDiscoveryInfo(txtRecordDictionary: txtRecord)?.identity else {
+                XCTFail("The TXT record must be valid before the browser rejects its display name")
+                return
+            }
+
+            transport.foundEndpoint(endpoint, identity: identity)
+            transport.lostEndpoint(endpoint, identity: identity)
+        }
+
+        XCTAssertEqual(events.count, 1, "Invalid remote display names must not produce browser events")
+    }
+
     internal func testBrowserTransportSerializesConcurrentEndpointLifecycle() {
         guard #available(iOS 13.0, macOS 10.15, *) else { return }
 
