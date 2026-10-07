@@ -8,6 +8,120 @@
 
 import Foundation
 
+/// Limits only the separately opted-in updates, not the legacy operation stream.
+fileprivate final class BoundedPermits: @unchecked Sendable {
+    private let lock = NSLock()
+    private let capacity : Int
+    private var inUse = 0
+    private var closed = false
+    private var waiters : [(UUID, CheckedContinuation<Bool, Never>)] = []
+
+    init(capacity: Int) {
+        self.capacity = capacity
+    }
+
+    var counts : (admitted: Int, waiting: Int) {
+        lock.lock()
+        let counts = (inUse, waiters.count)
+        lock.unlock()
+        return counts
+    }
+
+    func acquire() async -> Bool {
+        let id = UUID()
+        return await withTaskCancellationHandler {
+            await withCheckedContinuation { continuation in
+                lock.lock()
+                if closed || Task.isCancelled {
+                    lock.unlock()
+                    continuation.resume(returning: false)
+                } else if inUse < capacity && waiters.isEmpty {
+                    inUse += 1
+                    lock.unlock()
+                    continuation.resume(returning: true)
+                } else {
+                    waiters.append((id, continuation))
+                    lock.unlock()
+                }
+            }
+        } onCancel: {
+            cancel(id)
+        }
+    }
+
+    /// Serializes the bounded stream admission decision with close().
+    /// No observer or completion handler runs synchronously from yield().
+    func enqueueIfOpen(_ enqueue: () -> Bool) -> Bool {
+        lock.lock()
+        guard !closed else {
+            lock.unlock()
+            return false
+        }
+        let accepted = enqueue()
+        lock.unlock()
+        return accepted
+    }
+
+    func release() {
+        lock.lock()
+        if !closed && !waiters.isEmpty {
+            let waiter = waiters.removeFirst().1
+            lock.unlock()
+            waiter.resume(returning: true) // Transfer the reserved permit.
+        } else {
+            inUse -= 1
+            lock.unlock()
+        }
+    }
+
+    @discardableResult
+    func close() -> Bool {
+        lock.lock()
+        let wasOpen = !closed
+        closed = true
+        let pending = waiters
+        waiters.removeAll()
+        lock.unlock()
+        for (_, waiter) in pending {
+            waiter.resume(returning: false)
+        }
+        return wasOpen
+    }
+
+    private func cancel(_ id: UUID) {
+        lock.lock()
+        guard let index = waiters.firstIndex(where: { $0.0 == id }) else {
+            lock.unlock()
+            return
+        }
+        let waiter = waiters.remove(at: index).1
+        lock.unlock()
+        waiter.resume(returning: false)
+    }
+}
+
+/// Completes dropped operations as failure and releases their reserved permit.
+fileprivate final class BoundedSubmission {
+    private let permits : BoundedPermits
+    private var result : CheckedContinuation<Bool, Never>?
+
+    init(_ result: CheckedContinuation<Bool, Never>, permits: BoundedPermits) {
+        self.result = result
+        self.permits = permits
+    }
+
+    func complete(_ processed: Bool) {
+        guard let result = result else { return }
+        self.result = nil
+        permits.release()
+        result.resume(returning: processed)
+    }
+
+    deinit {
+        complete(false)
+    }
+}
+
 internal actor Observable<T> {
     internal typealias Observer = (T) -> Void
 
@@ -16,6 +130,7 @@ internal actor Observable<T> {
         case removeObserver(key: String, completion: CheckedContinuation<Void, Never>?)
         case removeAllObservers(completion: CheckedContinuation<Void, Never>?)
         case update(T, completion: CheckedContinuation<Void, Never>?)
+        case boundedUpdate(T, BoundedSubmission)
         case barrier(CheckedContinuation<Void, Never>)
     }
 
@@ -29,17 +144,34 @@ internal actor Observable<T> {
 
     fileprivate var observers : [String:Observer] = [:]
     nonisolated fileprivate let operationContinuation : AsyncStream<Operation>.Continuation
+    nonisolated fileprivate let boundedPermits : BoundedPermits
+    nonisolated fileprivate let beforeBoundedEnqueue : (@Sendable () -> Void)?
+    nonisolated fileprivate let afterBoundedClose : (@Sendable () -> Void)?
     nonisolated(unsafe) fileprivate var eventPump : Task<Void, Never>?
 
     internal var observerCount : Int {
         return observers.count
     }
 
-    internal init(_ v: T) {
+    /// Number of reserved opt-in slots (including an update currently being processed).
+    nonisolated internal var boundedSubmissionCounts : (admitted: Int, waiting: Int) {
+        return boundedPermits.counts
+    }
+
+    internal init(
+        _ v: T,
+        boundedCapacity: Int = 16,
+        beforeBoundedEnqueue: (@Sendable () -> Void)? = nil,
+        afterBoundedClose: (@Sendable () -> Void)? = nil
+    ) {
+        precondition(boundedCapacity > 0, "Bounded Observable capacity must be positive")
         let (operations, continuation) = AsyncStream.makeStream(of: Operation.self)
 
         value = v
         operationContinuation = continuation
+        boundedPermits = BoundedPermits(capacity: boundedCapacity)
+        self.beforeBoundedEnqueue = beforeBoundedEnqueue
+        self.afterBoundedClose = afterBoundedClose
         eventPump = nil
         eventPump = Task { [weak self] in
             for await operation in operations {
@@ -50,8 +182,25 @@ internal actor Observable<T> {
     }
 
     deinit {
-        operationContinuation.finish()
+        finish()
         eventPump?.cancel()
+    }
+
+    /// Atomically closes bounded admission and lets the pump drain without waiting for it.
+    /// Call explicitly to wake suspended producers; their tasks can retain the Observable until they finish.
+    nonisolated internal func finish() {
+        let didClose = boundedPermits.close()
+        // Internal test seam; the gate lock is released before this callback.
+        if didClose { afterBoundedClose?() }
+        operationContinuation.finish()
+    }
+
+    /// Closes submissions and waits for the event pump to process all buffered operations.
+    /// Unlike flush(), this remains a drain barrier after finish().
+    /// Do not await this from an observer callback running on the event pump.
+    nonisolated internal func finishAndWait() async {
+        finish()
+        await eventPump?.value
     }
 
     /// Schedules observer registration from synchronous callers.
@@ -136,6 +285,46 @@ internal actor Observable<T> {
         }
     }
 
+    /// Opt-in backpressure for updates. Returns true only after the update and its observers run.
+    /// Cancellation observed before stream enqueue returns false; enqueued updates still run if cancelled.
+    nonisolated internal func updateBoundedAsync(_ newValue: T) async -> Bool {
+        return await Self.submitBounded(
+            newValue, to: operationContinuation, using: boundedPermits, beforeEnqueue: beforeBoundedEnqueue
+        )
+    }
+
+    nonisolated private static func submitBounded(
+        _ newValue: T,
+        to continuation: AsyncStream<Operation>.Continuation,
+        using permits: BoundedPermits,
+        beforeEnqueue: (@Sendable () -> Void)?
+    ) async -> Bool {
+        guard await permits.acquire() else { return false }
+        // Internal test seam; always runs outside the permit lock.
+        beforeEnqueue?()
+        if Task.isCancelled {
+            permits.release()
+            return false
+        }
+        return await withCheckedContinuation { result in
+            let submission = BoundedSubmission(result, permits: permits)
+            let accepted = permits.enqueueIfOpen {
+                switch continuation.yield(.boundedUpdate(newValue, submission)) {
+                case .enqueued:
+                    return true
+                case .dropped, .terminated:
+                    return false
+                @unknown default:
+                    return false
+                }
+            }
+            if !accepted {
+                submission.complete(false)
+            }
+        }
+    }
+
+    /// Waits for earlier operations only while the stream is open; after finish(), yield terminates immediately.
     nonisolated internal func flush() async {
         await enqueueAndWait { completion in
             .barrier(completion)
@@ -171,6 +360,9 @@ internal actor Observable<T> {
         case let .update(newValue, completion):
             setValue(newValue)
             completion?.resume()
+        case let .boundedUpdate(newValue, submission):
+            setValue(newValue)
+            submission.complete(true)
         case let .barrier(completion):
             completion.resume()
         }
