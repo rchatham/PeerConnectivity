@@ -13,7 +13,7 @@ Pod::Spec.new do |s|
   s.osx.deployment_target = "10.15"
   s.source       = { :git => "https://github.com/rchatham/PeerConnectivity.git", :tag => "#{s.version}" }
   s.source_files = "Sources/*.{swift,h}"
-  s.frameworks   = "MultipeerConnectivity", "Network"
+  s.frameworks   = "MultipeerConnectivity", "Network", "CryptoKit", "Security"
   s.swift_version = "5.0"
   # s.documentation_url = "http://reidchatham.com/docs/PeerConnectivity/Classes/PeerConnectionManager.html"
 end
