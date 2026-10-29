@@ -113,6 +113,7 @@ private final class PeerConnectionTransportHarness {
 
     internal var factory : PeerConnectionTransportFactory {
         return PeerConnectionTransportFactory(
+            backend: .networkFramework,
             makeSession: { [weak self] peer, _, observer in
                 let session = MockPeerSessionTransport(peer: peer)
                 self?.session = session
@@ -154,6 +155,35 @@ final class PeerConnectionManagerTransportTests : XCTestCase {
         XCTAssertEqual(harness.browser.stopBrowsingCallCount, 1)
         XCTAssertEqual(harness.advertiser.stopAdvertisingCallCount, 1)
         XCTAssertEqual(harness.advertiserAssisstant.stopAdvertisingAssisstantCallCount, 1)
+    }
+
+    internal func testNetworkBackendUsesCompactHandshakeIdentity() {
+        let harness = PeerConnectionTransportHarness()
+        let manager = PeerConnectionManager(serviceType: "test-service",
+            displayName: "Local",
+            transportFactory: harness.factory)
+
+        XCTAssertEqual(manager.backend, .networkFramework)
+        XCTAssertTrue(PeerIdentity.isValidIdentifier(manager.peer.identity.identifier))
+        XCTAssertEqual(harness.session?.peer.identity, manager.peer.identity)
+    }
+
+    internal func testNetworkBackendSanitizesOversizedDisplayName() {
+        let harness = PeerConnectionTransportHarness()
+        let manager = PeerConnectionManager(serviceType: "test-service",
+            displayName: String(repeating: "🙂", count: 20),
+            transportFactory: harness.factory)
+
+        XCTAssertEqual(manager.peer.displayName, String(repeating: "🙂", count: 15))
+        XCTAssertTrue(Peer.isValidDisplayName(manager.peer.displayName))
+        XCTAssertTrue(PeerIdentity.isValidIdentifier(manager.peer.identity.identifier))
+    }
+
+    internal func testMultipeerBackendUsesFallbackForEmptyDisplayName() {
+        let manager = PeerConnectionManager(serviceType: "test-service", displayName: "")
+
+        XCTAssertEqual(manager.peer.displayName, "Peer")
+        XCTAssertTrue(Peer.isValidDisplayName(manager.peer.displayName))
     }
 
     internal func testSendDataUsesInjectedSession() {

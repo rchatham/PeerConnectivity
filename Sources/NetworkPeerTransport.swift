@@ -10,6 +10,18 @@ import Foundation
 import Network
 
 @available(iOS 13.0, macOS 10.15, *)
+internal protocol NetworkPeerListening {
+    func start()
+    func cancel()
+}
+
+@available(iOS 13.0, macOS 10.15, *)
+internal protocol NetworkPeerBrowsing {
+    func start()
+    func cancel()
+}
+
+@available(iOS 13.0, macOS 10.15, *)
 internal final class NetworkPeerConnection : NetworkPeerConnectionCancellable {
 
     internal typealias StateHandler = (NWConnection.State) -> Void
@@ -20,7 +32,7 @@ internal final class NetworkPeerConnection : NetworkPeerConnectionCancellable {
     fileprivate let connection : NWConnection
     fileprivate let queue : DispatchQueue
     fileprivate let stateHandler : StateHandler?
-    fileprivate let dataHandler : DataHandler?
+    fileprivate var dataHandler : DataHandler?
     fileprivate let invalidFrameHandler : InvalidFrameHandler?
     fileprivate let handshakeEncoder : HandshakeEncoder
     fileprivate var frameDecoder = PeerNetworkFrameDecoder()
@@ -52,6 +64,10 @@ internal final class NetworkPeerConnection : NetworkPeerConnectionCancellable {
         self.dataHandler = dataHandler
         self.invalidFrameHandler = invalidFrameHandler
         self.handshakeEncoder = handshakeEncoder
+    }
+
+    internal func setDataHandler(_ dataHandler: DataHandler?) {
+        self.dataHandler = dataHandler
     }
 
     internal func start() {
@@ -131,7 +147,7 @@ internal final class NetworkPeerConnection : NetworkPeerConnectionCancellable {
 }
 
 @available(iOS 13.0, macOS 10.15, *)
-internal final class NetworkPeerListener {
+internal final class NetworkPeerListener : NetworkPeerListening {
 
     internal typealias ConnectionHandler = (NetworkPeerConnection) -> Void
     internal typealias StateHandler = (NWListener.State) -> Void
@@ -140,18 +156,29 @@ internal final class NetworkPeerListener {
     fileprivate let queue : DispatchQueue
     fileprivate let connectionHandler : ConnectionHandler?
     fileprivate let stateHandler : StateHandler?
+    fileprivate let connectionFactory : (NWConnection, DispatchQueue) -> NetworkPeerConnection
 
     internal init(serviceType: ServiceType,
+        identity: PeerIdentity? = nil,
         queue: DispatchQueue = DispatchQueue(label: "PeerConnectivity.NetworkPeerListener"),
         connectionHandler: ConnectionHandler? = nil,
-        stateHandler: StateHandler? = nil) throws {
+        stateHandler: StateHandler? = nil,
+        connectionFactory: @escaping (NWConnection, DispatchQueue) -> NetworkPeerConnection = { connection, queue in
+            return NetworkPeerConnection(connection: connection, queue: queue)
+        }) throws {
         let service = PeerNetworkBonjourService(serviceType: serviceType)
         let listener = try NWListener(using: NetworkPeerConnection.parameters())
-        listener.service = NWListener.Service(name: nil, type: service.bonjourType)
+        if let identity = identity {
+            let txtRecord = NWTXTRecord(PeerNetworkDiscoveryInfo(identity: identity).txtRecordDictionary)
+            listener.service = NWListener.Service(name: nil, type: service.bonjourType, domain: nil, txtRecord: txtRecord)
+        } else {
+            listener.service = NWListener.Service(name: nil, type: service.bonjourType)
+        }
         self.listener = listener
         self.queue = queue
         self.connectionHandler = connectionHandler
         self.stateHandler = stateHandler
+        self.connectionFactory = connectionFactory
     }
 
     internal func start() {
@@ -160,7 +187,7 @@ internal final class NetworkPeerListener {
         }
         listener.newConnectionHandler = { [weak self] connection in
             guard let self else { return }
-            let peerConnection = NetworkPeerConnection(connection: connection, queue: self.queue)
+            let peerConnection = self.connectionFactory(connection, self.queue)
             self.connectionHandler?(peerConnection)
             peerConnection.start()
         }
@@ -173,14 +200,14 @@ internal final class NetworkPeerListener {
 }
 
 @available(iOS 13.0, macOS 10.15, *)
-internal final class NetworkPeerBrowser {
+internal final class NetworkPeerBrowser : NetworkPeerBrowsing {
 
     internal typealias ResultHandler = (NWBrowser.Result.Change) -> Void
     internal typealias StateHandler = (NWBrowser.State) -> Void
 
     fileprivate let browser : NWBrowser
     fileprivate let queue : DispatchQueue
-    fileprivate let resultHandler : ResultHandler?
+    fileprivate var resultHandler : ResultHandler?
     fileprivate let stateHandler : StateHandler?
 
     internal init(serviceType: ServiceType,
@@ -193,6 +220,10 @@ internal final class NetworkPeerBrowser {
         self.queue = queue
         self.resultHandler = resultHandler
         self.stateHandler = stateHandler
+    }
+
+    internal func setResultHandler(_ resultHandler: ResultHandler?) {
+        self.resultHandler = resultHandler
     }
 
     internal func start() {

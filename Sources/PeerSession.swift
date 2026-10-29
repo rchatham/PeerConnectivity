@@ -9,7 +9,7 @@
 import Foundation
 import MultipeerConnectivity
 
-internal struct PeerSession : PeerSessionTransport {
+internal struct PeerSession : MultipeerSessionTransport {
     
     internal let peer : Peer
     internal let session : MCSession
