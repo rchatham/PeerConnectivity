@@ -4,6 +4,10 @@
 
 This document defines the security boundary of the experimental Network framework backend and the requirements for strengthening it. It is a plan, not a production authentication implementation. It does not change the default `.multipeerConnectivity` backend, add a transport, or define a public trust-policy API.
 
+Internal PR B primitives now provide an explicitly namespaced, persistent software Curve25519 signing identity and bounded canonical hello/transcript/proof encoding. They are deliberately disconnected from Bonjour, the live version 1 handshake, the coordinator, and public API. Their presence does not authenticate a live peer, bind a signature to an `NWConnection` or TLS session, prevent relaying, approve an unknown key, or close any stable-backend identity gate.
+
+PR C is blocked on a focused security and platform review that identifies a suitable TLS exporter/channel-binding mechanism available across the iOS 13/macOS 10.15 deployment range, or approves a comparably strong connection-binding design. PR C must include the reviewed channel binding plus explicit trust-domain and environment context in the signed transcript, and must require an app-provided verifier to approve the proven public key before registration or application events. Proof of key possession alone is not authorization or an authenticated application principal. If the required binding or verifier design is not available, the implementation must stop for redesign rather than describe the standalone proof as TLS-bound or production-safe.
+
 ## Current security boundary
 
 The Network backend has two modes:
@@ -84,7 +88,9 @@ Limits and design work:
 
 ### 2. Per-peer identity binding above TLS
 
-Give each installation or account a long-term signing key. During connection setup, exchange a public-key credential and sign a transcript containing at least both claimed peer identifiers, both fresh nonces, protocol/service context, and a binding to the established TLS channel where platform support permits. Accept the peer only after verifying the signature and app trust policy.
+Give each installation or account a long-term signing key. The internal PR B identity uses a Keychain generic-password item containing a CryptoKit Curve25519 software private key; it does not use or claim Secure Enclave protection. The caller must supply an explicit application and service namespace. The item is non-synchronizing and device-only accessible (`AfterFirstUnlockThisDeviceOnly`), so it is unavailable before the first unlock after boot and is not migrated to another device by backup or synchronization. It remains available after the device is relocked, which supports background networking at the cost of broader post-unlock availability than `WhenUnlockedThisDeviceOnly`. A same-device Keychain item may survive app deletion/reinstallation, so callers must not equate this credential with a guaranteed fresh-install identifier. Access groups are not configured by the framework. Loads query only non-synchronizable items and validate the returned device-only accessibility. Keychain may omit a returned `kSecAttrSynchronizable` value when false: an omitted value is accepted only because the query explicitly filters for false; an explicit true or malformed value is rejected. Synchronizable items are not loaded or adopted; if one exists separately under the same namespace, it is not treated as an identity. A matching non-synchronizable item with weaker accessibility fails closed rather than being adopted. Explicit rotation and explicit corruption recovery both use Keychain update rather than delete/add, change the public key, invalidate old pins, and require app reapproval. The internal store lock covers only one store instance: callers must provide one serialized mutation owner per namespace, including across processes. Post-update readback detects an observed race but cannot guarantee that another process will not rotate immediately afterward; PR C must retain this fail-closed single-writer constraint or add a reviewed cross-process generation/CAS design before exposing rotation. Hostless simulator Keychain tests skip on `errSecMissingEntitlement`. A test-only macOS Data Protection Keychain round-trip also skips on `errSecMissingEntitlement` (`-34018` was observed from a test-only `SecItemAdd` on this macOS host). Neither skip validates the real Keychain path: run the tests in an entitled host and verify behavior on supported macOS/iOS versions before depending on platform persistence or protection claims.
+
+During connection setup, exchange a public-key credential and sign a transcript containing at least both claimed peer identifiers, both fresh nonces, canonical ASCII service context, explicit trust-domain and environment context, protocol context, and a reviewed binding to the established TLS channel. PR B's internal primitives reserve authenticated protocol version 2, reject protocol version 1 within the standalone authenticated-hello primitive, bind signer role into the signature, and require verification against the exact locally generated hello. Rejecting the live version 1 handshake and preventing runtime downgrade remain mandatory PR C work. They intentionally have no TLS binding, trust-domain/environment fields, or one-time replay cache because no suitable exporter or live connection state has yet been established for the supported platform range; they must not be wired into live authentication on that basis. Treat the primitive only as proof of possession. Accept the peer only after verifying the signature, connection binding, freshness/one-time replay state, trust-domain and environment context, and an app-provided verifier's explicit trust decision.
 
 This can work over group TLS-PSK while adding individual identity, but it requires replay protection, downgrade protection, credential provisioning/revocation, secure private-key storage, and a precise connection-state gate so application data is not attributed before verification succeeds. Merely signing the display name is insufficient.
 
@@ -100,7 +106,7 @@ Allow an app to evaluate a structured peer credential or challenge result and re
 
 A future verifier contract must specify:
 
-- the authenticated inputs it receives, including channel-binding material if available;
+- the authenticated inputs it receives, including reviewed, non-optional connection-binding material plus signed trust-domain and environment context;
 - asynchronous completion, timeout, cancellation, and exactly-once semantics;
 - the queue/executor used for callbacks;
 - fail-closed behavior for errors and missing decisions;
@@ -117,7 +123,7 @@ This is intentionally not a public API proposal yet.
 2. Immediately document 32-byte CSPRNG-generated PSKs and the group-membership boundary; do not imply that a PSK identity label identifies a peer.
 3. Before calling the Network backend production-ready or making it the default, choose and security-review an individual identity mode. Pairwise HKDF-derived PSKs are suitable only where authenticated pair provisioning already exists; certificate/pinning or signed per-peer credentials provide clearer long-term identity for broader deployments.
 4. Separate three concepts in the eventual protocol model: authenticated principal, stable transport identifier, and mutable display name.
-5. Bind the accepted principal to the connection and require verification before registering the peer, emitting connected/data events, or using the identity in duplicate resolution.
+5. Before PR C changes live runtime behavior, complete the TLS exporter/channel-binding review above, add signed trust-domain/environment context, require an app-provided verifier, and bind its accepted principal to that connection. Require all checks before registering the peer, emitting connected/data events, or using the identity in duplicate resolution.
 6. Add negative tests for member spoofing, credential mismatch, replay, stale/revoked credentials, downgrade, verifier timeout/error, and identity changes across discovery and handshake.
 7. Require a security review and on-device interoperability tests before exposing any new trust mode as stable public policy.
 
@@ -126,7 +132,8 @@ This is intentionally not a public API proposal yet.
 The claims above were checked against:
 
 - [`Sources/NetworkPeerTransport.swift`](Sources/NetworkPeerTransport.swift): current PSK setup uses `sec_protocol_options_add_pre_shared_key` with one app key and a fixed protocol label, and pins both the minimum and maximum protocol versions to TLS 1.2 with no protocol or plaintext fallback.
-- [`Sources/PeerNetworkProtocol.swift`](Sources/PeerNetworkProtocol.swift): Bonjour and handshake identities contain self-asserted identifier/display-name fields and no proof of possession.
+- [`Sources/PeerNetworkProtocol.swift`](Sources/PeerNetworkProtocol.swift): Bonjour and the live version 1 handshake identities contain self-asserted identifier/display-name fields and no proof of possession.
+- [`Sources/PeerIdentityKeyStore.swift`](Sources/PeerIdentityKeyStore.swift) and [`Sources/PeerNetworkAuthentication.swift`](Sources/PeerNetworkAuthentication.swift): internal persistent software-key and canonical proof primitives exist, but are not connected to the live protocol and contain no TLS exporter/channel binding.
 - [`Sources/NetworkPeerCoordinator.swift`](Sources/NetworkPeerCoordinator.swift): a valid protocol handshake identity is registered without an individual credential check.
 - Apple SDK `Security.framework/Headers/SecProtocolOptions.h`: `sec_protocol_options_add_pre_shared_key` accepts a PSK plus its PSK identity; the same API surface provides PSK selection, local certificate identity, and trust verification callbacks.
 - [TLS 1.3, RFC 8446 §2.2](https://www.rfc-editor.org/rfc/rfc8446.html#section-2.2): external PSKs need sufficient entropy; password-derived/low-entropy secrets permit dictionary attacks.
