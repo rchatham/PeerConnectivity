@@ -9,11 +9,11 @@ Pod::Spec.new do |s|
   s.homepage     = "https://github.com/rchatham/PeerConnectivity"
   s.license      = "MIT"
   s.author       = { "Reid Chatham" => "reid.chatham@gmail.com" }
-  s.ios.deployment_target = "8.0"
-  s.osx.deployment_target = "10.10"
+  s.ios.deployment_target = "13.0"
+  s.osx.deployment_target = "10.15"
   s.source       = { :git => "https://github.com/rchatham/PeerConnectivity.git", :tag => "#{s.version}" }
-  s.source_files = "Sources/*"
-  s.framework    = "MultipeerConnectivity"
+  s.source_files = "Sources/*.{swift,h}"
+  s.frameworks   = "MultipeerConnectivity", "Network"
   s.swift_version = "5.0"
   # s.documentation_url = "http://reidchatham.com/docs/PeerConnectivity/Classes/PeerConnectionManager.html"
 end

@@ -1,11 +1,11 @@
-// swift-tools-version:5.0
+// swift-tools-version:6.0
 import PackageDescription
 
 let package = Package(
     name: "PeerConnectivity",
     platforms: [
-        .iOS(.v8),
-        .macOS(.v10_10),
+        .iOS(.v13),
+        .macOS(.v10_15),
     ],
     products: [
         .library(
@@ -36,5 +36,5 @@ let package = Package(
             exclude: ["Info.plist"]
         )
     ],
-    swiftLanguageVersions: [.v5]
+    swiftLanguageModes: [.v5]
 )

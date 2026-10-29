@@ -9,13 +9,13 @@
 import Foundation
 import MultipeerConnectivity
 
-internal struct PeerBrowser {
+internal struct PeerBrowser : PeerBrowserTransport {
     
-    fileprivate let session : PeerSession
+    fileprivate let session : PeerSessionTransport
     fileprivate let browser : MCNearbyServiceBrowser
     fileprivate let eventProducer : PeerBrowserEventProducer
     
-    internal init(session: PeerSession, serviceType: ServiceType, eventProducer: PeerBrowserEventProducer) {
+    internal init(session: PeerSessionTransport, serviceType: ServiceType, eventProducer: PeerBrowserEventProducer) {
         self.session = session
         self.eventProducer = eventProducer
         browser = MCNearbyServiceBrowser(peer: session.peer.peerID, serviceType: serviceType)
@@ -23,7 +23,7 @@ internal struct PeerBrowser {
     }
     
     internal func invitePeer(_ peer: Peer, withContext context: Data? = nil, timeout: TimeInterval = 30) {
-        browser.invitePeer(peer.peerID, to: session.session, withContext: context, timeout: timeout)
+        browser.invitePeer(peer.peerID, to: session.multipeerSession, withContext: context, timeout: timeout)
     }
     
     internal func startBrowsing() {
