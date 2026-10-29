@@ -31,72 +31,62 @@ class PeerConnectivityTests: XCTestCase {
         assertStatus(manager.peer.status, is: .currentUser)
     }
 
-    func testListenOnImmediatelyReceivesReadyEventInBackgroundMode() async throws {
+    func testListenOnDoesNotReplayReadyEventInBackgroundMode() async throws {
         let manager = PeerConnectionManager(serviceType: "test-listen", displayName: "Listener")
-        pcm = manager
-        let expectation = expectation(description: "Ready event received")
-        expectation.assertForOverFulfill = false
+        let expectation = expectation(description: "Ready event is not replayed")
+        expectation.isInverted = true
 
         manager.listenOn({ event in
-            switch event {
-            case .ready:
+            if case .ready = event {
                 expectation.fulfill()
-            default:
-                break
             }
         }, performListenerInBackground: true, withKey: "ready")
 
-        await fulfillment(of: [expectation], timeout: 1)
+        await fulfillment(of: [expectation], timeout: 0.1)
+        await manager.removeListenerForKeyAsync("ready")
+        manager.stop()
     }
 
     func testRemovedListenerDoesNotReceiveLaterEvents() async throws {
         let manager = PeerConnectionManager(serviceType: "test-remove", displayName: "Listener")
         pcm = manager
-        let readyExpectation = expectation(description: "Ready event received")
-        readyExpectation.assertForOverFulfill = false
         let removedExpectation = expectation(description: "Removed listener receives no later events")
         removedExpectation.isInverted = true
         var eventCount = 0
         var didRemoveListener = false
 
-        manager.listenOn({ event in
+        await manager.listenOnAsync({ _ in
             eventCount += 1
-            if case .ready = event { readyExpectation.fulfill() }
             if didRemoveListener { removedExpectation.fulfill() }
         }, performListenerInBackground: true, withKey: "removed")
-        await fulfillment(of: [readyExpectation], timeout: 1)
 
         didRemoveListener = true
         await manager.removeListenerForKeyAsync("removed")
         manager.stop()
         await fulfillment(of: [removedExpectation], timeout: 0.1)
 
-        XCTAssertEqual(eventCount, 1)
+        XCTAssertEqual(eventCount, 0)
     }
 
     func testRemoveAllListenersRemovesRegisteredListeners() async throws {
         let manager = PeerConnectionManager(serviceType: "test-all", displayName: "Listener")
         pcm = manager
-        let readyExpectation = expectation(description: "Ready event received")
-        readyExpectation.assertForOverFulfill = false
         let removedExpectation = expectation(description: "Removed listeners receive no later events")
         removedExpectation.isInverted = true
         var eventCount = 0
         var didRemoveListeners = false
 
-        manager.listenOn({ event in
+        await manager.listenOnAsync({ _ in
             eventCount += 1
-            if case .ready = event { readyExpectation.fulfill() }
             if didRemoveListeners { removedExpectation.fulfill() }
         }, performListenerInBackground: true, withKey: "removed")
-        await fulfillment(of: [readyExpectation], timeout: 1)
 
         didRemoveListeners = true
         await manager.removeAllListenersAsync()
         manager.stop()
         await fulfillment(of: [removedExpectation], timeout: 0.1)
 
-        XCTAssertEqual(eventCount, 1)
+        XCTAssertEqual(eventCount, 0)
     }
 
     private func assertStatus(_ status: Peer.Status, is expected: Peer.Status, file: StaticString = #file, line: UInt = #line) {
