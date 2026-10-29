@@ -47,7 +47,7 @@ Verified against `Sources`, `PeerConnectivityTests`, and the current stacked doc
 | Invitation semantics | Network `invitePeer` ignores `context` and its caller-supplied `timeout`; `.inviteOnly` has no MC invitation dialog/handler equivalent, and inbound Network connections are transport-accepted subject to protocol/security checks. | Must be made explicit in the stable API contract. Implement equivalent approval semantics only if supported products require them. |
 | Public MC session | `multipeerSession` remains public and traps when used with Network. | Tolerable only during dual-backend transition; deprecate and replace before MC removal. |
 | Security certificate event | `.receivedCertificate` reflects MC delegate behavior and has no Network equivalent. | Document as MC-only before stable; deprecate/remove or replace before MC removal. |
-| Discovery/start failures | MC startup failures become `.error`; current Network listener/browser state failures are not forwarded through that public path. | Blocking for stable: permission, listener, browser, and connection failures need an observable, tested contract. |
+| Discovery/start failures | Network listener and browser failures, Local Network denial, listener creation errors, and invalid discovery info surface as `.error(PeerConnectionError)`; per-connection failures surface as `devicesChanged(.notConnected)`. MC errors are unchanged. | Contract documented and unit-tested; on-device permission flows remain part of the device matrix. |
 | Send outcomes | Public `sendData`/`sendMessage` do not report asynchronous send failure on either backend; Network send completions are currently discarded. | Define and test the stable support contract. Add an outcome API if production requirements cannot tolerate best-effort caller visibility. |
 | Identity | Bonjour and handshake identifiers/display names are self-asserted. A group PSK authenticates only possession of the shared group key. | Blocking for stable/default. Do not authorize or audit by `Peer` identity today. |
 | Policy | Handshake, connection, and discovery caps are fixed/internal; TCP keepalive bounds dead connections instead of an idle timeout. The internal bounded Observable path is opt-in and does not bound legacy event submissions or caller-managed waiting tasks. | Validate defaults and add missing resource bounds before stable use on untrusted/local hostile networks. Public tuning is required only if validated products need it. |
@@ -67,7 +67,7 @@ Do not remove the “experimental/beta” label until every item is complete:
 
 ### Reliability and operations
 
-- [ ] Forward Network browser, listener, permission-related, and connection failures through a documented public error/state contract.
+- [x] Forward Network browser, listener, permission-related, and connection failures through a documented public error/state contract. *(`PeerConnectionError`; see `NetworkBackendGuide.md` "Errors".)*
 - [x] Add discovery bounds and idle-connection lifecycle policy, or document evidence that an alternate bound closes those resource-exhaustion paths. *(64-identity discovery cap; TCP keepalive replaces an idle timeout because quiet-but-alive peers are valid mesh members. See `NetworkBackendGuide.md` "Connection policy defaults".)*
 - [ ] Validate the 10-second/16-pending/8-connected defaults under expected load, churn, backgrounding, and hostile discovery. Expose configuration only where evidence establishes a consumer need.
 - [ ] Decide whether reliable-message send completion/failure needs public API; test whichever contract is selected.
@@ -137,7 +137,7 @@ No optional implementation is required to merge this documentation audit or the 
 |---|---|---|---|
 | Group member spoofs identifier/display name | Critical for identity-based authorization | Experimental label, PSK boundary documentation | Individual identity binding and adversarial security tests before stable |
 | Default initializer would select plaintext Network transport | Critical if default switched | MC remains default | Secure initialization/provisioning design before default |
-| Local Network denial or listener/browser failure is not surfaced consistently | High | Manual guide; MC error event path exists | Public Network error/state propagation before stable |
+| Local Network denial or listener/browser failure goes unnoticed | Low | `.error(PeerConnectionError)` for listener/browser failure and Local Network denial | Verify the denial signal on devices as part of the release matrix |
 | Hostile discovery or dead peers exhaust resources | Medium on hostile local networks | 16 pending / 8 connected / 64 discovered / 10-second handshake / TCP keepalive bounds | Load testing to validate the defaults before stable |
 | Device/AWDL/topology behavior differs from loopback/simulator | High | `includePeerToPeer`, isolated E2E CI, manual checklist | Recorded physical-device regression matrix before stable |
 | MC-only stream/resource consumers break on switch/removal | High | Explicit unsupported errors and MC default | Migration plan before default; replacement or breaking removal before MC deletion |

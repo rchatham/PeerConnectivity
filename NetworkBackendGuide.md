@@ -200,6 +200,20 @@ For **Require Invitation**, tap the enabled invite action for a discovered peer,
 
 The secure field and generated test key are in-memory only, are excluded from logs/status/accessibility/export, survive ordinary Stop for restart, and are dropped on Reset without claiming secure erasure. The process argument can be inspected by local tooling and is debug-only test convenience, never production provisioning. TLS-PSK authenticates group membership, not individual identity. Both peers must select the same backend because MultipeerConnectivity and Network.framework are not wire-compatible; the demo contains no bridge code.
 
+## Errors
+
+The Network backend reports problems through `.error(_:)` with `PeerConnectionError` values. MultipeerConnectivity keeps emitting its own errors.
+
+| Error | Meaning |
+|---|---|
+| `.localNetworkAccessDenied(underlying:)` | The user denied Local Network access (iOS 14+). Discovery and advertising resume if access is granted in Settings. |
+| `.browsingFailed(underlying:)` | The Bonjour browser failed. |
+| `.advertisingFailed(underlying:)` | The listener failed to start or stopped, including creation errors. Creation errors are reported when the manager starts. |
+| `.invalidDiscoveryInfo` | `discoveryInfo` cannot be published; advertising did not start. |
+| `.peerNotConnected(_:)` | Returned in send-outcome completions for targeted peers without a connection. |
+
+Individual connection failures do not produce `.error`. They surface as `devicesChanged` with `.notConnected`, as under MultipeerConnectivity.
+
 ## Network path and device caveats
 
 PeerConnectivity sets `NWParameters.includePeerToPeer = true` on the parameters used by its Network listener, browser, and connections. Apple documents this as opting in to peer-to-peer link technologies, and more specifically describes the Network framework path as Apple peer-to-peer Wi-Fi. This is an opt-in, not a request for a particular interface or a guarantee that a peer-to-peer path will be selected.

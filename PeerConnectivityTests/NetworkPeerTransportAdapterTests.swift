@@ -326,6 +326,43 @@ final class NetworkPeerTransportAdapterTests : XCTestCase {
         }.last, identities[2], "Losing a peer must free a discovery slot")
     }
 
+    internal func testBrowserTransportReportsFailedBrowserState() async {
+        guard #available(iOS 13.0, macOS 10.15, *) else { return }
+
+        let observer = Observable<PeerBrowserEvent>(.none)
+        let transport = NetworkPeerBrowserTransport(session: makeSessionTransport(),
+            browser: MockNetworkPeerBrowser(),
+            browserObserver: observer)
+        let expectation = expectation(description: "Browser failure emitted")
+        await observer.addObserverAsync { event in
+            guard case .didNotStartBrowsingForPeers(let error) = event,
+                case .browsingFailed? = error as? PeerConnectionError else { return }
+            expectation.fulfill()
+        }
+
+        transport.handleBrowserState(.ready)
+        transport.handleBrowserState(.failed(.posix(.ENETDOWN)))
+
+        await fulfillment(of: [expectation], timeout: 1)
+    }
+
+    internal func testFailedListenerReportsCreationErrorWhenStarted() {
+        guard #available(iOS 13.0, macOS 10.15, *) else { return }
+
+        var reportedErrors : [PeerConnectionError] = []
+        let listener = FailedNetworkPeerListener(error: .advertisingFailed(underlying: NWError.posix(.EADDRINUSE)),
+            failureHandler: { reportedErrors.append($0) })
+
+        XCTAssertTrue(reportedErrors.isEmpty, "Creation errors must wait for start so manager observers exist")
+        listener.start()
+        listener.cancel()
+
+        XCTAssertEqual(reportedErrors.count, 1)
+        guard case .advertisingFailed? = reportedErrors.first else {
+            return XCTFail("Listener creation failures must surface as advertisingFailed")
+        }
+    }
+
     internal func testAdvertiserTransportStartStopIsSafeNoOpBecauseSessionOwnsListener() {
         guard #available(iOS 13.0, macOS 10.15, *) else { return }
 
