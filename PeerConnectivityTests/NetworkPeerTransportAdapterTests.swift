@@ -281,6 +281,51 @@ final class NetworkPeerTransportAdapterTests : XCTestCase {
         XCTAssertEqual(events.count, 1)
     }
 
+    internal func testBrowserTransportCapsDiscoveredPeersAndKeepsKnownIdentities() async {
+        guard #available(iOS 13.0, macOS 10.15, *) else { return }
+
+        let recorder = ConnectedEndpointRecorder()
+        let observer = Observable<PeerBrowserEvent>(.none)
+        let transport = NetworkPeerBrowserTransport(session: makeSessionTransport(),
+            browser: MockNetworkPeerBrowser(),
+            browserObserver: observer,
+            connectToEndpoint: recorder.append,
+            maxDiscoveredPeers: 2)
+        let identities = (0..<3).map { PeerIdentity(identifier: "remote-\($0)", displayName: "Remote \($0)") }
+        let endpoint = { (port: UInt16) in
+            NWEndpoint.hostPort(host: .ipv4(IPv4Address("127.0.0.1")!), port: NWEndpoint.Port(rawValue: port)!)
+        }
+        var events : [PeerBrowserEvent] = []
+        await observer.addObserverAsync { event in events.append(event) }
+
+        transport.foundEndpoint(endpoint(40000), identity: identities[0])
+        transport.foundEndpoint(endpoint(40001), identity: identities[1])
+        transport.foundEndpoint(endpoint(40002), identity: identities[2])
+        transport.lostEndpoint(endpoint(40002), identity: identities[2])
+        transport.foundEndpoint(endpoint(40010), identity: identities[0])
+        transport.invitePeer(Peer(identity: identities[0], status: .notConnected))
+        transport.invitePeer(Peer(identity: identities[2], status: .notConnected))
+        await observer.flush()
+
+        let foundIdentities = events.compactMap { event -> PeerIdentity? in
+            guard case .foundPeer(let peer, _) = event else { return nil }
+            return peer.identity
+        }
+        let lostCount = events.filter { if case .lostPeer = $0 { return true } else { return false } }.count
+        XCTAssertEqual(foundIdentities, [identities[0], identities[1], identities[0]],
+            "Identities past the cap must be dropped while known identities still update")
+        XCTAssertEqual(lostCount, 0, "Peers that were never reported found must not be reported lost")
+        XCTAssertEqual(recorder.snapshot(), [endpoint(40010)])
+
+        transport.lostEndpoint(endpoint(40001), identity: identities[1])
+        transport.foundEndpoint(endpoint(40002), identity: identities[2])
+        await observer.flush()
+        XCTAssertEqual(events.compactMap { event -> PeerIdentity? in
+            guard case .foundPeer(let peer, _) = event else { return nil }
+            return peer.identity
+        }.last, identities[2], "Losing a peer must free a discovery slot")
+    }
+
     internal func testAdvertiserTransportStartStopIsSafeNoOpBecauseSessionOwnsListener() {
         guard #available(iOS 13.0, macOS 10.15, *) else { return }
 

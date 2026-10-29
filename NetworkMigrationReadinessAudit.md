@@ -31,6 +31,7 @@ Verified against `Sources`, `PeerConnectivityTests`, and the current stacked doc
 - [x] TCP message framing handles partial/coalesced input, rejects unknown/oversized frames, and caps a payload at 1 MiB.
 - [x] Reliable `Data` and typed `PeerMessage` exchange, targeted sends, broadcasts, duplicate-connection resolution, disconnect, and reconnect paths are implemented.
 - [x] Coordinator state is serialized and currently bounds handshakes to 10 seconds, pending connections to 16, and connected peers to 8.
+- [x] Browser discovery is capped at 64 tracked identities, and TCP keepalive (30 s idle, 10 s interval, 3 probes) fails dead connections instead of using an idle timeout.
 - [x] `.preSharedKey` enables external-PSK transport pinned to TLS 1.2 as both the minimum and maximum, with no fallback to another TLS version or plaintext; `.unauthenticated` is explicitly documented as a separate plaintext diagnostics/migration compatibility mode.
 - [x] Observable/listener mutation is synchronized and concurrency tests cover registration, removal, and delivery. An internal opt-in bounded async update path has capacity, cancellation, nonblocking finish/awaitable drain, and concurrent stress tests; no existing event producer uses it, and legacy operation submissions remain unbounded.
 - [x] Unit tests cover protocol parsing, state mapping, duplicate handling, caps, timeout behavior, transport adapters, manager routing, and browser-model behavior.
@@ -49,7 +50,7 @@ Verified against `Sources`, `PeerConnectivityTests`, and the current stacked doc
 | Discovery/start failures | MC startup failures become `.error`; current Network listener/browser state failures are not forwarded through that public path. | Blocking for stable: permission, listener, browser, and connection failures need an observable, tested contract. |
 | Send outcomes | Public `sendData`/`sendMessage` do not report asynchronous send failure on either backend; Network send completions are currently discarded. | Define and test the stable support contract. Add an outcome API if production requirements cannot tolerate best-effort caller visibility. |
 | Identity | Bonjour and handshake identifiers/display names are self-asserted. A group PSK authenticates only possession of the shared group key. | Blocking for stable/default. Do not authorize or audit by `Peer` identity today. |
-| Policy | Handshake and connection caps are fixed/internal; there is no idle timeout or discovery cap. The internal bounded Observable path is opt-in and does not bound legacy event submissions or caller-managed waiting tasks. | Validate defaults and add missing resource bounds before stable use on untrusted/local hostile networks. Public tuning is required only if validated products need it. |
+| Policy | Handshake, connection, and discovery caps are fixed/internal; TCP keepalive bounds dead connections instead of an idle timeout. The internal bounded Observable path is opt-in and does not bound legacy event submissions or caller-managed waiting tasks. | Validate defaults and add missing resource bounds before stable use on untrusted/local hostile networks. Public tuning is required only if validated products need it. |
 | Device evidence | Automated Network tests are local loopback/simulator-oriented; the documented physical-device matrix has not been completed by this stack. | Blocking for stable/default. |
 
 ## Gate: stable opt-in
@@ -67,7 +68,7 @@ Do not remove the “experimental/beta” label until every item is complete:
 ### Reliability and operations
 
 - [ ] Forward Network browser, listener, permission-related, and connection failures through a documented public error/state contract.
-- [ ] Add discovery bounds and idle-connection lifecycle policy, or document evidence that an alternate bound closes those resource-exhaustion paths.
+- [x] Add discovery bounds and idle-connection lifecycle policy, or document evidence that an alternate bound closes those resource-exhaustion paths. *(64-identity discovery cap; TCP keepalive replaces an idle timeout because quiet-but-alive peers are valid mesh members. See `NetworkBackendGuide.md` "Connection policy defaults".)*
 - [ ] Validate the 10-second/16-pending/8-connected defaults under expected load, churn, backgrounding, and hostile discovery. Expose configuration only where evidence establishes a consumer need.
 - [ ] Decide whether reliable-message send completion/failure needs public API; test whichever contract is selected.
 - [ ] Run soak/churn tests for repeated start/stop, background/foreground, peer loss, duplicate races, malformed traffic, and capacity recovery.
@@ -137,7 +138,7 @@ No optional implementation is required to merge this documentation audit or the 
 | Group member spoofs identifier/display name | Critical for identity-based authorization | Experimental label, PSK boundary documentation | Individual identity binding and adversarial security tests before stable |
 | Default initializer would select plaintext Network transport | Critical if default switched | MC remains default | Secure initialization/provisioning design before default |
 | Local Network denial or listener/browser failure is not surfaced consistently | High | Manual guide; MC error event path exists | Public Network error/state propagation before stable |
-| Unbounded discovery and no idle timeout enable resource pressure | High on hostile local networks | 16 pending / 8 connected / 10-second handshake bounds | Add/justify bounds and load testing before stable |
+| Hostile discovery or dead peers exhaust resources | Medium on hostile local networks | 16 pending / 8 connected / 64 discovered / 10-second handshake / TCP keepalive bounds | Load testing to validate the defaults before stable |
 | Device/AWDL/topology behavior differs from loopback/simulator | High | `includePeerToPeer`, isolated E2E CI, manual checklist | Recorded physical-device regression matrix before stable |
 | MC-only stream/resource consumers break on switch/removal | High | Explicit unsupported errors and MC default | Migration plan before default; replacement or breaking removal before MC deletion |
 | `.inviteOnly` implies approval semantics Network does not provide | High for approval-dependent apps | App-owned UI guidance | Freeze contract and validate adopting app before stable/default |

@@ -149,13 +149,20 @@ internal final class NetworkPeerConnection : NetworkPeerConnectionCancellable {
     }
 
     internal static func parameters(security: PeerConnectionNetworkSecurity = .unauthenticated,
+        policy: NetworkPeerConnectionPolicy = NetworkPeerConnectionPolicy(),
         minimumTLSVersionSetter: TLSMinimumVersionSetter = sec_protocol_options_set_min_tls_protocol_version,
         maximumTLSVersionSetter: TLSMaximumVersionSetter = sec_protocol_options_set_max_tls_protocol_version)
         -> NWParameters {
+        let tcpOptions = NWProtocolTCP.Options()
+        tcpOptions.enableKeepalive = true
+        tcpOptions.keepaliveIdle = policy.keepaliveIdle
+        tcpOptions.keepaliveInterval = policy.keepaliveInterval
+        tcpOptions.keepaliveCount = policy.keepaliveCount
+
         let parameters : NWParameters
         switch security {
         case .unauthenticated:
-            parameters = NWParameters.tcp
+            parameters = NWParameters(tls: nil, tcp: tcpOptions)
         case .preSharedKey(let key):
             precondition(!key.isEmpty, "PeerConnectivity: Network pre-shared key must not be empty")
             let options = NWProtocolTLS.Options()
@@ -164,7 +171,7 @@ internal final class NetworkPeerConnection : NetworkPeerConnectionCancellable {
             sec_protocol_options_add_pre_shared_key(options.securityProtocolOptions,
                 dispatchData(from: key),
                 dispatchData(from: Data("PeerConnectivity.NetworkFramework.PSK.v1".utf8)))
-            parameters = NWParameters(tls: options, tcp: NWProtocolTCP.Options())
+            parameters = NWParameters(tls: options, tcp: tcpOptions)
         }
         parameters.includePeerToPeer = true
         return parameters

@@ -143,6 +143,7 @@ internal final class NetworkPeerBrowserTransport : PeerBrowserTransport {
     fileprivate let browser : NetworkPeerBrowsing
     fileprivate let browserObserver : Observable<PeerBrowserEvent>
     fileprivate let connectToEndpoint : (NWEndpoint) -> Void
+    fileprivate let maxDiscoveredPeers : Int
     fileprivate let endpointsLock = NSLock()
     fileprivate var endpointsByIdentity : [PeerIdentity:NWEndpoint] = [:]
 
@@ -162,10 +163,12 @@ internal final class NetworkPeerBrowserTransport : PeerBrowserTransport {
     internal init(session: NetworkPeerSessionTransport,
         browser: NetworkPeerBrowsing,
         browserObserver: Observable<PeerBrowserEvent>,
-        connectToEndpoint: ((NWEndpoint) -> Void)? = nil) {
+        connectToEndpoint: ((NWEndpoint) -> Void)? = nil,
+        maxDiscoveredPeers: Int = NetworkPeerConnectionPolicy().maxDiscoveredPeers) {
         self.session = session
         self.browser = browser
         self.browserObserver = browserObserver
+        self.maxDiscoveredPeers = maxDiscoveredPeers
         self.connectToEndpoint = connectToEndpoint ?? { endpoint in session.connect(to: endpoint) }
     }
 
@@ -205,13 +208,21 @@ internal final class NetworkPeerBrowserTransport : PeerBrowserTransport {
 
     internal func foundEndpoint(_ endpoint: NWEndpoint, identity: PeerIdentity) {
         guard Peer.isValidDisplayName(identity.displayName), !isLocalIdentity(identity) else { return }
-        lockedEndpoints { endpointsByIdentity[identity] = endpoint }
+        let isAdmitted : Bool = lockedEndpoints {
+            guard endpointsByIdentity[identity] != nil || endpointsByIdentity.count < maxDiscoveredPeers else {
+                return false
+            }
+            endpointsByIdentity[identity] = endpoint
+            return true
+        }
+        guard isAdmitted else { return }
         browserObserver.update(.foundPeer(Peer(identity: identity, status: .notConnected), discoveryInfo: nil))
     }
 
     internal func lostEndpoint(_ endpoint: NWEndpoint, identity: PeerIdentity) {
         guard Peer.isValidDisplayName(identity.displayName), !isLocalIdentity(identity) else { return }
-        lockedEndpoints { _ = endpointsByIdentity.removeValue(forKey: identity) }
+        let wasTracked = lockedEndpoints { endpointsByIdentity.removeValue(forKey: identity) != nil }
+        guard wasTracked else { return }
         browserObserver.update(.lostPeer(Peer(identity: identity, status: .notConnected)))
     }
 
