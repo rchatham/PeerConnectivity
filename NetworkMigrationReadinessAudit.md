@@ -32,7 +32,7 @@ Verified against `Sources`, `PeerConnectivityTests`, and the current stacked doc
 - [x] Reliable `Data` and typed `PeerMessage` exchange, targeted sends, broadcasts, duplicate-connection resolution, disconnect, and reconnect paths are implemented.
 - [x] Coordinator state is serialized and currently bounds handshakes to 10 seconds, pending connections to 16, and connected peers to 8.
 - [x] `.preSharedKey` enables external-PSK transport pinned to TLS 1.2 as both the minimum and maximum, with no fallback to another TLS version or plaintext; `.unauthenticated` is explicitly documented as a separate plaintext diagnostics/migration compatibility mode.
-- [x] Observable/listener mutation is synchronized and concurrency tests cover registration, removal, and delivery.
+- [x] Observable/listener mutation is synchronized and concurrency tests cover registration, removal, and delivery. An internal opt-in bounded async update path has capacity, cancellation, nonblocking finish/awaitable drain, and concurrent stress tests; no existing event producer uses it, and legacy operation submissions remain unbounded.
 - [x] Unit tests cover protocol parsing, state mapping, duplicate handling, caps, timeout behavior, transport adapters, manager routing, and browser-model behavior.
 - [x] Opt-in loopback coverage exercises discovery, service isolation, bidirectional/large typed messages, multi-peer broadcast, PSK mismatch, and reconnect. CI isolates and retries these real Network/Bonjour tests.
 - [x] Adopter documentation covers backend selection, local-network privacy metadata, service mapping, device/network caveats, PSK handling, demo usage, and manual physical-device validation.
@@ -49,7 +49,7 @@ Verified against `Sources`, `PeerConnectivityTests`, and the current stacked doc
 | Discovery/start failures | MC startup failures become `.error`; current Network listener/browser state failures are not forwarded through that public path. | Blocking for stable: permission, listener, browser, and connection failures need an observable, tested contract. |
 | Send outcomes | Public `sendData`/`sendMessage` do not report asynchronous send failure on either backend; Network send completions are currently discarded. | Define and test the stable support contract. Add an outcome API if production requirements cannot tolerate best-effort caller visibility. |
 | Identity | Bonjour and handshake identifiers/display names are self-asserted. A group PSK authenticates only possession of the shared group key. | Blocking for stable/default. Do not authorize or audit by `Peer` identity today. |
-| Policy | Handshake and connection caps are fixed/internal; there is no idle timeout or discovery cap. | Validate defaults and add missing resource bounds before stable use on untrusted/local hostile networks. Public tuning is required only if validated products need it. |
+| Policy | Handshake and connection caps are fixed/internal; there is no idle timeout or discovery cap. The internal bounded Observable path is opt-in and does not bound legacy event submissions or caller-managed waiting tasks. | Validate defaults and add missing resource bounds before stable use on untrusted/local hostile networks. Public tuning is required only if validated products need it. |
 | Device evidence | Automated Network tests are local loopback/simulator-oriented; the documented physical-device matrix has not been completed by this stack. | Blocking for stable/default. |
 
 ## Gate: stable opt-in

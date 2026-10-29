@@ -229,6 +229,12 @@ Complete this checklist on the release build (or an equivalently signed build) b
 
 If the product requires a specific topology (for example, a managed venue network or operation away from an access point), test that exact topology across the supported physical-device and OS matrix. A simulator-only pass is not a release gate.
 
+## Internal event backpressure boundary
+
+`Observable` now offers `updateBoundedAsync(_:)` as an **internal opt-in** path, with a positive capacity set at initialization (default 16). A caller waits asynchronously for a permit before its update enters the existing FIFO operation stream. Its Boolean result is `true` only after the update and observer callbacks finish; cancellation before stream enqueue or shutdown before admission returns `false`. A reserved permit is not yet an admitted update; once enqueued, cancellation does not retract it. `finish()` atomically closes bounded admission (including for a producer that reserved a permit but has not yet enqueued), wakes waiting producers with `false`, and closes the stream so its pump can drain already-enqueued operations; it **does not wait** for that drain. Use `await finishAndWait()` when shutdown must wait until all buffered operations and observer callbacks complete. `flush()` is a barrier only before the stream closes: after `finish()` it returns immediately because its barrier cannot be enqueued. Call `finish()` or `finishAndWait()` explicitly for shutdown: a suspended producer task may retain the `Observable`, so deinitialization alone cannot be relied on to wake it. Deinitialization closes the gate when the observable is actually released. The existing synchronous and async APIs are unchanged and never wait for these permits.
+
+This is **not a global memory bound**: only opted-in, admitted updates consume the capacity budget. Legacy synchronous/async operations can still accumulate in the unbounded stream; callers can create arbitrarily many tasks waiting for a permit, retaining their payloads. FIFO means **execution order of already-admitted operations** in the shared stream, including legacy submissions. Concurrent waiting producers have no guaranteed admission order. No production manager/transport producer has been switched to the opt-in path, so it does not yet cap event volume for either backend.
+
 ## Connection policy defaults
 
 Network connection lifecycle policy is intentionally fixed and internal while the backend remains opt-in:
