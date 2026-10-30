@@ -344,6 +344,88 @@ final class PeerConnectionManagerTransportTests : XCTestCase {
         await fulfillment(of: [expectation], timeout: 1)
     }
 
+    internal func testNetworkInvitationAppliesRejectAllPolicyWithoutMultipeerSession() async {
+        let harness = PeerConnectionTransportHarness()
+        let manager = PeerConnectionManager(serviceType: "test-service",
+            displayName: "Local",
+            invitationPolicy: .rejectAll,
+            transportFactory: harness.factory)
+        let decision = expectation(description: "Invitation decided")
+
+        await startBrowsingOnly(manager)
+        await harness.sessionObserver?.updateAsync(.didReceiveInvitation(peer: Peer(displayName: "Remote"),
+            context: nil,
+            handler: { accept in
+                XCTAssertFalse(accept, "rejectAll must decline Network invitations")
+                decision.fulfill()
+            }))
+
+        await fulfillment(of: [decision], timeout: 1)
+    }
+
+    internal func testNetworkInvitationInCustomModeIsSurfacedForAppDecision() async {
+        let harness = PeerConnectionTransportHarness()
+        let manager = PeerConnectionManager(serviceType: "test-service",
+            connectionType: .custom,
+            displayName: "Local",
+            transportFactory: harness.factory)
+        let surfaced = expectation(description: "Invitation surfaced")
+        let decision = expectation(description: "App decision reached transport")
+        let context = Data("hello".utf8)
+
+        manager.listenOn({ event in
+            guard case .receivedInvitation(peer: _, withContext: let receivedContext, invitationHandler: let respond) = event else { return }
+            XCTAssertEqual(receivedContext, context)
+            surfaced.fulfill()
+            respond(true)
+        }, performListenerInBackground: true, withKey: "invitation")
+
+        await startBrowsingOnly(manager)
+        await harness.sessionObserver?.updateAsync(.didReceiveInvitation(peer: Peer(displayName: "Remote"),
+            context: context,
+            handler: { accept in
+                XCTAssertTrue(accept)
+                decision.fulfill()
+            }))
+
+        await fulfillment(of: [surfaced, decision], timeout: 1)
+    }
+
+    internal func testSetAdvertisingEnabledTogglesAdvertiserWithoutStoppingSession() async {
+        let harness = PeerConnectionTransportHarness()
+        let manager = PeerConnectionManager(serviceType: "test-service",
+            connectionType: .custom,
+            displayName: "Local",
+            transportFactory: harness.factory)
+
+        await startBrowsingOnly(manager)
+        XCTAssertEqual(harness.advertiser.startAdvertisingCallCount, 0, "Browse-only start must not advertise")
+
+        manager.setAdvertisingEnabled(true)
+        manager.setAdvertisingEnabled(false)
+
+        XCTAssertEqual(harness.advertiser.startAdvertisingCallCount, 1)
+        XCTAssertEqual(harness.advertiser.stopAdvertisingCallCount, 1)
+        XCTAssertEqual(harness.session?.stopSessionCallCount, 0)
+        XCTAssertEqual(harness.browser.stopBrowsingCallCount, 0)
+        XCTAssertEqual(harness.advertiserAssisstant.startAdvertisingAssisstantCallCount, 0,
+            "Only .inviteOnly advertises through the assistant")
+    }
+
+    internal func testSetAdvertisingEnabledAlsoTogglesAssistantInInviteOnlyMode() {
+        let harness = PeerConnectionTransportHarness()
+        let manager = PeerConnectionManager(serviceType: "test-service",
+            connectionType: .inviteOnly,
+            displayName: "Local",
+            transportFactory: harness.factory)
+
+        manager.setAdvertisingEnabled(false)
+        manager.setAdvertisingEnabled(true)
+
+        XCTAssertEqual(harness.advertiserAssisstant.stopAdvertisingAssisstantCallCount, 1)
+        XCTAssertEqual(harness.advertiserAssisstant.startAdvertisingAssisstantCallCount, 1)
+    }
+
     internal func testTransportEventAfterStopDoesNotEmitReceivedData() async {
         let harness = PeerConnectionTransportHarness()
         let manager = PeerConnectionManager(serviceType: "test-service",

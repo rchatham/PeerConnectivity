@@ -204,6 +204,20 @@ public class PeerConnectionManager {
         }
         return containsLetter
     }
+
+    /**
+     Validates discovery info for the `.networkFramework` backend.
+
+     Keys must be non-empty printable ASCII without `=`, must not start with the reserved
+     `pc-` prefix (case-insensitive), and each `key=value` entry must fit in 255 UTF-8 bytes.
+     Keep the whole record small (Apple recommends under 400 bytes) for reliable discovery.
+
+     - parameter discoveryInfo: Discovery metadata to validate.
+     - Returns: `true` when the Network backend can publish every entry.
+     */
+    public static func isValidNetworkDiscoveryInfo(_ discoveryInfo: PeerDiscoveryInfo) -> Bool {
+        return PeerNetworkDiscoveryInfo.isValidAppInfo(discoveryInfo)
+    }
     
     // MARK: Properties
     /**
@@ -243,9 +257,9 @@ public class PeerConnectionManager {
      This metadata is unauthenticated and visible to nearby peers. Do not include secrets,
      tokens, emails, stable user IDs, or sensitive device information.
 
-     - Note: The Network framework backend currently ignores this value. It advertises only
-     internal peer identity metadata, and peers discovered through that backend report `nil`
-     discovery info.
+     - Note: With `.networkFramework`, entries are published in the Bonjour TXT record beside
+     PeerConnectivity's reserved `pc-` keys. Invalid entries stop advertising with
+     `PeerConnectionError.invalidDiscoveryInfo`; see `isValidNetworkDiscoveryInfo(_:)`.
      */
     public let discoveryInfo : PeerDiscoveryInfo?
 
@@ -342,8 +356,8 @@ public class PeerConnectionManager {
      - parameter displayName: The local user's display name to other peers. Display names are visible to nearby peers; empty or overlong values are sanitized to a non-empty maximum of 63 UTF-8 bytes.
      - parameter securityConfiguration: Security settings used to create the underlying MultipeerConnectivity session.
      - parameter discoveryInfo: Public, unauthenticated metadata advertised to nearby browsers.
-       The Network framework backend currently ignores this value, and its discovered peers
-       report `nil` discovery info.
+       With `.networkFramework`, it is published in the Bonjour TXT record; validate it with
+       `isValidNetworkDiscoveryInfo(_:)`.
      - parameter invitationPolicy: Policy used to decide whether incoming invitations are accepted in `.automatic` mode.
      - parameter backend: Backend implementation to use. Defaults to `.multipeerConnectivity`.
      - parameter networkSecurity: Security configuration for `.networkFramework`. Defaults to
@@ -490,17 +504,15 @@ public class PeerConnectionManager {
         emit(.receivedCertificate(peer: peer, certificate: certificate, handler: { _ in }))
     }
 
+    /**
+     Applies the connection type and invitation policy to an inbound invitation.
+
+     - parameter decide: Backend-specific completion that admits (`true`) or declines the peer.
+     */
     internal func handleInvitation(peer: Peer,
                                    context: Data?,
-                                   invitationHandler: @escaping (Bool, MultipeerSessionTransport) -> Void) {
-        let completeInvitation = { [weak self] (accept: Bool) -> Void in
-            guard let strongSelf = self,
-                  let session = strongSelf.session as? MultipeerSessionTransport else { return }
-            invitationHandler(accept, session)
-            if accept && strongSelf.connectionType == .automatic {
-                strongSelf.advertiser.stopAdvertising()
-            }
-        }
+                                   decide: @escaping (Bool) -> Void) {
+        let completeInvitation = decide
 
         guard connectionType == .automatic else {
             emit(.receivedInvitation(peer: peer,
@@ -764,6 +776,32 @@ extension PeerConnectionManager {
     }
     
     /**
+     Turns discoverability on or off without ending the session.
+
+     Existing connections and the session stay alive; only advertising is withdrawn or restored.
+     Under `.networkFramework`, the listener keeps accepting connections from peers that already
+     know its endpoint, and only the Bonjour service is unpublished. Under MultipeerConnectivity,
+     this stops or starts the nearby-service advertiser, and the advertiser assistant in
+     `.inviteOnly` mode. Call it after `start`; stopping or restarting the manager resets
+     advertising to the started mode's default.
+
+     - parameter isEnabled: `true` to be discoverable, `false` to stop advertising.
+     */
+    public func setAdvertisingEnabled(_ isEnabled: Bool) {
+        if isEnabled {
+            advertiser.startAdvertising()
+        } else {
+            advertiser.stopAdvertising()
+        }
+        guard connectionType == .inviteOnly else { return }
+        if isEnabled {
+            advertiserAssisstant.startAdvertisingAssisstant()
+        } else {
+            advertiserAssisstant.stopAdvertisingAssisstant()
+        }
+    }
+
+    /**
      Close session for browsing peers to invite.
      */
     public func closeSession() {
@@ -864,7 +902,15 @@ extension PeerConnectionManager {
 
                 switch event {
                 case .didReceiveInvitationFromPeer(peer: let peer, withContext: let context, invitationHandler: let invite):
-                    self?.handleInvitation(peer: peer, context: context, invitationHandler: invite)
+                    self?.handleInvitation(peer: peer, context: context) { [weak self] accept in
+                        guard let strongSelf = self,
+                              let session = strongSelf.session as? MultipeerSessionTransport else { return }
+                        invite(accept, session)
+                        // Historical MultipeerConnectivity behavior: stop advertising once joined.
+                        if accept && strongSelf.connectionType == .automatic {
+                            strongSelf.advertiser.stopAdvertising()
+                        }
+                    }
                 case .didNotStartAdvertisingPeer(let error):
                     self?.emit(.error(error))
                 default: break
@@ -898,6 +944,8 @@ extension PeerConnectionManager {
                 self?.emit(.receivedEvent(peer: peer, eventInfo: eventInfo))
             case .didReceiveCertificate(peer: let peer, certificate: let certificate, handler: let handler):
                 self?.handleCertificate(peer: peer, certificate: certificate, handler: handler)
+            case .didReceiveInvitation(peer: let peer, context: let context, handler: let handler):
+                self?.handleInvitation(peer: peer, context: context, decide: handler)
             case .didReceiveStream(peer: let peer, stream: let stream, name: let name):
                 self?.emit(.receivedStream(peer: peer, stream: stream, name: name))
             case .startedReceivingResource(peer: let peer, name: let name, progress: let progress):

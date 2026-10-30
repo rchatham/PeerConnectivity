@@ -14,6 +14,7 @@ import Network
 private final class MockNetworkPeerListener : NetworkPeerListening {
     internal var startCallCount = 0
     internal var cancelCallCount = 0
+    internal var advertisingChanges : [Bool] = []
 
     internal func start() {
         startCallCount += 1
@@ -21,6 +22,10 @@ private final class MockNetworkPeerListener : NetworkPeerListening {
 
     internal func cancel() {
         cancelCallCount += 1
+    }
+
+    internal func setAdvertising(_ isAdvertising: Bool) {
+        advertisingChanges.append(isAdvertising)
     }
 }
 
@@ -57,10 +62,18 @@ private final class MockNetworkPeerBrowser : NetworkPeerBrowsing {
 private final class ConnectedEndpointRecorder {
     fileprivate let lock = NSLock()
     fileprivate var endpoints : [NWEndpoint] = []
+    fileprivate var storedInvitations : [PeerNetworkInvitation] = []
 
-    internal func append(_ endpoint: NWEndpoint) {
+    internal var invitations : [PeerNetworkInvitation] {
+        lock.lock()
+        defer { lock.unlock() }
+        return storedInvitations
+    }
+
+    internal func append(_ endpoint: NWEndpoint, _ invitation: PeerNetworkInvitation) {
         lock.lock()
         endpoints.append(endpoint)
+        storedInvitations.append(invitation)
         lock.unlock()
     }
 
@@ -168,7 +181,7 @@ final class NetworkPeerTransportAdapterTests : XCTestCase {
         XCTAssertEqual(foundEvents.first?.0.identity, lostPeers.first?.identity)
         XCTAssertEqual(foundEvents.first?.0.displayName, "Remote")
         XCTAssertNil(foundEvents.first?.1,
-            "Network discovery must report nil until app-provided discoveryInfo is supported")
+            "Peers that advertise no app discovery info report nil, matching MultipeerConnectivity")
     }
 
     internal func testBrowserTransportRejectsOversizedRemoteTXTDisplayNames() async {
@@ -183,7 +196,7 @@ final class NetworkPeerTransportAdapterTests : XCTestCase {
         await observer.addObserverAsync { event in events.append(event) }
 
         for displayName in [String(repeating: "a", count: 64), String(repeating: "é", count: 32)] {
-            let txtRecord = ["pc-id": "remote", "pc-name": displayName, "pc-v": "1"]
+            let txtRecord = ["pc-id": "remote", "pc-name": displayName, "pc-v": String(PeerNetworkHandshake.currentProtocolVersion)]
             guard let identity = PeerNetworkDiscoveryInfo(txtRecordDictionary: txtRecord)?.identity else {
                 XCTFail("The TXT record must be valid before the browser rejects its display name")
                 return
@@ -241,6 +254,92 @@ final class NetworkPeerTransportAdapterTests : XCTestCase {
         let connectedEndpoints = recorder.snapshot()
         XCTAssertEqual(connectedEndpoints.count, finalEndpoints.count)
         XCTAssertEqual(Set(connectedEndpoints), Set(finalEndpoints))
+    }
+
+    internal func testBrowserTransportResolvesRemovalWithoutTXTByEndpoint() async {
+        guard #available(iOS 13.0, macOS 10.15, *) else { return }
+
+        let observer = Observable<PeerBrowserEvent>(.none)
+        let transport = NetworkPeerBrowserTransport(session: makeSessionTransport(),
+            browser: MockNetworkPeerBrowser(),
+            browserObserver: observer)
+        let identity = PeerIdentity(identifier: "remote", displayName: "Remote")
+        let endpoint = NWEndpoint.hostPort(host: .ipv4(IPv4Address("127.0.0.1")!), port: 34572)
+        let unknownEndpoint = NWEndpoint.hostPort(host: .ipv4(IPv4Address("127.0.0.1")!), port: 34573)
+        var lostPeers : [Peer] = []
+        await observer.addObserverAsync { event in
+            if case .lostPeer(let peer) = event { lostPeers.append(peer) }
+        }
+
+        transport.foundEndpoint(endpoint, identity: identity)
+        transport.lostEndpoint(unknownEndpoint)
+        transport.lostEndpoint(endpoint)
+        transport.lostEndpoint(endpoint)
+        await observer.flush()
+
+        XCTAssertEqual(lostPeers.map { $0.identity }, [identity],
+            "Removal must resolve the tracked peer once and ignore unknown endpoints")
+    }
+
+    internal func testBrowserTransportForwardsAppDiscoveryInfo() async {
+        guard #available(iOS 13.0, macOS 10.15, *) else { return }
+
+        let observer = Observable<PeerBrowserEvent>(.none)
+        let transport = NetworkPeerBrowserTransport(session: makeSessionTransport(),
+            browser: MockNetworkPeerBrowser(),
+            browserObserver: observer)
+        let endpoint = NWEndpoint.hostPort(host: .ipv4(IPv4Address("127.0.0.1")!), port: 34571)
+        var events : [PeerBrowserEvent] = []
+        await observer.addObserverAsync { event in events.append(event) }
+
+        transport.foundEndpoint(endpoint,
+            identity: PeerIdentity(identifier: "remote", displayName: "Remote"),
+            discoveryInfo: ["app": "hermes", "session": "abc"])
+        await observer.flush()
+
+        let info = events.compactMap { event -> PeerDiscoveryInfo?? in
+            guard case .foundPeer(_, let discoveryInfo) = event else { return nil }
+            return discoveryInfo
+        }.first
+        XCTAssertEqual(info, ["app": "hermes", "session": "abc"])
+    }
+
+    internal func testInvalidDiscoveryInfoFailsAdvertisingClosedWhenStarted() async {
+        guard #available(iOS 13.0, macOS 10.15, *) else { return }
+
+        let session = makeSessionTransport()
+        let observer = Observable<PeerAdvertiserEvent>(.none)
+        let failure = expectation(description: "Invalid discovery info reported")
+        await observer.addObserverAsync { event in
+            guard case .didNotStartAdvertisingPeer(let error) = event,
+                case .invalidDiscoveryInfo? = error as? PeerConnectionError else { return }
+            failure.fulfill()
+        }
+
+        session.configureListener(serviceType: "test-service",
+            discoveryInfo: ["pc-id": "spoofed"],
+            advertiserObserver: observer)
+        session.startSession()
+        defer { session.stopSession() }
+
+        await fulfillment(of: [failure], timeout: 1)
+    }
+
+    internal func testBrowserTransportInvitePassesContextAndTimeout() {
+        guard #available(iOS 13.0, macOS 10.15, *) else { return }
+
+        let recorder = ConnectedEndpointRecorder()
+        let transport = NetworkPeerBrowserTransport(session: makeSessionTransport(),
+            browser: MockNetworkPeerBrowser(),
+            browserObserver: Observable<PeerBrowserEvent>(.none),
+            connectToEndpoint: recorder.append)
+        let identity = PeerIdentity(identifier: "remote", displayName: "Remote")
+        let endpoint = NWEndpoint.hostPort(host: .ipv4(IPv4Address("127.0.0.1")!), port: 34570)
+
+        transport.foundEndpoint(endpoint, identity: identity)
+        transport.invitePeer(Peer(identity: identity, status: .notConnected), withContext: Data("ctx".utf8), timeout: 12)
+
+        XCTAssertEqual(recorder.invitations, [PeerNetworkInvitation(context: Data("ctx".utf8), timeout: 12)])
     }
 
     internal func testBrowserTransportIgnoresSelfEndpoint() async {
@@ -378,6 +477,26 @@ final class NetworkPeerTransportAdapterTests : XCTestCase {
 
         XCTAssertEqual(listener.startCallCount, 0)
         XCTAssertEqual(listener.cancelCallCount, 0)
+    }
+
+    internal func testAdvertiserTransportTogglesBonjourServiceWithoutTouchingListenerLifecycle() {
+        guard #available(iOS 13.0, macOS 10.15, *) else { return }
+
+        let listener = MockNetworkPeerListener()
+        let session = makeSessionTransport(listener: listener)
+        let advertiser = NetworkPeerAdvertiserTransport(session: session,
+            serviceType: "test-service",
+            advertiserObserver: Observable<PeerAdvertiserEvent>(.none),
+            configureListener: false)
+
+        session.startSession()
+        advertiser.startAdvertising()
+        advertiser.stopAdvertising()
+        advertiser.startAdvertising()
+
+        XCTAssertEqual(listener.advertisingChanges, [true, false, true])
+        XCTAssertEqual(listener.startCallCount, 1)
+        XCTAssertEqual(listener.cancelCallCount, 0, "Withdrawing the advertisement must keep the listener running")
     }
 
     internal func testUnsupportedNetworkStreamThrows() throws {
