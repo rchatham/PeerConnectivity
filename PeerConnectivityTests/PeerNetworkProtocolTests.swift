@@ -155,6 +155,24 @@ final class PeerNetworkProtocolTests : XCTestCase {
     }
 
     @available(iOS 13.0, macOS 10.15, *)
+    internal func testParametersEnableTCPKeepaliveFromPolicyForBothSecurityModes() {
+        let policy = NetworkPeerConnectionPolicy(keepaliveIdle: 12, keepaliveInterval: 4, keepaliveCount: 5)
+
+        for security in [PeerConnectionNetworkSecurity.unauthenticated, .preSharedKey(Data("test-secret".utf8))] {
+            let parameters = NetworkPeerConnection.parameters(security: security, policy: policy)
+            guard let tcp = parameters.defaultProtocolStack.transportProtocol as? NWProtocolTCP.Options else {
+                return XCTFail("Network peer parameters must use TCP")
+            }
+
+            XCTAssertTrue(tcp.enableKeepalive)
+            XCTAssertEqual(tcp.keepaliveIdle, 12)
+            XCTAssertEqual(tcp.keepaliveInterval, 4)
+            XCTAssertEqual(tcp.keepaliveCount, 5)
+            XCTAssertTrue(parameters.includePeerToPeer)
+        }
+    }
+
+    @available(iOS 13.0, macOS 10.15, *)
     internal func testOversizedOutboundFrameCompletesWithError() {
         let connection = NetworkPeerConnection(endpoint: .hostPort(host: "localhost", port: 9))
         let frame = PeerNetworkFrame(

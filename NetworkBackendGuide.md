@@ -244,6 +244,10 @@ Network connection lifecycle policy is intentionally fixed and internal while th
 | Handshake timeout | 10 seconds | Bounds unauthenticated/pre-registration connection lifetime without committing to public tuning semantics. |
 | Maximum pending connections | 16 | Limits inbound/outbound handshakes before peer identity is validated. |
 | Maximum connected peers | 8 | Keeps the experimental mesh small while local Network.framework behavior is still being validated. |
+| Maximum discovered peers | 64 | Bounds the browser's endpoint table on busy or hostile Bonjour networks. Identities past the cap are ignored (no `.foundPeer`/`.lostPeer`) until a tracked peer is lost; already-tracked identities keep updating. |
+| TCP keepalive | 30 s idle, 10 s interval, 3 probes | Detects silently vanished peers in roughly 60 seconds. The connection fails and follows the normal disconnect path, emitting `.devicesChanged`. |
+
+There is deliberately no idle-connection timeout. A connected peer that sends nothing is normal for a mesh, and MultipeerConnectivity keeps such peers too. Keepalive probes close only connections whose remote end has stopped responding.
 
 These defaults are covered by coordinator tests and may change before the Network backend becomes stable/default. Apps that need custom limits cannot tune them yet; they should validate whether the fixed policy fits their topology before shipping `.networkFramework` broadly, or keep using the default MultipeerConnectivity backend.
 

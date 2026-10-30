@@ -12,16 +12,33 @@ internal struct NetworkPeerConnectionPolicy : Equatable {
     internal let handshakeTimeout : TimeInterval
     internal let maxPendingConnections : Int
     internal let maxConnectedPeers : Int
+    /// Bounds the browser's endpoint table so hostile Bonjour traffic cannot grow it without limit.
+    internal let maxDiscoveredPeers : Int
+    /// TCP keepalive replaces an idle timeout: quiet peers stay connected, dead peers fail.
+    internal let keepaliveIdle : Int
+    internal let keepaliveInterval : Int
+    internal let keepaliveCount : Int
 
     internal init(handshakeTimeout: TimeInterval = 10,
         maxPendingConnections: Int = 16,
-        maxConnectedPeers: Int = 8) {
+        maxConnectedPeers: Int = 8,
+        maxDiscoveredPeers: Int = 64,
+        keepaliveIdle: Int = 30,
+        keepaliveInterval: Int = 10,
+        keepaliveCount: Int = 3) {
         precondition(handshakeTimeout > 0, "PeerConnectivity: Network handshake timeout must be positive")
         precondition(maxPendingConnections > 0, "PeerConnectivity: Network pending connection limit must be positive")
         precondition(maxConnectedPeers > 0, "PeerConnectivity: Network connected peer limit must be positive")
+        precondition(maxDiscoveredPeers > 0, "PeerConnectivity: Network discovered peer limit must be positive")
+        precondition(keepaliveIdle > 0 && keepaliveInterval > 0 && keepaliveCount > 0,
+            "PeerConnectivity: Network keepalive values must be positive")
         self.handshakeTimeout = handshakeTimeout
         self.maxPendingConnections = maxPendingConnections
         self.maxConnectedPeers = maxConnectedPeers
+        self.maxDiscoveredPeers = maxDiscoveredPeers
+        self.keepaliveIdle = keepaliveIdle
+        self.keepaliveInterval = keepaliveInterval
+        self.keepaliveCount = keepaliveCount
     }
 }
 
