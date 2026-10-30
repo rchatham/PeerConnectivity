@@ -124,6 +124,15 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
         }
     }
 
+    internal func sendData(_ data: Data, toPeers peers: [Peer], completion: @escaping ([Peer:Error]) -> Void) {
+        queue.sync {
+            dataSender.sendData(data, toPeers: peers.map { $0.identity }) { failures in
+                completion(Dictionary(failures.map { (Peer(identity: $0.key, status: .notConnected), $0.value) },
+                    uniquingKeysWith: { first, _ in first }))
+            }
+        }
+    }
+
     internal func removeConnection(_ connection: Connection) {
         var connectionToCancel : Connection?
         let event : PeerSessionEvent? = queue.sync {

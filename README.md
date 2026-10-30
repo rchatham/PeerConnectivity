@@ -217,6 +217,16 @@ if let somePeerThatIAmConnectedTo = connectedPeers.first {
 }
 ```
 
+### Detecting send failures
+
+`sendData` and `sendMessage` also have completion overloads that report per-peer failures on the main queue. An empty result means the local networking stack accepted every send; it does not confirm delivery. See [Send outcomes](NetworkBackendGuide.md#send-outcomes).
+
+```swift
+pcm.sendData(payload, toPeers: pcm.connectedPeers) { failures in
+    failures.forEach { peer, error in print("\(peer.displayName): \(error)") }
+}
+```
+
 ## Listening for Events
 
 ```swift

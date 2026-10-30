@@ -9,6 +9,7 @@
   - Compatibility: automatic non-manual invitation policies still emit `.receivedInvitation` for observation, but the event handler is a no-op and policy decisions remain authoritative
   - Compatibility: listener registration now observes future connection events only instead of replaying the responder's most recently stored event; state-oriented internal observables still replay their current value
   - New: `PeerConnectionError`; the Network backend now reports listener and browser failures, Local Network denial, and listener creation errors through `.error`
+  - New: `sendData(_:toPeers:completion:)` and `sendMessage(_:toPeers:completion:)` report per-peer send failures on both backends (local processing, not delivery); `PeerConnectionError.peerNotConnected` for targeted peers without a Network connection
   - Network backend: discovery tracks at most 64 peers, and TCP keepalive detects dead peers in about 60 seconds; `.lostPeer` is no longer emitted for peers that were never reported found
   - Packaging: the core target now links both Network.framework and MultipeerConnectivity.framework
   - Tooling: the Swift package manifest uses Swift tools 6.0, so SwiftPM consumers need a Swift 6 toolchain (Xcode 16 or newer); the library remains compiled in Swift 5 language mode
