@@ -52,10 +52,12 @@ internal final class NetworkPeerSessionTransport : PeerSessionTransport {
     }
 
     internal func configureListener(serviceType: ServiceType,
+        discoveryInfo: PeerDiscoveryInfo? = nil,
         advertiserObserver: Observable<PeerAdvertiserEvent>? = nil) {
         listener = NetworkPeerSessionTransport.makeListener(peer: peer,
             coordinator: coordinator,
             serviceType: serviceType,
+            discoveryInfo: discoveryInfo,
             security: security,
             failureHandler: { error in
                 advertiserObserver?.update(.didNotStartAdvertisingPeer(error))
@@ -97,10 +99,10 @@ internal final class NetworkPeerSessionTransport : PeerSessionTransport {
         coordinator.addPendingConnection(connection, direction: .inbound)
     }
 
-    internal func connect(to endpoint: NWEndpoint) {
+    internal func connect(to endpoint: NWEndpoint, invitation: PeerNetworkInvitation = PeerNetworkInvitation()) {
         let connection = NetworkPeerConnection(endpoint: endpoint, security: security)
         configureConnection(connection)
-        coordinator.addPendingConnection(connection, direction: .outbound)
+        coordinator.addPendingConnection(connection, direction: .outbound, invitation: invitation)
         connection.start()
     }
 
@@ -122,11 +124,17 @@ internal final class NetworkPeerSessionTransport : PeerSessionTransport {
     fileprivate static func makeListener(peer: Peer,
         coordinator: NetworkPeerCoordinator<NetworkPeerConnection>,
         serviceType: ServiceType,
+        discoveryInfo: PeerDiscoveryInfo?,
         security: PeerConnectionNetworkSecurity,
         failureHandler: @escaping (PeerConnectionError) -> Void) -> NetworkPeerListening {
+        // Fail closed rather than advertise a record that silently drops caller metadata.
+        guard PeerNetworkDiscoveryInfo.isValidAppInfo(discoveryInfo ?? [:]) else {
+            return FailedNetworkPeerListener(error: .invalidDiscoveryInfo, failureHandler: failureHandler)
+        }
         do {
             return try NetworkPeerListener(serviceType: serviceType,
                 identity: peer.identity,
+                discoveryInfo: discoveryInfo,
                 security: security,
                 connectionHandler: { connection in
                 connection.setDataHandler { [weak coordinator, weak connection] frame in
@@ -160,7 +168,7 @@ internal final class NetworkPeerBrowserTransport : PeerBrowserTransport {
     fileprivate let session : NetworkPeerSessionTransport
     fileprivate let browser : NetworkPeerBrowsing
     fileprivate let browserObserver : Observable<PeerBrowserEvent>
-    fileprivate let connectToEndpoint : (NWEndpoint) -> Void
+    fileprivate let connectToEndpoint : (NWEndpoint, PeerNetworkInvitation) -> Void
     fileprivate let maxDiscoveredPeers : Int
     fileprivate let endpointsLock = NSLock()
     fileprivate var endpointsByIdentity : [PeerIdentity:NWEndpoint] = [:]
@@ -184,18 +192,20 @@ internal final class NetworkPeerBrowserTransport : PeerBrowserTransport {
     internal init(session: NetworkPeerSessionTransport,
         browser: NetworkPeerBrowsing,
         browserObserver: Observable<PeerBrowserEvent>,
-        connectToEndpoint: ((NWEndpoint) -> Void)? = nil,
+        connectToEndpoint: ((NWEndpoint, PeerNetworkInvitation) -> Void)? = nil,
         maxDiscoveredPeers: Int = NetworkPeerConnectionPolicy().maxDiscoveredPeers) {
         self.session = session
         self.browser = browser
         self.browserObserver = browserObserver
         self.maxDiscoveredPeers = maxDiscoveredPeers
-        self.connectToEndpoint = connectToEndpoint ?? { endpoint in session.connect(to: endpoint) }
+        self.connectToEndpoint = connectToEndpoint ?? { endpoint, invitation in
+            session.connect(to: endpoint, invitation: invitation)
+        }
     }
 
     internal func invitePeer(_ peer: Peer, withContext context: Data? = nil, timeout: TimeInterval = 30) {
         guard let endpoint = lockedEndpoints({ endpointsByIdentity[peer.identity] }) else { return }
-        connectToEndpoint(endpoint)
+        connectToEndpoint(endpoint, PeerNetworkInvitation(context: context, timeout: timeout))
     }
 
     internal func startBrowsing() {
@@ -223,16 +233,16 @@ internal final class NetworkPeerBrowserTransport : PeerBrowserTransport {
     }
 
     internal func foundResult(_ result: NWBrowser.Result) {
-        guard let identity = identity(from: result) else { return }
-        foundEndpoint(result.endpoint, identity: identity)
+        guard let info = discoveryInfo(from: result) else { return }
+        foundEndpoint(result.endpoint, identity: info.identity, discoveryInfo: info.appInfo.isEmpty ? nil : info.appInfo)
     }
 
     internal func lostResult(_ result: NWBrowser.Result) {
-        guard let identity = identity(from: result) else { return }
+        guard let identity = discoveryInfo(from: result)?.identity else { return }
         lostEndpoint(result.endpoint, identity: identity)
     }
 
-    internal func foundEndpoint(_ endpoint: NWEndpoint, identity: PeerIdentity) {
+    internal func foundEndpoint(_ endpoint: NWEndpoint, identity: PeerIdentity, discoveryInfo: PeerDiscoveryInfo? = nil) {
         guard Peer.isValidDisplayName(identity.displayName), !isLocalIdentity(identity) else { return }
         let isAdmitted : Bool = lockedEndpoints {
             guard endpointsByIdentity[identity] != nil || endpointsByIdentity.count < maxDiscoveredPeers else {
@@ -242,7 +252,7 @@ internal final class NetworkPeerBrowserTransport : PeerBrowserTransport {
             return true
         }
         guard isAdmitted else { return }
-        browserObserver.update(.foundPeer(Peer(identity: identity, status: .notConnected), discoveryInfo: nil))
+        browserObserver.update(.foundPeer(Peer(identity: identity, status: .notConnected), discoveryInfo: discoveryInfo))
     }
 
     internal func lostEndpoint(_ endpoint: NWEndpoint, identity: PeerIdentity) {
@@ -258,9 +268,9 @@ internal final class NetworkPeerBrowserTransport : PeerBrowserTransport {
         return operation()
     }
 
-    fileprivate func identity(from result: NWBrowser.Result) -> PeerIdentity? {
+    fileprivate func discoveryInfo(from result: NWBrowser.Result) -> PeerNetworkDiscoveryInfo? {
         guard case .bonjour(let txtRecord) = result.metadata else { return nil }
-        return PeerNetworkDiscoveryInfo(txtRecordDictionary: txtRecord.dictionary)?.identity
+        return PeerNetworkDiscoveryInfo(txtRecordDictionary: txtRecord.dictionary)
     }
 
     fileprivate func isLocalIdentity(_ identity: PeerIdentity) -> Bool {
@@ -276,11 +286,13 @@ internal final class NetworkPeerAdvertiserTransport : PeerAdvertiserTransport {
 
     internal init(session: NetworkPeerSessionTransport,
         serviceType: ServiceType,
+        discoveryInfo: PeerDiscoveryInfo? = nil,
         advertiserObserver: Observable<PeerAdvertiserEvent>,
         configureListener: Bool = true) {
         self.session = session
         if configureListener {
             self.session.configureListener(serviceType: serviceType,
+                discoveryInfo: discoveryInfo,
                 advertiserObserver: advertiserObserver)
         }
     }

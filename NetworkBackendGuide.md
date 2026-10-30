@@ -77,7 +77,15 @@ Guidance for app-managed secrets:
 - Scope the key to one app/environment and authorization group. Do not reuse it across unrelated protocols or groups.
 - Rotate the key when membership changes or compromise is suspected.
 - Treat every holder of the shared key as equally authorized under this mode.
-- Treat Bonjour TXT metadata (`pc-id`, `pc-name`, `pc-v`) as routing/discovery metadata only. It is not a trust assertion.
+- Treat Bonjour TXT metadata (`pc-id`, `pc-name`, `pc-v`, and app `discoveryInfo`) as routing/discovery metadata only. It is not a trust assertion.
+
+### Discovery info
+
+App `discoveryInfo` is published in the TXT record beside the reserved `pc-` keys and surfaces in `.foundPeerWithDiscoveryInfo` on browsing peers.
+- Validate it with `PeerConnectionManager.isValidNetworkDiscoveryInfo(_:)`: printable-ASCII keys without `=`, no `pc-` prefix in any case, and at most 255 bytes per `key=value` entry. Keep the whole record small (under about 400 bytes).
+- Invalid info fails closed: advertising does not start, and `.error(PeerConnectionError.invalidDiscoveryInfo)` is emitted.
+- On the browsing side, remote reserved or malformed entries are dropped. A peer with no app entries reports `nil`, matching MultipeerConnectivity.
+- Discovery info is public and unauthenticated. Never put secrets in it.
 
 ### Certificate mode
 
@@ -143,11 +151,23 @@ override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: Inde
 
 Own selection, empty/error states, accessibility, styling, and the model lifecycle in the app. Call `stopObserving()` when observation should end; the model also stops observing on deinitialization.
 
-For Network-backed managers, `invitePeer(_:withContext:timeout:)` uses the discovered peer endpoint. The `context` and `timeout` parameters are currently ignored.
+### Invitations
+
+Network invitations follow the same contract as MultipeerConnectivity:
+
+- `invitePeer(_:withContext:timeout:)` connects to the discovered peer and sends an invitation carrying `context`. Treat the context as public, unauthenticated metadata, as under MC. It is limited to 64 KiB.
+- The invited peer holds the connection as pending and applies its connection type and `invitationPolicy`, exactly like an MC advertiser:
+  - In `.automatic` mode, the policy decides (`.acceptAll`, `.rejectAll`, `.custom`), or `.manual` surfaces it.
+  - In `.inviteOnly` and `.custom` modes, `.receivedInvitation(peer:withContext:invitationHandler:)` is always emitted, and the app must call the handler.
+- Pending peers never appear in `connectedPeers` and never emit `devicesChanged(.connected)`. A peer is reported connected only after both sides have admitted each other.
+- Declining sends a `declined` frame and closes the connection.
+- `timeout` bounds how long both sides keep the invitation pending, capped at 120 seconds. Responses after the timeout are ignored.
+
+Wire compatibility: invitations are part of Network protocol version 2. Version 1 peers, built from earlier commits of this experimental backend, are rejected during the handshake. They cannot be discovered by or connect to version 2 peers.
 
 ### `.inviteOnly`
 
-The built-in MultipeerConnectivity advertiser assistant/browser UI is not available for the Network backend. Network-backed apps should provide their own UI using `.foundPeer`, `.lostPeer`, and `invitePeer`.
+The built-in MultipeerConnectivity advertiser assistant/browser UI is not available for the Network backend. Network-backed apps should provide their own UI using `.foundPeer`, `.lostPeer`, and `invitePeer`, and must answer `.receivedInvitation`. There is no system invitation dialog.
 
 `PeerConnectivityUI.browserViewController` returns `nil` for Network-backed managers.
 
@@ -165,6 +185,7 @@ A reusable SwiftUI or UIKit Network browser is intentionally deferred. Peer sele
 | `.automatic` discovery/connect | ✅ | ✅ |
 | `.custom` + app-owned `invitePeer` | ✅ | ✅ |
 | `.inviteOnly` built-in browser UI | ✅ | ❌ app-owned UI required |
+| Invitation `context` / `timeout` / `invitationPolicy` | ✅ | ✅ protocol v2 two-sided admission |
 | `sendData` | ✅ | ✅ |
 | `sendMessage` / `observeMessages` | ✅ | ✅ |
 | Large framed messages | ✅ via MC | ✅ via TCP framing |
@@ -176,6 +197,7 @@ A reusable SwiftUI or UIKit Network browser is intentionally deferred. Peer sele
 | `.startedReceivingResource` / `.finishedReceivingResource` | ✅ | ❌ MultipeerConnectivity-only; never emitted |
 | `multipeerSession` | ✅ | ❌ programmer error |
 | TLS-PSK transport security | MC-managed | ✅ TLS 1.2 only with `.preSharedKey` |
+| Certificate identities + `certificatePolicy` | ✅ | ✅ mutual TLS 1.3 with `.certificate(identity:)` |
 
 ## Sending data and messages
 
