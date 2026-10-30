@@ -89,7 +89,8 @@ internal struct PeerNetworkDiscoveryInfo : Equatable {
 
 internal struct PeerNetworkHandshake : Codable, Equatable {
 
-    internal static let currentProtocolVersion = 1
+    /// Version 2 adds invitation and two-sided admission frames. Version 1 peers are rejected.
+    internal static let currentProtocolVersion = 2
 
     internal let protocolVersion : Int
     internal let identity : PeerIdentity
@@ -103,8 +104,32 @@ internal struct PeerNetworkHandshake : Codable, Equatable {
 internal enum PeerNetworkFrameKind : UInt8 {
     case data = 1
     case handshake = 2
-    /// Sent once local admission checks pass; used only by modes that gate registration.
+    /// Sent once every local admission gate (certificate, invitation) has passed.
     case admitted = 3
+    /// Sent by the inviting peer after its handshake; carries a `PeerNetworkInvitation`.
+    case invitation = 4
+    /// Sent before closing when a local admission gate rejects the peer.
+    case declined = 5
+}
+
+/**
+ Invitation sent by the connecting peer. The context is public, unauthenticated metadata,
+ as it is under MultipeerConnectivity.
+ */
+internal struct PeerNetworkInvitation : Codable, Equatable {
+    internal static let maxContextLength = 64 * 1024
+
+    internal let context : Data?
+    internal let timeout : TimeInterval
+
+    internal init(context: Data? = nil, timeout: TimeInterval = 30) {
+        self.context = context
+        self.timeout = timeout
+    }
+
+    internal var isValid : Bool {
+        return (context?.count ?? 0) <= PeerNetworkInvitation.maxContextLength && timeout.isFinite && timeout > 0
+    }
 }
 
 internal enum PeerNetworkFrameDecodeResult {
