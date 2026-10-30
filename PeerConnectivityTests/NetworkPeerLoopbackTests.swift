@@ -453,6 +453,35 @@ final class NetworkPeerLoopbackTests : XCTestCase {
         wait(for: [unexpectedConnection], timeout: 5)
     }
 
+    internal func testNetworkBackendPublishesAppDiscoveryInfo() {
+        guard #available(iOS 13.0, macOS 10.15, *) else { return }
+
+        let serviceType = makeServiceType()
+        let alice = PeerConnectionManager(serviceType: serviceType,
+            connectionType: .custom,
+            displayName: "Alice",
+            discoveryInfo: ["app": "hermes", "session": "abc123"],
+            backend: .networkFramework,
+            networkSecurity: makeSecurity())
+        let bob = makeManager(serviceType: serviceType, displayName: "Bob", security: makeSecurity(), connectionType: .custom)
+        let bobSawInfo = expectation(description: "Bob received Alice's discovery info")
+        bobSawInfo.assertForOverFulfill = false
+
+        bob.listenOn({ event in
+            guard case .foundPeerWithDiscoveryInfo(peer: let peer, discoveryInfo: let info) = event,
+                peer.displayName == "Alice" else { return }
+            XCTAssertEqual(info, ["app": "hermes", "session": "abc123"])
+            bobSawInfo.fulfill()
+        }, performListenerInBackground: true, withKey: "bob-discovery")
+
+        bob.start()
+        defer { bob.stop() }
+        alice.start()
+        defer { alice.stop() }
+
+        wait(for: [bobSawInfo], timeout: 15)
+    }
+
     internal func testNetworkBackendInvitationAcceptedWithContextConnects() {
         guard #available(iOS 13.0, macOS 10.15, *) else { return }
 

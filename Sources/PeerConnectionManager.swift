@@ -204,6 +204,20 @@ public class PeerConnectionManager {
         }
         return containsLetter
     }
+
+    /**
+     Validates discovery info for the `.networkFramework` backend.
+
+     Keys must be non-empty printable ASCII without `=`, must not start with the reserved
+     `pc-` prefix (case-insensitive), and each `key=value` entry must fit in 255 UTF-8 bytes.
+     Keep the whole record small (Apple recommends under 400 bytes) for reliable discovery.
+
+     - parameter discoveryInfo: Discovery metadata to validate.
+     - Returns: `true` when the Network backend can publish every entry.
+     */
+    public static func isValidNetworkDiscoveryInfo(_ discoveryInfo: PeerDiscoveryInfo) -> Bool {
+        return PeerNetworkDiscoveryInfo.isValidAppInfo(discoveryInfo)
+    }
     
     // MARK: Properties
     /**
@@ -243,9 +257,9 @@ public class PeerConnectionManager {
      This metadata is unauthenticated and visible to nearby peers. Do not include secrets,
      tokens, emails, stable user IDs, or sensitive device information.
 
-     - Note: The Network framework backend currently ignores this value. It advertises only
-     internal peer identity metadata, and peers discovered through that backend report `nil`
-     discovery info.
+     - Note: With `.networkFramework`, entries are published in the Bonjour TXT record beside
+     PeerConnectivity's reserved `pc-` keys. Invalid entries stop advertising with
+     `PeerConnectionError.invalidDiscoveryInfo`; see `isValidNetworkDiscoveryInfo(_:)`.
      */
     public let discoveryInfo : PeerDiscoveryInfo?
 
@@ -342,8 +356,8 @@ public class PeerConnectionManager {
      - parameter displayName: The local user's display name to other peers. Display names are visible to nearby peers; empty or overlong values are sanitized to a non-empty maximum of 63 UTF-8 bytes.
      - parameter securityConfiguration: Security settings used to create the underlying MultipeerConnectivity session.
      - parameter discoveryInfo: Public, unauthenticated metadata advertised to nearby browsers.
-       The Network framework backend currently ignores this value, and its discovered peers
-       report `nil` discovery info.
+       With `.networkFramework`, it is published in the Bonjour TXT record; validate it with
+       `isValidNetworkDiscoveryInfo(_:)`.
      - parameter invitationPolicy: Policy used to decide whether incoming invitations are accepted in `.automatic` mode.
      - parameter backend: Backend implementation to use. Defaults to `.multipeerConnectivity`.
      - parameter networkSecurity: Security configuration for `.networkFramework`. Defaults to
