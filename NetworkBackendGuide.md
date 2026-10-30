@@ -165,6 +165,19 @@ Network invitations follow the same contract as MultipeerConnectivity:
 
 Wire compatibility: invitations are part of Network protocol version 2. Version 1 peers, built from earlier commits of this experimental backend, are rejected during the handshake. They cannot be discovered by or connect to version 2 peers.
 
+### Advertising control
+
+`setAdvertisingEnabled(_:)` turns discoverability off or on without ending the session:
+
+```swift
+manager.setAdvertisingEnabled(false) // e.g. once a session is full
+manager.setAdvertisingEnabled(true)
+```
+
+- Under Network, only the Bonjour service is withdrawn or republished. The listener and existing connections stay up, and browsing peers see `.lostPeer` and then `.foundPeer` again.
+- Under MultipeerConnectivity, it stops or starts the nearby-service advertiser, and the advertiser assistant in `.inviteOnly` mode.
+- `startBrowsingOnly()` never publishes a Network service. The listener still runs, so `setAdvertisingEnabled(true)` can make the peer discoverable later.
+
 ### `.inviteOnly`
 
 The built-in MultipeerConnectivity advertiser assistant/browser UI is not available for the Network backend. Network-backed apps should provide their own UI using `.foundPeer`, `.lostPeer`, and `invitePeer`, and must answer `.receivedInvitation`. There is no system invitation dialog.
@@ -186,6 +199,8 @@ A reusable SwiftUI or UIKit Network browser is intentionally deferred. Peer sele
 | `.custom` + app-owned `invitePeer` | ✅ | ✅ |
 | `.inviteOnly` built-in browser UI | ✅ | ❌ app-owned UI required |
 | Invitation `context` / `timeout` / `invitationPolicy` | ✅ | ✅ protocol v2 two-sided admission |
+| App `discoveryInfo` | ✅ | ✅ Bonjour TXT beside reserved `pc-` keys |
+| `setAdvertisingEnabled(_:)` | ✅ advertiser stop/start | ✅ Bonjour service withdraw/republish |
 | `sendData` | ✅ | ✅ |
 | `sendMessage` / `observeMessages` | ✅ | ✅ |
 | Large framed messages | ✅ via MC | ✅ via TCP framing |

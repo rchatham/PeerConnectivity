@@ -482,6 +482,74 @@ final class NetworkPeerLoopbackTests : XCTestCase {
         wait(for: [bobSawInfo], timeout: 15)
     }
 
+    internal func testNetworkBackendBrowsingOnlyManagerIsNotDiscoverable() {
+        guard #available(iOS 13.0, macOS 10.15, *) else { return }
+
+        let serviceType = makeServiceType()
+        let alice = makeManager(serviceType: serviceType, displayName: "Alice", security: makeSecurity(), connectionType: .custom)
+        let bob = makeManager(serviceType: serviceType, displayName: "Bob", security: makeSecurity(), connectionType: .custom)
+        let aliceFoundBob = expectation(description: "Browse-only Alice still discovers Bob")
+        let bobFoundAlice = expectation(description: "Bob must not discover browse-only Alice")
+        aliceFoundBob.assertForOverFulfill = false
+        bobFoundAlice.isInverted = true
+        bobFoundAlice.assertForOverFulfill = false
+
+        alice.listenOn({ event in
+            guard case .foundPeer(let peer) = event, peer.displayName == "Bob" else { return }
+            aliceFoundBob.fulfill()
+        }, performListenerInBackground: true, withKey: "alice-discovery")
+        bob.listenOn({ event in
+            guard case .foundPeer(let peer) = event, peer.displayName == "Alice" else { return }
+            bobFoundAlice.fulfill()
+        }, performListenerInBackground: true, withKey: "bob-discovery")
+
+        bob.start()
+        defer { bob.stop() }
+        alice.startBrowsingOnly()
+        defer { alice.stop() }
+
+        wait(for: [aliceFoundBob], timeout: 15)
+        wait(for: [bobFoundAlice], timeout: 3)
+    }
+
+    internal func testNetworkBackendAdvertisingToggleKeepsConnectionAlive() {
+        guard #available(iOS 13.0, macOS 10.15, *) else { return }
+
+        let harness = makeInvitationPair()
+        let connected = expectation(description: "Alice and Bob connected")
+        connected.expectedFulfillmentCount = 2
+        let aliceLost = expectation(description: "Alice saw Bob's advertisement withdrawn")
+        let aliceRefound = expectation(description: "Alice saw Bob's advertisement restored")
+        var bobWithdrawn = false
+
+        harness.onInvitation = { _, respond in respond(true) }
+        harness.onAliceConnected = { connected.fulfill() }
+        harness.onBobConnected = { connected.fulfill() }
+        harness.alice.listenOn({ event in
+            switch event {
+            case .lostPeer(let peer) where peer.displayName == "Bob" && bobWithdrawn:
+                aliceLost.fulfill()
+            case .foundPeer(let peer) where peer.displayName == "Bob" && bobWithdrawn:
+                bobWithdrawn = false
+                aliceRefound.fulfill()
+            default: break
+            }
+        }, performListenerInBackground: false, withKey: "alice-advertising")
+        harness.start(context: nil, timeout: 10)
+        defer { harness.stop() }
+
+        wait(for: [connected], timeout: 15)
+        bobWithdrawn = true
+        harness.bob.setAdvertisingEnabled(false)
+        wait(for: [aliceLost], timeout: 15)
+        XCTAssertTrue(harness.alice.connectedPeers.contains { $0.displayName == "Bob" },
+            "Withdrawing the advertisement must not drop existing connections")
+        XCTAssertTrue(harness.bob.connectedPeers.contains { $0.displayName == "Alice" })
+
+        harness.bob.setAdvertisingEnabled(true)
+        wait(for: [aliceRefound], timeout: 15)
+    }
+
     internal func testNetworkBackendInvitationAcceptedWithContextConnects() {
         guard #available(iOS 13.0, macOS 10.15, *) else { return }
 

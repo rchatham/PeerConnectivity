@@ -51,6 +51,10 @@ internal final class NetworkPeerSessionTransport : PeerSessionTransport {
         listener.start()
     }
 
+    internal func setAdvertising(_ isAdvertising: Bool) {
+        listener.setAdvertising(isAdvertising)
+    }
+
     internal func configureListener(serviceType: ServiceType,
         discoveryInfo: PeerDiscoveryInfo? = nil,
         advertiserObserver: Observable<PeerAdvertiserEvent>? = nil) {
@@ -238,8 +242,18 @@ internal final class NetworkPeerBrowserTransport : PeerBrowserTransport {
     }
 
     internal func lostResult(_ result: NWBrowser.Result) {
-        guard let identity = discoveryInfo(from: result)?.identity else { return }
+        guard let identity = discoveryInfo(from: result)?.identity else {
+            // Bonjour removal results carry no TXT metadata; resolve the peer by endpoint.
+            lostEndpoint(result.endpoint)
+            return
+        }
         lostEndpoint(result.endpoint, identity: identity)
+    }
+
+    internal func lostEndpoint(_ endpoint: NWEndpoint) {
+        let identity = lockedEndpoints { endpointsByIdentity.first { $0.value == endpoint }?.key }
+        guard let identity = identity else { return }
+        lostEndpoint(endpoint, identity: identity)
     }
 
     internal func foundEndpoint(_ endpoint: NWEndpoint, identity: PeerIdentity, discoveryInfo: PeerDiscoveryInfo? = nil) {
@@ -297,9 +311,13 @@ internal final class NetworkPeerAdvertiserTransport : PeerAdvertiserTransport {
         }
     }
 
-    internal func startAdvertising() {}
+    internal func startAdvertising() {
+        session.setAdvertising(true)
+    }
 
-    internal func stopAdvertising() {}
+    internal func stopAdvertising() {
+        session.setAdvertising(false)
+    }
 }
 
 @available(iOS 13.0, macOS 10.15, *)
@@ -331,4 +349,6 @@ internal final class FailedNetworkPeerListener : NetworkPeerListening {
     }
 
     internal func cancel() {}
+
+    internal func setAdvertising(_ isAdvertising: Bool) {}
 }

@@ -14,6 +14,7 @@ import Network
 private final class MockNetworkPeerListener : NetworkPeerListening {
     internal var startCallCount = 0
     internal var cancelCallCount = 0
+    internal var advertisingChanges : [Bool] = []
 
     internal func start() {
         startCallCount += 1
@@ -21,6 +22,10 @@ private final class MockNetworkPeerListener : NetworkPeerListening {
 
     internal func cancel() {
         cancelCallCount += 1
+    }
+
+    internal func setAdvertising(_ isAdvertising: Bool) {
+        advertisingChanges.append(isAdvertising)
     }
 }
 
@@ -251,6 +256,31 @@ final class NetworkPeerTransportAdapterTests : XCTestCase {
         XCTAssertEqual(Set(connectedEndpoints), Set(finalEndpoints))
     }
 
+    internal func testBrowserTransportResolvesRemovalWithoutTXTByEndpoint() async {
+        guard #available(iOS 13.0, macOS 10.15, *) else { return }
+
+        let observer = Observable<PeerBrowserEvent>(.none)
+        let transport = NetworkPeerBrowserTransport(session: makeSessionTransport(),
+            browser: MockNetworkPeerBrowser(),
+            browserObserver: observer)
+        let identity = PeerIdentity(identifier: "remote", displayName: "Remote")
+        let endpoint = NWEndpoint.hostPort(host: .ipv4(IPv4Address("127.0.0.1")!), port: 34572)
+        let unknownEndpoint = NWEndpoint.hostPort(host: .ipv4(IPv4Address("127.0.0.1")!), port: 34573)
+        var lostPeers : [Peer] = []
+        await observer.addObserverAsync { event in
+            if case .lostPeer(let peer) = event { lostPeers.append(peer) }
+        }
+
+        transport.foundEndpoint(endpoint, identity: identity)
+        transport.lostEndpoint(unknownEndpoint)
+        transport.lostEndpoint(endpoint)
+        transport.lostEndpoint(endpoint)
+        await observer.flush()
+
+        XCTAssertEqual(lostPeers.map { $0.identity }, [identity],
+            "Removal must resolve the tracked peer once and ignore unknown endpoints")
+    }
+
     internal func testBrowserTransportForwardsAppDiscoveryInfo() async {
         guard #available(iOS 13.0, macOS 10.15, *) else { return }
 
@@ -447,6 +477,26 @@ final class NetworkPeerTransportAdapterTests : XCTestCase {
 
         XCTAssertEqual(listener.startCallCount, 0)
         XCTAssertEqual(listener.cancelCallCount, 0)
+    }
+
+    internal func testAdvertiserTransportTogglesBonjourServiceWithoutTouchingListenerLifecycle() {
+        guard #available(iOS 13.0, macOS 10.15, *) else { return }
+
+        let listener = MockNetworkPeerListener()
+        let session = makeSessionTransport(listener: listener)
+        let advertiser = NetworkPeerAdvertiserTransport(session: session,
+            serviceType: "test-service",
+            advertiserObserver: Observable<PeerAdvertiserEvent>(.none),
+            configureListener: false)
+
+        session.startSession()
+        advertiser.startAdvertising()
+        advertiser.stopAdvertising()
+        advertiser.startAdvertising()
+
+        XCTAssertEqual(listener.advertisingChanges, [true, false, true])
+        XCTAssertEqual(listener.startCallCount, 1)
+        XCTAssertEqual(listener.cancelCallCount, 0, "Withdrawing the advertisement must keep the listener running")
     }
 
     internal func testUnsupportedNetworkStreamThrows() throws {

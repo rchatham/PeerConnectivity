@@ -776,6 +776,32 @@ extension PeerConnectionManager {
     }
     
     /**
+     Turns discoverability on or off without ending the session.
+
+     Existing connections and the session stay alive; only advertising is withdrawn or restored.
+     Under `.networkFramework`, the listener keeps accepting connections from peers that already
+     know its endpoint, and only the Bonjour service is unpublished. Under MultipeerConnectivity,
+     this stops or starts the nearby-service advertiser, and the advertiser assistant in
+     `.inviteOnly` mode. Call it after `start`; stopping or restarting the manager resets
+     advertising to the started mode's default.
+
+     - parameter isEnabled: `true` to be discoverable, `false` to stop advertising.
+     */
+    public func setAdvertisingEnabled(_ isEnabled: Bool) {
+        if isEnabled {
+            advertiser.startAdvertising()
+        } else {
+            advertiser.stopAdvertising()
+        }
+        guard connectionType == .inviteOnly else { return }
+        if isEnabled {
+            advertiserAssisstant.startAdvertisingAssisstant()
+        } else {
+            advertiserAssisstant.stopAdvertisingAssisstant()
+        }
+    }
+
+    /**
      Close session for browsing peers to invite.
      */
     public func closeSession() {
