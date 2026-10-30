@@ -118,6 +118,21 @@ public enum PeerConnectionNetworkSecurity : Equatable {
      be initialized with the same non-empty key to connect successfully.
      */
     case preSharedKey(Data)
+    /**
+     Use mutual TLS 1.3 with certificate identities. Each peer presents `identity`, and
+     connections fail unless the remote peer presents a certificate too.
+
+     TLS proves the remote peer holds the private key for the certificate it presents.
+     Whether that certificate is trusted is decided by
+     `PeerSecurityConfiguration.certificatePolicy`, which receives the remote certificate
+     chain after the peer's identity handshake and before the peer is reported connected.
+     The decision must be made within the Network handshake timeout (10 seconds).
+     A `.receivedCertificate` event is emitted for observation, matching MultipeerConnectivity.
+
+     - Warning: With `.acceptAll`, any peer holding any certificate is accepted. Use
+       `.custom(_:)` to pin or validate certificates.
+     */
+    case certificate(identity: SecIdentity)
 }
 
 /**

@@ -40,6 +40,13 @@ internal final class NetworkPeerConnection : NetworkPeerConnectionCancellable {
     fileprivate let handshakeEncoder : HandshakeEncoder
     fileprivate var frameDecoder = PeerNetworkFrameDecoder()
     fileprivate var isReceiveTerminal = false
+    fileprivate let peerCertificateChainLock = NSLock()
+    fileprivate var storedPeerCertificateChain : [SecCertificate]?
+
+    /// The remote TLS certificate chain, leaf first, captured when the connection becomes ready.
+    internal var peerCertificateChain : [Any]? {
+        return peerCertificateChainLock.locked { storedPeerCertificateChain }
+    }
 
     internal init(endpoint: NWEndpoint,
         queue: DispatchQueue = DispatchQueue(label: "PeerConnectivity.NetworkPeerConnection"),
@@ -80,6 +87,9 @@ internal final class NetworkPeerConnection : NetworkPeerConnectionCancellable {
 
     internal func start() {
         connection.stateUpdateHandler = { [weak self] state in
+            if case .ready = state {
+                self?.capturePeerCertificateChain()
+            }
             self?.stateHandler?(state)
             switch state {
             case .ready:
@@ -113,6 +123,17 @@ internal final class NetworkPeerConnection : NetworkPeerConnectionCancellable {
             NSLog("PeerConnectivity: Failed to encode Network handshake: \(error.localizedDescription)")
             completion?(.posix(.EINVAL))
         }
+    }
+
+    fileprivate func capturePeerCertificateChain() {
+        guard let metadata = connection.metadata(definition: NWProtocolTLS.definition) as? NWProtocolTLS.Metadata else {
+            return
+        }
+        var chain : [SecCertificate] = []
+        sec_protocol_metadata_access_peer_certificate_chain(metadata.securityProtocolMetadata) { certificate in
+            chain.append(sec_certificate_copy_ref(certificate).takeRetainedValue())
+        }
+        peerCertificateChainLock.locked { storedPeerCertificateChain = chain.isEmpty ? nil : chain }
     }
 
     fileprivate func receiveNextFrame() {
@@ -172,10 +193,27 @@ internal final class NetworkPeerConnection : NetworkPeerConnectionCancellable {
                 dispatchData(from: key),
                 dispatchData(from: Data("PeerConnectivity.NetworkFramework.PSK.v1".utf8)))
             parameters = NWParameters(tls: options, tcp: tcpOptions)
+        case .certificate(let identity):
+            guard let localIdentity = sec_identity_create(identity) else {
+                preconditionFailure("PeerConnectivity: Network certificate identity is invalid")
+            }
+            let options = NWProtocolTLS.Options()
+            minimumTLSVersionSetter(options.securityProtocolOptions, .TLSv13)
+            sec_protocol_options_set_local_identity(options.securityProtocolOptions, localIdentity)
+            sec_protocol_options_set_peer_authentication_required(options.securityProtocolOptions, true)
+            // Self-signed peer certificates fail system trust evaluation. TLS still proves key
+            // possession, so require a presented chain here and leave trust to the app's
+            // certificate policy after the identity handshake.
+            sec_protocol_options_set_verify_block(options.securityProtocolOptions, { _, trust, complete in
+                complete(SecTrustGetCertificateCount(sec_trust_copy_ref(trust).takeRetainedValue()) > 0)
+            }, certificateVerificationQueue)
+            parameters = NWParameters(tls: options, tcp: tcpOptions)
         }
         parameters.includePeerToPeer = true
         return parameters
     }
+
+    fileprivate static let certificateVerificationQueue = DispatchQueue(label: "PeerConnectivity.NetworkPeerConnection.verify")
 
     fileprivate static func dispatchData(from data: Data) -> dispatch_data_t {
         return data.withUnsafeBytes { buffer in

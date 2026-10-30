@@ -9,6 +9,7 @@
   - Compatibility: automatic non-manual invitation policies still emit `.receivedInvitation` for observation, but the event handler is a no-op and policy decisions remain authoritative
   - Compatibility: listener registration now observes future connection events only instead of replaying the responder's most recently stored event; state-oriented internal observables still replay their current value
   - New: `PeerConnectionError`; the Network backend now reports listener and browser failures, Local Network denial, and listener creation errors through `.error`
+  - New: `PeerConnectionNetworkSecurity.certificate(identity:)` for mutual TLS 1.3 under `.networkFramework`; peer certificates go through `certificatePolicy` and `.receivedCertificate`, and peers connect only after both sides accept
   - New: `sendData(_:toPeers:completion:)` and `sendMessage(_:toPeers:completion:)` report per-peer send failures on both backends (local processing, not delivery); `PeerConnectionError.peerNotConnected` for targeted peers without a Network connection
   - Network backend: discovery tracks at most 64 peers, and TCP keepalive detects dead peers in about 60 seconds; `.lostPeer` is no longer emitted for peers that were never reported found
   - Packaging: the core target now links both Network.framework and MultipeerConnectivity.framework

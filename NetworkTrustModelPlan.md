@@ -90,6 +90,8 @@ This can work over group TLS-PSK while adding individual identity, but it requir
 
 ### 3. Certificate and pinning mode
 
+> **Status:** implemented as `PeerConnectionNetworkSecurity.certificate(identity:)`, combined with option 4 as the verifier. TLS 1.3 is mutual, the verify block requires a presented chain, and the app's `certificatePolicy` makes the trust decision before two-sided admission. Issuance, rotation, revocation, and binding the certificate to the protocol identifier are the app's responsibility in its policy. See `NetworkBackendGuide.md` "Certificate mode".
+
 Configure a local `sec_identity_t` containing a private key and certificate with `sec_protocol_options_set_local_identity`, then evaluate the peer trust with `sec_protocol_options_set_verify_block`. A deployment could use an app-specific CA, pinned certificate/public-key hashes, or another explicit trust-anchor policy.
 
 The mode must define mutual authentication rather than assuming server-only validation is enough for a symmetric peer mesh. It also needs issuance, expiry, rotation, revocation, pin-set updates, recovery, and a rule binding the accepted certificate/public key to the protocol peer identifier. Disabling default trust evaluation without replacing it with a complete pinning policy would be insecure.

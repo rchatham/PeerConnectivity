@@ -49,7 +49,7 @@ Verified against `Sources`, `PeerConnectivityTests`, and the current stacked doc
 | Security certificate event | `.receivedCertificate` reflects MC delegate behavior and has no Network equivalent. | Document as MC-only before stable; deprecate/remove or replace before MC removal. |
 | Discovery/start failures | Network listener and browser failures, Local Network denial, listener creation errors, and invalid discovery info surface as `.error(PeerConnectionError)`; per-connection failures surface as `devicesChanged(.notConnected)`. MC errors are unchanged. | Contract documented and unit-tested; on-device permission flows remain part of the device matrix. |
 | Send outcomes | Additive `sendData(_:toPeers:completion:)` and `sendMessage(_:toPeers:completion:)` report per-peer failures once the local stack has processed the send, on both backends. Success does not mean delivery. The fire-and-forget overloads remain best-effort. | Contract defined and tested; delivery receipts remain application-level. |
-| Identity | Bonjour and handshake identifiers/display names are self-asserted. A group PSK authenticates only possession of the shared group key. | Blocking for stable/default. Do not authorize or audit by `Peer` identity today. |
+| Identity | Bonjour and handshake identifiers/display names are self-asserted. A group PSK authenticates only possession of the shared group key. `.certificate(identity:)` authenticates key possession per peer with mutual TLS 1.3 and gates registration on the app's certificate policy; binding the certificate to the identifier is the policy's job. | Blocking for stable/default until the binding and security-review items below close. Without a binding certificate policy, do not authorize or audit by `Peer` identity. |
 | Policy | Handshake, connection, and discovery caps are fixed/internal; TCP keepalive bounds dead connections instead of an idle timeout. The internal bounded Observable path is opt-in and does not bound legacy event submissions or caller-managed waiting tasks. | Validate defaults and add missing resource bounds before stable use on untrusted/local hostile networks. Public tuning is required only if validated products need it. |
 | Device evidence | Automated Network tests are local loopback/simulator-oriented; the documented physical-device matrix has not been completed by this stack. | Blocking for stable/default. |
 
@@ -59,7 +59,7 @@ Do not remove the “experimental/beta” label until every item is complete:
 
 ### Security and protocol
 
-- [ ] Select and implement one individually authenticated trust mode from `NetworkTrustModelPlan.md`.
+- [x] Select and implement one individually authenticated trust mode from `NetworkTrustModelPlan.md`. *(Certificate mode with an app verifier, options 3+4: mutual TLS 1.3, policy decision before two-sided admission. Covered by coordinator and real-TLS loopback tests.)*
 - [ ] Bind authenticated principal, stable transport identifier, and mutable display name before registration, connected/data events, or duplicate resolution.
 - [ ] Fail closed and add spoofing, identity-mismatch, replay, stale/revoked credential, downgrade, timeout, cancellation, and verifier-error tests.
 - [ ] Complete focused security and privacy review with no unresolved high-severity findings.

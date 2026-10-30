@@ -41,6 +41,7 @@
 		30NETCOORDTEST2606252 /* NetworkPeerCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30NETCOORDTEST2606251 /* NetworkPeerCoordinatorTests.swift */; };
 		30TRANSTEST2606230002 /* PeerConnectionManagerTransportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30TRANSTEST2606230001 /* PeerConnectionManagerTransportTests.swift */; };
 		30IDENTTEST2606230002 /* PeerIdentityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30IDENTTEST2606230001 /* PeerIdentityTests.swift */; };
+		30CERTFIXT2610290002 /* PeerNetworkCertificateFixtures.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30CERTFIXT2610290001 /* PeerNetworkCertificateFixtures.swift */; };
 		30NETPROTOTEST2606232 /* PeerNetworkProtocolTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30NETPROTOTEST2606231 /* PeerNetworkProtocolTests.swift */; };
 		30OBSTEST2607210002 /* ObservableThreadSafetyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30OBSTEST2607210001 /* ObservableThreadSafetyTests.swift */; };
 		30NETADAPTTEST2607302 /* NetworkPeerTransportAdapterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30NETADAPTTEST2607301 /* NetworkPeerTransportAdapterTests.swift */; };
@@ -85,6 +86,7 @@
 		30NETCOORDTEST2606251 /* NetworkPeerCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkPeerCoordinatorTests.swift; sourceTree = "<group>"; };
 		30TRANSTEST2606230001 /* PeerConnectionManagerTransportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeerConnectionManagerTransportTests.swift; sourceTree = "<group>"; };
 		30IDENTTEST2606230001 /* PeerIdentityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeerIdentityTests.swift; sourceTree = "<group>"; };
+		30CERTFIXT2610290001 /* PeerNetworkCertificateFixtures.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeerNetworkCertificateFixtures.swift; sourceTree = "<group>"; };
 		30NETPROTOTEST2606231 /* PeerNetworkProtocolTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeerNetworkProtocolTests.swift; sourceTree = "<group>"; };
 		30OBSTEST2607210001 /* ObservableThreadSafetyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObservableThreadSafetyTests.swift; sourceTree = "<group>"; };
 		30NETADAPTTEST2607301 /* NetworkPeerTransportAdapterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkPeerTransportAdapterTests.swift; sourceTree = "<group>"; };
@@ -201,6 +203,7 @@
 				3086CD311D09FB9900E269A3 /* PeerConnectivityTests.swift */,
 				30TRANSTEST2606230001 /* PeerConnectionManagerTransportTests.swift */,
 				30IDENTTEST2606230001 /* PeerIdentityTests.swift */,
+				30CERTFIXT2610290001 /* PeerNetworkCertificateFixtures.swift */,
 				30NETREGTEST26062401 /* NetworkPeerConnectionRegistryTests.swift */,
 				30NETDATATEST2606241 /* NetworkPeerDataSenderTests.swift */,
 				30NETCOORDTEST2606251 /* NetworkPeerCoordinatorTests.swift */,
@@ -372,6 +375,7 @@
 				3086CD321D09FB9900E269A3 /* PeerConnectivityTests.swift in Sources */,
 				30TRANSTEST2606230002 /* PeerConnectionManagerTransportTests.swift in Sources */,
 				30IDENTTEST2606230002 /* PeerIdentityTests.swift in Sources */,
+				30CERTFIXT2610290002 /* PeerNetworkCertificateFixtures.swift in Sources */,
 				30NETREGTEST26062402 /* NetworkPeerConnectionRegistryTests.swift in Sources */,
 				30NETDATATEST2606242 /* NetworkPeerDataSenderTests.swift in Sources */,
 				30NETCOORDTEST2606252 /* NetworkPeerCoordinatorTests.swift in Sources */,
