@@ -17,8 +17,9 @@ private final class MockCoordinatorConnection : NetworkPeerFrameSending {
     internal private(set) var sentFrames : [PeerNetworkFrame] = []
     internal private(set) var cancelCallCount = 0
 
-    internal func sendFrame(_ frame: PeerNetworkFrame) {
+    internal func sendFrame(_ frame: PeerNetworkFrame, onProcessed: @escaping (Error?) -> Void) {
         sentFrames.append(frame)
+        onProcessed(nil)
     }
 
     internal func cancel() {

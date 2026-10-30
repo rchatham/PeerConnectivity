@@ -129,6 +129,10 @@ public enum PeerConnectionError : Error {
      The Network browser that discovers nearby peers failed to start or stopped.
      */
     case browsingFailed(underlying: Error)
+    /**
+     A targeted send could not be attempted because the peer has no connection.
+     */
+    case peerNotConnected(Peer)
 }
 
 /**

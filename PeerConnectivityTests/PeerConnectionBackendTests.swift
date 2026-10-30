@@ -23,6 +23,10 @@ private final class BackendSelectorMockSessionTransport : PeerSessionTransport {
 
     internal func sendData(_ data: Data, toPeers peers: [Peer]) {}
 
+    internal func sendData(_ data: Data, toPeers peers: [Peer], completion: @escaping ([Peer:Error]) -> Void) {
+        completion([:])
+    }
+
     internal func sendDataStream(_ streamName: String, toPeer peer: Peer) throws -> OutputStream {
         return OutputStream.toMemory()
     }

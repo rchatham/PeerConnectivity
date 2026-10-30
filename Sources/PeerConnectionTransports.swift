@@ -16,6 +16,8 @@ internal protocol PeerSessionTransport {
     func startSession()
     func stopSession()
     func sendData(_ data: Data, toPeers peers: [Peer])
+    /// Reports per-peer failures once the local stack has processed the send; empty means success.
+    func sendData(_ data: Data, toPeers peers: [Peer], completion: @escaping ([Peer:Error]) -> Void)
     func sendDataStream(_ streamName: String, toPeer peer: Peer) throws -> OutputStream
     func sendResourceAtURL(_ resourceURL: URL,
         withName name: String,

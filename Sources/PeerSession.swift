@@ -45,14 +45,20 @@ internal struct PeerSession : MultipeerSessionTransport {
     }
     
     internal func sendData(_ data: Data, toPeers peers: [Peer] = []) {
+        sendData(data, toPeers: peers) { _ in }
+    }
+
+    internal func sendData(_ data: Data, toPeers peers: [Peer], completion: @escaping ([Peer:Error]) -> Void) {
+        let targets = peers.isEmpty ? connectedPeers : peers
         do {
             try session.send(data,
-                toPeers: peers.isEmpty
-                    ? session.connectedPeers
-                    : peers.map { $0.peerID },
+                toPeers: targets.map { $0.peerID },
                 with: MCSessionSendDataMode.reliable)
+            completion([:])
         } catch let error {
             NSLog("%@", "Error sending data: \(error)")
+            // MCSession reports one error for the whole send, so every target failed.
+            completion(Dictionary(targets.map { ($0, error) }, uniquingKeysWith: { first, _ in first }))
         }
     }
     

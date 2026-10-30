@@ -48,7 +48,7 @@ Verified against `Sources`, `PeerConnectivityTests`, and the current stacked doc
 | Public MC session | `multipeerSession` remains public and traps when used with Network. | Tolerable only during dual-backend transition; deprecate and replace before MC removal. |
 | Security certificate event | `.receivedCertificate` reflects MC delegate behavior and has no Network equivalent. | Document as MC-only before stable; deprecate/remove or replace before MC removal. |
 | Discovery/start failures | Network listener and browser failures, Local Network denial, listener creation errors, and invalid discovery info surface as `.error(PeerConnectionError)`; per-connection failures surface as `devicesChanged(.notConnected)`. MC errors are unchanged. | Contract documented and unit-tested; on-device permission flows remain part of the device matrix. |
-| Send outcomes | Public `sendData`/`sendMessage` do not report asynchronous send failure on either backend; Network send completions are currently discarded. | Define and test the stable support contract. Add an outcome API if production requirements cannot tolerate best-effort caller visibility. |
+| Send outcomes | Additive `sendData(_:toPeers:completion:)` and `sendMessage(_:toPeers:completion:)` report per-peer failures once the local stack has processed the send, on both backends. Success does not mean delivery. The fire-and-forget overloads remain best-effort. | Contract defined and tested; delivery receipts remain application-level. |
 | Identity | Bonjour and handshake identifiers/display names are self-asserted. A group PSK authenticates only possession of the shared group key. | Blocking for stable/default. Do not authorize or audit by `Peer` identity today. |
 | Policy | Handshake, connection, and discovery caps are fixed/internal; TCP keepalive bounds dead connections instead of an idle timeout. The internal bounded Observable path is opt-in and does not bound legacy event submissions or caller-managed waiting tasks. | Validate defaults and add missing resource bounds before stable use on untrusted/local hostile networks. Public tuning is required only if validated products need it. |
 | Device evidence | Automated Network tests are local loopback/simulator-oriented; the documented physical-device matrix has not been completed by this stack. | Blocking for stable/default. |
@@ -70,7 +70,7 @@ Do not remove the “experimental/beta” label until every item is complete:
 - [x] Forward Network browser, listener, permission-related, and connection failures through a documented public error/state contract. *(`PeerConnectionError`; see `NetworkBackendGuide.md` "Errors".)*
 - [x] Add discovery bounds and idle-connection lifecycle policy, or document evidence that an alternate bound closes those resource-exhaustion paths. *(64-identity discovery cap; TCP keepalive replaces an idle timeout because quiet-but-alive peers are valid mesh members. See `NetworkBackendGuide.md` "Connection policy defaults".)*
 - [ ] Validate the 10-second/16-pending/8-connected defaults under expected load, churn, backgrounding, and hostile discovery. Expose configuration only where evidence establishes a consumer need.
-- [ ] Decide whether reliable-message send completion/failure needs public API; test whichever contract is selected.
+- [x] Decide whether reliable-message send completion/failure needs public API; test whichever contract is selected. *(Additive completion overloads; see `NetworkBackendGuide.md` "Send outcomes".)*
 - [ ] Run soak/churn tests for repeated start/stop, background/foreground, peer loss, duplicate races, malformed traffic, and capacity recovery.
 
 ### Product and validation
@@ -142,7 +142,7 @@ No optional implementation is required to merge this documentation audit or the 
 | Device/AWDL/topology behavior differs from loopback/simulator | High | `includePeerToPeer`, isolated E2E CI, manual checklist | Recorded physical-device regression matrix before stable |
 | MC-only stream/resource consumers break on switch/removal | High | Explicit unsupported errors and MC default | Migration plan before default; replacement or breaking removal before MC deletion |
 | `.inviteOnly` implies approval semantics Network does not provide | High for approval-dependent apps | App-owned UI guidance | Freeze contract and validate adopting app before stable/default |
-| Asynchronous send failures are invisible to callers | Medium–high | TCP/TLS and connection-state cleanup | Decide/test contract before stable; add API if required |
+| Callers mistake local send success for delivery | Low–medium | Documented "processed locally, not delivered" contract | Application-level acknowledgements where receipts matter |
 | Internal policy defaults do not fit larger meshes | Medium | Conservative fixed caps and unit tests | Device/load evidence; public configuration only if needed |
 | Bonjour, VPN, firewall, guest/managed network, or permission policy blocks operation | Medium | Production setup and troubleshooting caveats | Device/topology validation and actionable errors before stable |
 | Protocol evolution strands or downgrades peers | Medium–high | Handshake version rejects unsupported versions | Versioned trust negotiation and interoperability tests before stable |

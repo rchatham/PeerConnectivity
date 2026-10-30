@@ -168,6 +168,27 @@ let message = ChatMessage(text: "hello")
 manager.sendMessage(message, toPeers: manager.connectedPeers)
 ```
 
+### Send outcomes
+
+The fire-and-forget overloads above remain best-effort. When a caller needs to know whether a send failed, use the completion overloads. They work on both backends:
+
+```swift
+try manager.sendMessage(message, toPeers: manager.connectedPeers) { failures in
+    // Called once on the main queue. Empty means every send was accepted locally.
+    for (peer, error) in failures {
+        print("send to \(peer.displayName) failed: \(error)")
+    }
+}
+```
+
+Contract:
+
+- Success means the **local networking stack processed** the send (Network `contentProcessed`, or `MCSession.send` not throwing). It does **not** confirm that the remote app received the data. Use an application-level acknowledgement message if you need delivery receipts.
+- Under Network, each target peer is reported independently. A targeted peer with no registered connection fails with `PeerConnectionError.peerNotConnected`.
+- MultipeerConnectivity reports one error per send call, so every target of a failed send is listed with that error.
+- Broadcasting (`toPeers: []`) with no connected peers completes with no failures.
+- `sendMessage(_:toPeers:completion:)` throws synchronously if the message cannot be encoded, and nothing is sent.
+
 ## Stream and resource compatibility decision
 
 `sendDataStream`, `sendResourceAtURL`, `.receivedStream`, `.startedReceivingResource`, and `.finishedReceivingResource` remain MultipeerConnectivity-only APIs for the current Network backend. They are not deprecated because they remain supported when using `.multipeerConnectivity`, but selecting `.networkFramework` does not provide alternate stream or resource semantics.

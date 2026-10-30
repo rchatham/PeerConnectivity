@@ -75,8 +75,20 @@ final class NetworkPeerLoopbackTests : XCTestCase {
         defer { alice.stop() }
 
         wait(for: [aliceFoundBob, bobFoundAlice, aliceConnected, bobConnected], timeout: 15)
-        alice.sendMessage(LoopbackMessage(text: "hello"), toPeers: alice.connectedPeers)
-        wait(for: [bobReceivedMessage], timeout: 5)
+        let aliceSendProcessed = expectation(description: "Alice send processed")
+        let strangerSendFailed = expectation(description: "Send to unconnected peer failed")
+        let stranger = Peer(displayName: "Stranger")
+        XCTAssertNoThrow(try alice.sendMessage(LoopbackMessage(text: "hello"), toPeers: alice.connectedPeers) { failures in
+            XCTAssertTrue(failures.isEmpty, "Sends to a connected peer must be processed without failures")
+            aliceSendProcessed.fulfill()
+        })
+        alice.sendData(Data([1]), toPeers: [stranger]) { failures in
+            guard case .peerNotConnected? = failures[stranger] as? PeerConnectionError else {
+                return XCTFail("Targeted sends to unconnected peers must report peerNotConnected")
+            }
+            strangerSendFailed.fulfill()
+        }
+        wait(for: [bobReceivedMessage, aliceSendProcessed, strangerSendFailed], timeout: 5)
     }
 
     internal func testNetworkBackendExchangesMessagesBidirectionallyAndHandlesLargePayload() {

@@ -66,6 +66,10 @@ internal final class NetworkPeerSessionTransport : PeerSessionTransport {
         coordinator.sendData(data, toPeers: peers)
     }
 
+    internal func sendData(_ data: Data, toPeers peers: [Peer], completion: @escaping ([Peer:Error]) -> Void) {
+        coordinator.sendData(data, toPeers: peers, completion: completion)
+    }
+
     internal func sendDataStream(_ streamName: String, toPeer peer: Peer) throws -> OutputStream {
         throw NSError(domain: "PeerConnectivity.NetworkPeerSessionTransport", code: 1, userInfo: [
             NSLocalizedDescriptionKey: "Network framework transport does not support data streams yet.",

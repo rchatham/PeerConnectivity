@@ -589,6 +589,25 @@ extension PeerConnectionManager {
     public func sendData(_ data: Data, toPeers peers: [Peer] = []) {
         session.sendData(data, toPeers: peers)
     }
+
+    /**
+     Send data to connected users and report which sends failed. If no peer is specified it
+     broadcasts to all users on a current session.
+
+     The completion runs once on the main queue after the local networking stack has processed
+     the send. An empty dictionary means every send was accepted locally; it does **not** confirm
+     that a peer received the data. Broadcasting with no connected peers completes with no failures.
+
+     - parameter data: Data to be sent to specified peers.
+     - parameter toPeers: Specified `Peer` objects to send data.
+     - parameter completion: Errors keyed by the `Peer` whose send failed. Targeted peers without a
+       Network connection fail with `PeerConnectionError.peerNotConnected`.
+     */
+    public func sendData(_ data: Data, toPeers peers: [Peer] = [], completion: @escaping ([Peer:Error]) -> Void) {
+        session.sendData(data, toPeers: peers) { failures in
+            DispatchQueue.main.async { completion(failures) }
+        }
+    }
     
     /**
      Send events to connected users. Encoded as Data using the NSKeyedArchiver. If no peer is specified it broadcasts to all users on a current session.
@@ -628,14 +647,29 @@ extension PeerConnectionManager {
      */
     public func sendMessage<T: PeerMessage>(_ message: T, toPeers peers: [Peer] = []) {
         do {
-            var envelope: [String: Data] = [:]
-            envelope["type"] = T.messageType.data(using: .utf8)
-            envelope["payload"] = try JSONEncoder().encode(message)
-            let data = try JSONEncoder().encode(envelope)
-            session.sendData(data, toPeers: peers)
+            session.sendData(try PeerConnectionManager.messageEnvelope(for: message), toPeers: peers)
         } catch {
             NSLog("PeerConnectivity: Failed to encode message: \(error.localizedDescription)")
         }
+    }
+
+    /**
+     Send a typed message and report which sends failed. Completion semantics match
+     `sendData(_:toPeers:completion:)`.
+
+     - Throws: The encoding error if the message cannot be encoded; nothing is sent.
+     */
+    public func sendMessage<T: PeerMessage>(_ message: T,
+        toPeers peers: [Peer] = [],
+        completion: @escaping ([Peer:Error]) -> Void) throws {
+        sendData(try PeerConnectionManager.messageEnvelope(for: message), toPeers: peers, completion: completion)
+    }
+
+    private static func messageEnvelope<T: PeerMessage>(for message: T) throws -> Data {
+        var envelope: [String: Data] = [:]
+        envelope["type"] = T.messageType.data(using: .utf8)
+        envelope["payload"] = try JSONEncoder().encode(message)
+        return try JSONEncoder().encode(envelope)
     }
 
     /**

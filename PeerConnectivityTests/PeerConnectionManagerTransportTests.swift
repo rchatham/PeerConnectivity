@@ -16,6 +16,7 @@ private final class MockPeerSessionTransport : PeerSessionTransport {
     internal var startSessionCallCount = 0
     internal var stopSessionCallCount = 0
     internal var sentData : [(data: Data, peers: [Peer])] = []
+    internal var sendFailures : [Peer:Error] = [:]
 
     internal var multipeerSession : MCSession {
         XCTFail("Mock session should not expose a real MCSession")
@@ -36,6 +37,12 @@ private final class MockPeerSessionTransport : PeerSessionTransport {
 
     internal func sendData(_ data: Data, toPeers peers: [Peer]) {
         sentData.append((data: data, peers: peers))
+    }
+
+    internal func sendData(_ data: Data, toPeers peers: [Peer], completion: @escaping ([Peer:Error]) -> Void) {
+        sentData.append((data: data, peers: peers))
+        let failures = sendFailures
+        DispatchQueue.global().async { completion(failures) }
     }
 
     internal func sendDataStream(_ streamName: String, toPeer peer: Peer) throws -> OutputStream {
@@ -135,6 +142,11 @@ private final class PeerConnectionTransportHarness {
     }
 }
 
+private struct SendOutcomeMessage : PeerMessage {
+    static let messageType = "send-outcome"
+    let text : String
+}
+
 final class PeerConnectionManagerTransportTests : XCTestCase {
 
     internal func testStartBrowsingOnlyUsesInjectedSessionAndBrowser() async {
@@ -198,6 +210,45 @@ final class PeerConnectionManagerTransportTests : XCTestCase {
         XCTAssertEqual(harness.session?.sentData.count, 1)
         XCTAssertEqual(harness.session?.sentData.first?.data, data)
         XCTAssertEqual(harness.session?.sentData.first?.peers, [])
+    }
+
+    internal func testSendDataCompletionReportsSessionFailuresOnMainQueue() async {
+        let harness = PeerConnectionTransportHarness()
+        let manager = PeerConnectionManager(serviceType: "test-service",
+            displayName: "Local",
+            transportFactory: harness.factory)
+        let remote = Peer(displayName: "Remote")
+        harness.session?.sendFailures = [remote: PeerConnectionError.peerNotConnected(remote)]
+        let expectation = self.expectation(description: "Send completion")
+
+        manager.sendData(Data([7]), toPeers: [remote]) { failures in
+            XCTAssertTrue(Thread.isMainThread)
+            guard case .peerNotConnected(let peer)? = failures[remote] as? PeerConnectionError else {
+                return XCTFail("Session failures must reach the caller keyed by peer")
+            }
+            XCTAssertEqual(peer, remote)
+            expectation.fulfill()
+        }
+
+        await fulfillment(of: [expectation], timeout: 1)
+        XCTAssertEqual(harness.session?.sentData.first?.peers, [remote])
+    }
+
+    internal func testSendMessageCompletionWrapsTypedEnvelope() async throws {
+        let harness = PeerConnectionTransportHarness()
+        let manager = PeerConnectionManager(serviceType: "test-service",
+            displayName: "Local",
+            transportFactory: harness.factory)
+        let expectation = self.expectation(description: "Message completion")
+
+        try manager.sendMessage(SendOutcomeMessage(text: "hi")) { failures in
+            XCTAssertTrue(failures.isEmpty)
+            expectation.fulfill()
+        }
+
+        await fulfillment(of: [expectation], timeout: 1)
+        let envelope = try JSONDecoder().decode([String: Data].self, from: harness.session?.sentData.first?.data ?? Data())
+        XCTAssertEqual(envelope["type"].flatMap { String(data: $0, encoding: .utf8) }, SendOutcomeMessage.messageType)
     }
 
     internal func testSessionDataEventForwardsReceivedData() async {
