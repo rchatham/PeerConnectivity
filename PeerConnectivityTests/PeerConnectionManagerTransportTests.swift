@@ -273,6 +273,26 @@ final class PeerConnectionManagerTransportTests : XCTestCase {
         await fulfillment(of: [expectation], timeout: 1)
     }
 
+    internal func testNetworkBrowserFailureForwardsPeerConnectionError() async {
+        let harness = PeerConnectionTransportHarness()
+        let manager = PeerConnectionManager(serviceType: "test-service",
+            displayName: "Local",
+            transportFactory: harness.factory)
+        let expectation = self.expectation(description: "Error event")
+
+        manager.listenOn({ event in
+            guard case .error(let error) = event,
+                case .localNetworkAccessDenied? = error as? PeerConnectionError else { return }
+            expectation.fulfill()
+        }, performListenerInBackground: true, withKey: "network-error")
+
+        await startBrowsingOnly(manager)
+        let denial = PeerConnectionError.localNetworkAccessDenied(underlying: NSError(domain: "test", code: 1))
+        await harness.browserObserver?.updateAsync(.didNotStartBrowsingForPeers(denial))
+
+        await fulfillment(of: [expectation], timeout: 1)
+    }
+
     internal func testTransportEventAfterStopDoesNotEmitReceivedData() async {
         let harness = PeerConnectionTransportHarness()
         let manager = PeerConnectionManager(serviceType: "test-service",

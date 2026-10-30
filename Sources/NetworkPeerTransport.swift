@@ -247,7 +247,7 @@ internal final class NetworkPeerBrowser : NetworkPeerBrowsing {
     fileprivate let browser : NWBrowser
     fileprivate let queue : DispatchQueue
     fileprivate var resultHandler : ResultHandler?
-    fileprivate let stateHandler : StateHandler?
+    fileprivate var stateHandler : StateHandler?
 
     internal init(serviceType: ServiceType,
         queue: DispatchQueue = DispatchQueue(label: "PeerConnectivity.NetworkPeerBrowser"),
@@ -264,6 +264,10 @@ internal final class NetworkPeerBrowser : NetworkPeerBrowsing {
 
     internal func setResultHandler(_ resultHandler: ResultHandler?) {
         self.resultHandler = resultHandler
+    }
+
+    internal func setStateHandler(_ stateHandler: StateHandler?) {
+        self.stateHandler = stateHandler
     }
 
     internal func start() {

@@ -72,7 +72,8 @@ public enum PeerConnectionEvent {
      */
     case receivedCertificate(peer: Peer, certificate: [Any]?, handler: (Bool)->Void)
     /**
-     Received a `PeerConnectionError`.
+     Received an error. The Network framework backend emits `PeerConnectionError` values;
+     the MultipeerConnectivity backend emits the framework's own errors.
      */
     case error(Error)
     /**
@@ -107,6 +108,27 @@ public enum PeerConnectionEvent {
      compatibility and the supplied handler does not affect the invitation decision.
      */
     case receivedInvitation(peer: Peer, withContext: Data?, invitationHandler: (Bool)->Void)
+}
+
+/**
+ Errors emitted through `PeerConnectionEvent.error` by the Network framework backend.
+
+ The MultipeerConnectivity backend continues to emit the framework's own errors unchanged.
+ */
+public enum PeerConnectionError : Error {
+    /**
+     The system denied Local Network access, so Bonjour discovery or advertising cannot proceed.
+     The user can grant access in Settings; the backend resumes when access is restored.
+     */
+    case localNetworkAccessDenied(underlying: Error)
+    /**
+     The Network listener that accepts inbound peer connections failed to start or stopped.
+     */
+    case advertisingFailed(underlying: Error)
+    /**
+     The Network browser that discovers nearby peers failed to start or stopped.
+     */
+    case browsingFailed(underlying: Error)
 }
 
 /**

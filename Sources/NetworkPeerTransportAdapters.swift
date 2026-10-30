@@ -46,11 +46,15 @@ internal final class NetworkPeerSessionTransport : PeerSessionTransport {
         listener.start()
     }
 
-    internal func configureListener(serviceType: ServiceType) {
+    internal func configureListener(serviceType: ServiceType,
+        advertiserObserver: Observable<PeerAdvertiserEvent>? = nil) {
         listener = NetworkPeerSessionTransport.makeListener(peer: peer,
             coordinator: coordinator,
             serviceType: serviceType,
-            security: security)
+            security: security,
+            failureHandler: { error in
+                advertiserObserver?.update(.didNotStartAdvertisingPeer(error))
+            })
     }
 
     internal func stopSession() {
@@ -109,7 +113,8 @@ internal final class NetworkPeerSessionTransport : PeerSessionTransport {
     fileprivate static func makeListener(peer: Peer,
         coordinator: NetworkPeerCoordinator<NetworkPeerConnection>,
         serviceType: ServiceType,
-        security: PeerConnectionNetworkSecurity) -> NetworkPeerListening {
+        security: PeerConnectionNetworkSecurity,
+        failureHandler: @escaping (PeerConnectionError) -> Void) -> NetworkPeerListening {
         do {
             return try NetworkPeerListener(serviceType: serviceType,
                 identity: peer.identity,
@@ -128,10 +133,14 @@ internal final class NetworkPeerSessionTransport : PeerSessionTransport {
                     }
                 }
                 coordinator.addPendingConnection(connection, direction: .inbound)
+            }, stateHandler: { state in
+                guard let error = NetworkPeerStateMapping.error(for: state) else { return }
+                failureHandler(error)
             })
         } catch let error {
             NSLog("%@", "Error creating Network listener for \(peer.displayName): \(error)")
-            return FailedNetworkPeerListener()
+            return FailedNetworkPeerListener(error: .advertisingFailed(underlying: error),
+                failureHandler: failureHandler)
         }
     }
 }
@@ -157,6 +166,9 @@ internal final class NetworkPeerBrowserTransport : PeerBrowserTransport {
             browserObserver: browserObserver)
         browser.setResultHandler { [weak self] change in
             self?.handleBrowserResultChange(change)
+        }
+        browser.setStateHandler { [weak self] state in
+            self?.handleBrowserState(state)
         }
     }
 
@@ -184,6 +196,11 @@ internal final class NetworkPeerBrowserTransport : PeerBrowserTransport {
     internal func stopBrowsing() {
         browser.cancel()
         lockedEndpoints { endpointsByIdentity.removeAll() }
+    }
+
+    internal func handleBrowserState(_ state: NWBrowser.State) {
+        guard let error = NetworkPeerStateMapping.error(for: state) else { return }
+        browserObserver.update(.didNotStartBrowsingForPeers(error))
     }
 
     internal func handleBrowserResultChange(_ change: NWBrowser.Result.Change) {
@@ -250,11 +267,12 @@ internal final class NetworkPeerAdvertiserTransport : PeerAdvertiserTransport {
 
     internal init(session: NetworkPeerSessionTransport,
         serviceType: ServiceType,
-        advertiserObserver _: Observable<PeerAdvertiserEvent>,
+        advertiserObserver: Observable<PeerAdvertiserEvent>,
         configureListener: Bool = true) {
         self.session = session
         if configureListener {
-            self.session.configureListener(serviceType: serviceType)
+            self.session.configureListener(serviceType: serviceType,
+                advertiserObserver: advertiserObserver)
         }
     }
 
@@ -275,7 +293,21 @@ internal final class NetworkPeerAdvertiserAssisstantTransport : PeerAdvertiserAs
 
 @available(iOS 13.0, macOS 10.15, *)
 internal final class FailedNetworkPeerListener : NetworkPeerListening {
-    internal func start() {}
+
+    fileprivate let error : PeerConnectionError?
+    fileprivate let failureHandler : ((PeerConnectionError) -> Void)?
+
+    /// Reports a listener creation failure when started, after the manager's observers exist.
+    internal init(error: PeerConnectionError? = nil,
+        failureHandler: ((PeerConnectionError) -> Void)? = nil) {
+        self.error = error
+        self.failureHandler = failureHandler
+    }
+
+    internal func start() {
+        guard let error = error else { return }
+        failureHandler?(error)
+    }
 
     internal func cancel() {}
 }
