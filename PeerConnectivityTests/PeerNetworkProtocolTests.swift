@@ -140,6 +140,22 @@ final class PeerNetworkProtocolTests : XCTestCase {
     }
 
     @available(iOS 13.0, macOS 10.15, *)
+    internal func testCertificateParametersRequireTLS13WithoutCapping() throws {
+        var receivedMinimumVersions : [tls_protocol_version_t] = []
+        var maximumSetterCallCount = 0
+
+        let parameters = NetworkPeerConnection.parameters(
+            security: .certificate(identity: try PeerNetworkCertificateFixtures.identity(.alice)),
+            minimumTLSVersionSetter: { _, version in receivedMinimumVersions.append(version) },
+            maximumTLSVersionSetter: { _, _ in maximumSetterCallCount += 1 }
+        )
+
+        XCTAssertEqual(receivedMinimumVersions, [.TLSv13])
+        XCTAssertEqual(maximumSetterCallCount, 0)
+        XCTAssertTrue(parameters.includePeerToPeer)
+    }
+
+    @available(iOS 13.0, macOS 10.15, *)
     internal func testUnauthenticatedParametersDoNotConfigureTLSVersions() {
         var minimumSetterCallCount = 0
         var maximumSetterCallCount = 0

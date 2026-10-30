@@ -103,6 +103,8 @@ internal struct PeerNetworkHandshake : Codable, Equatable {
 internal enum PeerNetworkFrameKind : UInt8 {
     case data = 1
     case handshake = 2
+    /// Sent once local admission checks pass; used only by modes that gate registration.
+    case admitted = 3
 }
 
 internal enum PeerNetworkFrameDecodeResult {

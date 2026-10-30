@@ -46,6 +46,14 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
 
     internal typealias HandshakeEncoder = (PeerNetworkHandshake) throws -> Data
 
+    /// Registration waits for both the local decision and the remote peer's `.admitted` frame,
+    /// so neither side reports the other connected (or sends data) before both have decided.
+    fileprivate struct PendingAdmission {
+        internal let identity : PeerIdentity
+        internal var isLocallyAccepted = false
+        internal var isRemotelyAdmitted = false
+    }
+
     fileprivate struct PendingConnection {
         internal let connection : Connection
         internal let direction : NetworkPeerConnectionDirection
@@ -59,18 +67,23 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
     fileprivate let sessionObserver : Observable<PeerSessionEvent>
     fileprivate let policy : NetworkPeerConnectionPolicy
     fileprivate let handshakeEncoder : HandshakeEncoder
+    fileprivate let requiresCertificateDecision : Bool
     fileprivate var pendingConnections : [ObjectIdentifier:PendingConnection] = [:]
     fileprivate var connectionIdentities : [ObjectIdentifier:PeerIdentity] = [:]
+    /// Handshaken connections held pending until both peers admit each other.
+    fileprivate var pendingAdmissions : [ObjectIdentifier:PendingAdmission] = [:]
 
     internal init(localPeer: Peer,
         sessionObserver: Observable<PeerSessionEvent>,
         policy: NetworkPeerConnectionPolicy = NetworkPeerConnectionPolicy(),
+        requiresCertificateDecision: Bool = false,
         handshakeEncoder: @escaping HandshakeEncoder = { try JSONEncoder().encode($0) }) {
         self.localPeer = localPeer
         self.registry = NetworkPeerConnectionRegistry(localIdentity: localPeer.identity)
         self.dataSender = NetworkPeerDataSender(registry: registry)
         self.sessionObserver = sessionObserver
         self.policy = policy
+        self.requiresCertificateDecision = requiresCertificateDecision
         self.handshakeEncoder = handshakeEncoder
     }
 
@@ -112,6 +125,8 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
                 return receiveHandshake(frame.payload, from: connection)
             case .data:
                 return receiveData(frame.payload, from: connection)
+            case .admitted:
+                return receiveAdmitted(from: connection)
             }
         }
         guard let event = event else { return }
@@ -137,6 +152,7 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
         var connectionToCancel : Connection?
         let event : PeerSessionEvent? = queue.sync {
             let identifier = ObjectIdentifier(connection)
+            pendingAdmissions.removeValue(forKey: identifier)
             if let pending = pendingConnections.removeValue(forKey: identifier) {
                 pending.timeout.cancel()
                 connectionToCancel = pending.connection
@@ -160,6 +176,7 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
                 $0.connection.cancel()
             }
             pendingConnections.removeAll()
+            pendingAdmissions.removeAll()
             connectionIdentities.removeAll()
             registry.cancelAll()
         }
@@ -192,29 +209,89 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
             return .devicesChanged(peer: Peer(identity: registeredIdentity, status: .notConnected),
                 connectedPeers: connectedPeerSnapshot())
         }
-        guard let pending = pendingConnections.removeValue(forKey: identifier) else {
+        guard pendingAdmissions[identifier] == nil else {
+            // A second handshake while admission is pending is a protocol violation.
+            rejectHandshake(from: connection)
+            return nil
+        }
+        guard pendingConnections[identifier] != nil else {
             connection.cancel()
             return nil
         }
+        if requiresCertificateDecision {
+            pendingAdmissions[identifier] = PendingAdmission(identity: handshake.identity)
+            return .didReceiveCertificate(peer: Peer(identity: handshake.identity, status: .notConnected),
+                certificate: connection.peerCertificateChain,
+                handler: { [weak self, weak connection] accept in
+                    guard let self = self, let connection = connection else { return }
+                    self.queue.async {
+                        guard let event = self.completeCertificateDecision(accept, for: connection) else { return }
+                        self.sessionObserver.update(event)
+                    }
+                })
+        }
+        guard let pending = pendingConnections.removeValue(forKey: identifier) else { return nil }
+        return register(handshake.identity, connection: connection, pending: pending)
+    }
+
+    /// Applies a certificate decision once; late, repeated, or expired decisions are ignored.
+    fileprivate func completeCertificateDecision(_ accept: Bool, for connection: Connection) -> PeerSessionEvent? {
+        let identifier = ObjectIdentifier(connection)
+        guard var admission = pendingAdmissions[identifier], !admission.isLocallyAccepted else { return nil }
+        guard accept else {
+            rejectHandshake(from: connection)
+            return nil
+        }
+        admission.isLocallyAccepted = true
+        pendingAdmissions[identifier] = admission
+        connection.sendFrame(PeerNetworkFrame(kind: .admitted, payload: Data()))
+        return registerIfAdmitted(connection)
+    }
+
+    fileprivate func receiveAdmitted(from connection: Connection) -> PeerSessionEvent? {
+        let identifier = ObjectIdentifier(connection)
+        guard var admission = pendingAdmissions[identifier], !admission.isRemotelyAdmitted else {
+            // Unsolicited or repeated admission is a protocol violation.
+            rejectHandshake(from: connection)
+            connection.cancel()
+            return nil
+        }
+        admission.isRemotelyAdmitted = true
+        pendingAdmissions[identifier] = admission
+        return registerIfAdmitted(connection)
+    }
+
+    fileprivate func registerIfAdmitted(_ connection: Connection) -> PeerSessionEvent? {
+        let identifier = ObjectIdentifier(connection)
+        guard let admission = pendingAdmissions[identifier],
+            admission.isLocallyAccepted, admission.isRemotelyAdmitted else { return nil }
+        pendingAdmissions.removeValue(forKey: identifier)
+        guard let pending = pendingConnections.removeValue(forKey: identifier) else { return nil }
+        return register(admission.identity, connection: connection, pending: pending)
+    }
+
+    fileprivate func register(_ identity: PeerIdentity,
+        connection: Connection,
+        pending: PendingConnection) -> PeerSessionEvent? {
         pending.timeout.cancel()
-        guard registry.connectedPeerIdentities.count < policy.maxConnectedPeers || registry.connection(for: handshake.identity) != nil else {
+        guard registry.connectedPeerIdentities.count < policy.maxConnectedPeers || registry.connection(for: identity) != nil else {
             connection.cancel()
             return nil
         }
-        let direction = pending.direction
-        let wasConnected = registry.connection(for: handshake.identity) != nil
-        let isRegistered = registry.register(connection, for: handshake.identity, direction: direction)
+        let wasConnected = registry.connection(for: identity) != nil
+        let isRegistered = registry.register(connection, for: identity, direction: pending.direction)
         guard isRegistered else { return nil }
 
-        removeConnectionIdentity(for: handshake.identity)
-        connectionIdentities[identifier] = handshake.identity
+        removeConnectionIdentity(for: identity)
+        connectionIdentities[ObjectIdentifier(connection)] = identity
         guard !wasConnected else { return nil }
-        return .devicesChanged(peer: Peer(identity: handshake.identity, status: .connected),
+        return .devicesChanged(peer: Peer(identity: identity, status: .connected),
             connectedPeers: connectedPeerSnapshot())
     }
 
     fileprivate func rejectHandshake(from connection: Connection) {
         let identifier = ObjectIdentifier(connection)
+        pendingAdmissions.removeValue(forKey: identifier)
         guard let pending = pendingConnections.removeValue(forKey: identifier) else { return }
         pending.timeout.cancel()
         pending.connection.cancel()
@@ -222,6 +299,7 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
 
     fileprivate func expirePendingConnection(_ connection: Connection) {
         let identifier = ObjectIdentifier(connection)
+        pendingAdmissions.removeValue(forKey: identifier)
         guard let pending = pendingConnections.removeValue(forKey: identifier) else { return }
         pending.timeout.cancel()
         pending.connection.cancel()

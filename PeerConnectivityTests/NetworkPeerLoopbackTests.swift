@@ -343,12 +343,145 @@ final class NetworkPeerLoopbackTests : XCTestCase {
         wait(for: [unexpectedAliceConnection, unexpectedBobConnection], timeout: 5)
     }
 
+    internal func testNetworkBackendCertificateModeConnectsPinnedPeersAndExchangesMessage() throws {
+        guard #available(iOS 13.0, macOS 10.15, *) else { return }
+
+        let serviceType = makeServiceType()
+        let alice = try makeCertificateManager(serviceType: serviceType, displayName: "Alice", identity: .alice, pinnedPeer: .bob)
+        let bob = try makeCertificateManager(serviceType: serviceType, displayName: "Bob", identity: .bob, pinnedPeer: .alice)
+        let aliceSawBobCertificate = expectation(description: "Alice observed Bob's certificate")
+        let aliceConnected = expectation(description: "Alice connected")
+        let bobConnected = expectation(description: "Bob connected")
+        let bobReceivedMessage = expectation(description: "Bob received Alice message")
+        aliceSawBobCertificate.assertForOverFulfill = false
+
+        alice.listenOn({ event in
+            switch event {
+            case .receivedCertificate(peer: let peer, certificate: let certificate, handler: _)
+                where peer.displayName == "Bob" && certificate?.isEmpty == false:
+                aliceSawBobCertificate.fulfill()
+            case .devicesChanged(peer: let peer, connectedPeers: let connectedPeers)
+                where peer.displayName == "Bob" && connectedPeers.contains(where: { $0.displayName == "Bob" }):
+                aliceConnected.fulfill()
+            default: break
+            }
+        }, performListenerInBackground: true, withKey: "alice-events")
+
+        bob.listenOn({ event in
+            switch event {
+            case .devicesChanged(peer: let peer, connectedPeers: let connectedPeers)
+                where peer.displayName == "Alice" && connectedPeers.contains(where: { $0.displayName == "Alice" }):
+                bobConnected.fulfill()
+            default: break
+            }
+        }, performListenerInBackground: true, withKey: "bob-events")
+
+        bob.observeMessages(ofType: LoopbackMessage.self, forKey: "bob-message") { message, peer in
+            XCTAssertEqual(peer.displayName, "Alice")
+            XCTAssertEqual(message, LoopbackMessage(text: "pinned"))
+            bobReceivedMessage.fulfill()
+        }
+
+        bob.start()
+        defer { bob.stop() }
+        alice.start()
+        defer { alice.stop() }
+
+        wait(for: [aliceSawBobCertificate, aliceConnected, bobConnected], timeout: 15)
+        alice.sendMessage(LoopbackMessage(text: "pinned"), toPeers: alice.connectedPeers)
+        wait(for: [bobReceivedMessage], timeout: 5)
+    }
+
+    internal func testNetworkBackendCertificatePolicyRejectsUnpinnedPeer() throws {
+        guard #available(iOS 13.0, macOS 10.15, *) else { return }
+
+        let serviceType = makeServiceType()
+        let mallory = try makeCertificateManager(serviceType: serviceType, displayName: "Mallory", identity: .mallory, pinnedPeer: .bob)
+        let bob = try makeCertificateManager(serviceType: serviceType, displayName: "Bob", identity: .bob, pinnedPeer: .alice)
+        let bobEvaluatedMallory = expectation(description: "Bob evaluated Mallory's certificate")
+        let unexpectedConnection = expectation(description: "No peer should connect")
+        bobEvaluatedMallory.assertForOverFulfill = false
+        unexpectedConnection.isInverted = true
+        unexpectedConnection.assertForOverFulfill = false
+
+        bob.listenOn({ event in
+            switch event {
+            case .receivedCertificate(peer: let peer, certificate: _, handler: _) where peer.displayName == "Mallory":
+                bobEvaluatedMallory.fulfill()
+            case .devicesChanged(peer: _, connectedPeers: let connectedPeers) where !connectedPeers.isEmpty:
+                unexpectedConnection.fulfill()
+            default: break
+            }
+        }, performListenerInBackground: true, withKey: "bob-events")
+
+        mallory.listenOn({ event in
+            guard case .devicesChanged(peer: _, connectedPeers: let connectedPeers) = event, !connectedPeers.isEmpty else { return }
+            unexpectedConnection.fulfill()
+        }, performListenerInBackground: true, withKey: "mallory-events")
+
+        bob.start()
+        defer { bob.stop() }
+        mallory.start()
+        defer { mallory.stop() }
+
+        wait(for: [bobEvaluatedMallory], timeout: 15)
+        wait(for: [unexpectedConnection], timeout: 3)
+    }
+
+    internal func testNetworkBackendCertificateModeDoesNotConnectToUnauthenticatedPeer() throws {
+        guard #available(iOS 13.0, macOS 10.15, *) else { return }
+
+        let serviceType = makeServiceType()
+        let alice = try makeCertificateManager(serviceType: serviceType, displayName: "Alice", identity: .alice, pinnedPeer: .bob)
+        let bob = makeManager(serviceType: serviceType, displayName: "Bob", security: .unauthenticated)
+        let unexpectedConnection = expectation(description: "Peers without certificates must not connect")
+        unexpectedConnection.isInverted = true
+        unexpectedConnection.assertForOverFulfill = false
+
+        for manager in [alice, bob] {
+            manager.listenOn({ event in
+                guard case .devicesChanged(peer: _, connectedPeers: let connectedPeers) = event, !connectedPeers.isEmpty else { return }
+                unexpectedConnection.fulfill()
+            }, performListenerInBackground: true, withKey: "no-certificate-events")
+        }
+
+        bob.start()
+        defer { bob.stop() }
+        alice.start()
+        defer { alice.stop() }
+
+        wait(for: [unexpectedConnection], timeout: 5)
+    }
+
     private func makeServiceType() -> String {
         return "pctest-\(UUID().uuidString.prefix(8).lowercased())"
     }
 
     private func makeSecurity() -> PeerConnectionNetworkSecurity {
         return .preSharedKey(Data("shared-loopback-secret".utf8))
+    }
+
+    /// Builds a certificate-mode manager whose policy accepts only `pinnedPeer`'s leaf certificate.
+    @available(iOS 13.0, macOS 10.15, *)
+    private func makeCertificateManager(serviceType: ServiceType,
+        displayName: String,
+        identity: PeerNetworkCertificateFixtures.Name,
+        pinnedPeer: PeerNetworkCertificateFixtures.Name) throws -> PeerConnectionManager {
+        let pinnedCertificate = try PeerNetworkCertificateFixtures.certificateData(pinnedPeer)
+        let configuration = PeerSecurityConfiguration(encryptionPreference: .required,
+            securityIdentity: nil,
+            certificatePolicy: .custom({ _, chain, decide in
+                guard let leaf = chain?.first, CFGetTypeID(leaf as CFTypeRef) == SecCertificateGetTypeID() else {
+                    return decide(false)
+                }
+                decide(SecCertificateCopyData(leaf as! SecCertificate) as Data == pinnedCertificate)
+            }))
+        return PeerConnectionManager(serviceType: serviceType,
+            connectionType: .automatic,
+            displayName: displayName,
+            securityConfiguration: configuration,
+            backend: .networkFramework,
+            networkSecurity: .certificate(identity: try PeerNetworkCertificateFixtures.identity(identity)))
     }
 
     @available(iOS 13.0, macOS 10.15, *)

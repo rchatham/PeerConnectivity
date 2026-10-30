@@ -25,8 +25,13 @@ internal final class NetworkPeerSessionTransport : PeerSessionTransport {
         sessionObserver: Observable<PeerSessionEvent>,
         security: PeerConnectionNetworkSecurity = .unauthenticated) {
         self.peer = peer
+        var requiresCertificateDecision = false
+        if case .certificate = security {
+            requiresCertificateDecision = true
+        }
         let coordinator = NetworkPeerCoordinator<NetworkPeerConnection>(localPeer: peer,
-            sessionObserver: sessionObserver)
+            sessionObserver: sessionObserver,
+            requiresCertificateDecision: requiresCertificateDecision)
         self.coordinator = coordinator
         self.security = security
         self.listener = FailedNetworkPeerListener()

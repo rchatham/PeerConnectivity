@@ -79,9 +79,35 @@ Guidance for app-managed secrets:
 - Treat every holder of the shared key as equally authorized under this mode.
 - Treat Bonjour TXT metadata (`pc-id`, `pc-name`, `pc-v`) as routing/discovery metadata only. It is not a trust assertion.
 
+### Certificate mode
+
+`PeerConnectionNetworkSecurity.certificate(identity:)` authenticates individual peers with mutual TLS 1.3. Each peer presents its own `SecIdentity`, and connections fail unless the remote peer presents a certificate too. Trust is decided by your existing `PeerSecurityConfiguration.certificatePolicy`:
+
+```swift
+let configuration = PeerSecurityConfiguration(encryptionPreference: .required,
+    securityIdentity: nil,
+    certificatePolicy: .custom { peer, chain, decide in
+        // chain is [SecCertificate], leaf first. Pin it, or check it against your trust store.
+        decide(isTrusted(leaf: chain?.first, for: peer))
+    })
+let manager = PeerConnectionManager(serviceType: "local",
+    securityConfiguration: configuration,
+    backend: .networkFramework,
+    networkSecurity: .certificate(identity: localIdentity))
+```
+
+How it works:
+
+1. TLS 1.3 completes only if both peers present a certificate and prove they hold its private key. System trust evaluation is bypassed so self-signed and app-issued certificates work. **Trust is entirely your policy's decision.**
+2. After the identity handshake, the policy receives the peer and its certificate chain. `.receivedCertificate` is emitted for observation, matching MultipeerConnectivity.
+3. On accept, the peer sends an `admitted` frame. A peer is reported connected only after **both** sides have accepted each other, so neither side can send data the other would drop. On reject, the timeout, or a protocol violation, the connection is canceled and nothing is reported.
+4. The policy must decide within the 10-second handshake timeout. Repeated or late decisions are ignored.
+
+Binding responsibility: the library binds the certificate to the *connection*, but the handshake identifier and display name are still self-asserted. With `.acceptAll` or `.requireCertificate`, any certificate holder is accepted and can claim any name. Use `.custom` and bind the certificate to the peer you expect, for example with a pinned-fingerprint store keyed by identifier. Certificate-mode peers interoperate only with other certificate-mode peers.
+
 `.unauthenticated` is plaintext TCP. It remains available only for migration compatibility and diagnostics and must not be used for sensitive data.
 
-Current limitation: TLS-PSK authenticates membership in the shared-key group; it does not bind the self-asserted handshake identifier or display name to an individual credential. Any member can claim another member's display name or identifier, so apps must not use `Peer.displayName` or the internal transport identifier as an authorization principal or trustworthy audit identity. Apps that need stronger identity guarantees should keep the Network backend opt-in until a stricter trust model is added.
+Current limitation (PSK mode): TLS-PSK authenticates membership in the shared-key group; it does not bind the self-asserted handshake identifier or display name to an individual credential. Any member can claim another member's display name or identifier, so apps must not use `Peer.displayName` or the internal transport identifier as an authorization principal or trustworthy audit identity. Apps that need stronger identity guarantees should keep the Network backend opt-in until a stricter trust model is added.
 
 See [NetworkTrustModelPlan.md](NetworkTrustModelPlan.md) for the insider spoofing threat model, exact PSK requirements, and future options including HKDF-derived scoped/pairwise keys, signed per-peer identity binding, certificate/pinning mode, and an app-provided verifier.
 
