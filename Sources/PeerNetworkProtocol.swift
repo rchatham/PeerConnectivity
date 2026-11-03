@@ -30,25 +30,45 @@ internal struct PeerNetworkDiscoveryInfo : Equatable {
     fileprivate static let protocolVersionKey = "pc-v"
     fileprivate static let maxTXTEntryByteLength = 255
     fileprivate static let maxDisplayNameByteLength = 247
+    /// Keys with this prefix (compared case-insensitively, as DNS-SD does) belong to PeerConnectivity.
+    internal static let reservedKeyPrefix = "pc-"
 
     internal let identity : PeerIdentity
     internal let protocolVersion : Int
+    /// Caller-provided discovery metadata published beside the reserved keys.
+    internal let appInfo : [String:String]
 
-    internal init(identity: PeerIdentity, protocolVersion: Int = PeerNetworkHandshake.currentProtocolVersion) {
+    internal init(identity: PeerIdentity,
+        appInfo: [String:String] = [:],
+        protocolVersion: Int = PeerNetworkHandshake.currentProtocolVersion) {
         let identifier = PeerNetworkDiscoveryInfo.truncate(identity.identifier,
             toUTF8ByteCount: PeerIdentity.maxIdentifierByteLength)
         let displayName = PeerNetworkDiscoveryInfo.truncate(identity.displayName,
             toUTF8ByteCount: PeerNetworkDiscoveryInfo.maxDisplayNameByteLength)
         self.identity = PeerIdentity(identifier: identifier, displayName: displayName)
         self.protocolVersion = protocolVersion
+        self.appInfo = appInfo
     }
 
     internal var txtRecordDictionary : [String:String] {
-        return [
+        return appInfo.merging([
             PeerNetworkDiscoveryInfo.identifierKey: identity.identifier,
             PeerNetworkDiscoveryInfo.displayNameKey: identity.displayName,
             PeerNetworkDiscoveryInfo.protocolVersionKey: String(protocolVersion),
-        ]
+        ]) { _, reserved in reserved }
+    }
+
+    /// Whether caller metadata can be published: DNS-SD key characters, no reserved prefix,
+    /// and each `key=value` entry within the 255-byte TXT limit.
+    internal static func isValidAppInfo(_ appInfo: [String:String]) -> Bool {
+        return appInfo.allSatisfy { isValidAppEntry(key: $0.key, value: $0.value) }
+    }
+
+    fileprivate static func isValidAppEntry(key: String, value: String) -> Bool {
+        guard !key.isEmpty,
+            !key.lowercased().hasPrefix(reservedKeyPrefix),
+            key.unicodeScalars.allSatisfy({ (0x20...0x7E).contains($0.value) && $0 != "=" }) else { return false }
+        return isTXTEntryByteSafe(key: key, value: value)
     }
 
     internal init?(txtRecordDictionary: [String:String]) {
@@ -69,6 +89,10 @@ internal struct PeerNetworkDiscoveryInfo : Equatable {
 
         self.identity = PeerIdentity(identifier: identifier, displayName: displayName)
         self.protocolVersion = protocolVersion
+        // Remote metadata is untrusted: drop reserved or malformed entries rather than surface them.
+        self.appInfo = txtRecordDictionary.filter {
+            PeerNetworkDiscoveryInfo.isValidAppEntry(key: $0.key, value: $0.value)
+        }
     }
 
     fileprivate static func isTXTEntryByteSafe(key: String, value: String) -> Bool {

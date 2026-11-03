@@ -236,6 +236,7 @@ internal final class NetworkPeerListener : NetworkPeerListening {
 
     internal init(serviceType: ServiceType,
         identity: PeerIdentity? = nil,
+        discoveryInfo: PeerDiscoveryInfo? = nil,
         queue: DispatchQueue = DispatchQueue(label: "PeerConnectivity.NetworkPeerListener"),
         security: PeerConnectionNetworkSecurity = .unauthenticated,
         connectionHandler: ConnectionHandler? = nil,
@@ -246,7 +247,8 @@ internal final class NetworkPeerListener : NetworkPeerListening {
         let service = PeerNetworkBonjourService(serviceType: serviceType)
         let listener = try NWListener(using: NetworkPeerConnection.parameters(security: security))
         if let identity = identity {
-            let txtRecord = NWTXTRecord(PeerNetworkDiscoveryInfo(identity: identity).txtRecordDictionary)
+            let txtRecord = NWTXTRecord(PeerNetworkDiscoveryInfo(identity: identity,
+                appInfo: discoveryInfo ?? [:]).txtRecordDictionary)
             listener.service = NWListener.Service(name: nil, type: service.bonjourType, domain: nil, txtRecord: txtRecord)
         } else {
             listener.service = NWListener.Service(name: nil, type: service.bonjourType)

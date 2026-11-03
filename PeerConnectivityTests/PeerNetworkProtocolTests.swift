@@ -51,6 +51,43 @@ final class PeerNetworkProtocolTests : XCTestCase {
         XCTAssertEqual(decoded, discoveryInfo)
     }
 
+    internal func testDiscoveryInfoPublishesAppInfoBesideReservedKeys() {
+        let identity = PeerIdentity(identifier: "peer-1", displayName: "Peer One")
+        let info = PeerNetworkDiscoveryInfo(identity: identity, appInfo: ["app": "hermes", "protocol": "2"])
+
+        let decoded = PeerNetworkDiscoveryInfo(txtRecordDictionary: info.txtRecordDictionary)
+
+        XCTAssertEqual(decoded?.identity, identity)
+        XCTAssertEqual(decoded?.appInfo, ["app": "hermes", "protocol": "2"])
+    }
+
+    internal func testDiscoveryInfoNeverLetsAppInfoOverrideOrSurfaceReservedKeys() {
+        let identity = PeerIdentity(identifier: "peer-1", displayName: "Peer One")
+        let published = PeerNetworkDiscoveryInfo(identity: identity, appInfo: ["pc-id": "spoofed"]).txtRecordDictionary
+        XCTAssertEqual(published["pc-id"], "peer-1", "Reserved keys must win over caller entries")
+
+        var remote = PeerNetworkDiscoveryInfo(identity: identity).txtRecordDictionary
+        remote["PC-Extra"] = "x"
+        remote["app"] = "hermes"
+        remote["bad\u{1F600}"] = "emoji key"
+        XCTAssertEqual(PeerNetworkDiscoveryInfo(txtRecordDictionary: remote)?.appInfo, ["app": "hermes"],
+            "Remote reserved or malformed entries must be dropped before reaching the app")
+    }
+
+    internal func testNetworkDiscoveryInfoValidation() {
+        let boundaryValue = String(repeating: "v", count: 255 - "key=".utf8.count)
+
+        XCTAssertTrue(PeerConnectionManager.isValidNetworkDiscoveryInfo([:]))
+        XCTAssertTrue(PeerConnectionManager.isValidNetworkDiscoveryInfo(["app": "hermes", "session": ""]))
+        XCTAssertTrue(PeerConnectionManager.isValidNetworkDiscoveryInfo(["key": boundaryValue]))
+        XCTAssertFalse(PeerConnectionManager.isValidNetworkDiscoveryInfo(["key": boundaryValue + "v"]))
+        XCTAssertFalse(PeerConnectionManager.isValidNetworkDiscoveryInfo(["": "empty key"]))
+        XCTAssertFalse(PeerConnectionManager.isValidNetworkDiscoveryInfo(["a=b": "equals"]))
+        XCTAssertFalse(PeerConnectionManager.isValidNetworkDiscoveryInfo(["clé": "non-ASCII key"]))
+        XCTAssertFalse(PeerConnectionManager.isValidNetworkDiscoveryInfo(["pc-session": "reserved"]))
+        XCTAssertFalse(PeerConnectionManager.isValidNetworkDiscoveryInfo(["PC-Session": "reserved, any case"]))
+    }
+
     internal func testDiscoveryInfoAcceptsExactBoundaryIdentifier() {
         let identifier = String(repeating: "a", count: PeerIdentity.maxIdentifierByteLength)
         let dictionary = PeerNetworkDiscoveryInfo(

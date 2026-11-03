@@ -9,6 +9,7 @@
   - Compatibility: automatic non-manual invitation policies still emit `.receivedInvitation` for observation, but the event handler is a no-op and policy decisions remain authoritative
   - Compatibility: listener registration now observes future connection events only instead of replaying the responder's most recently stored event; state-oriented internal observables still replay their current value
   - New: `PeerConnectionError`; the Network backend now reports listener and browser failures, Local Network denial, and listener creation errors through `.error`
+  - Network backend: app `discoveryInfo` is published in the Bonjour TXT record and surfaced in `.foundPeerWithDiscoveryInfo`; new `PeerConnectionManager.isValidNetworkDiscoveryInfo(_:)` and `PeerConnectionError.invalidDiscoveryInfo`
   - Network backend: invitations now carry `context`, honor `timeout`, and are admitted by the invitee's connection type and `invitationPolicy`; `.inviteOnly` and `.custom` apps must answer `.receivedInvitation`. Previously, inbound Network connections bypassed the policy
   - Network backend (wire-breaking): protocol version 2 adds invitation and two-sided admission frames; version 1 peers are rejected
   - New: `PeerConnectionNetworkSecurity.certificate(identity:)` for mutual TLS 1.3 under `.networkFramework`; peer certificates go through `certificatePolicy` and `.receivedCertificate`, and peers connect only after both sides accept

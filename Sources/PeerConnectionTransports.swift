@@ -83,12 +83,13 @@ internal struct PeerConnectionTransportFactory {
                                                    browserObserver: observer,
                                                    security: security)
             },
-            makeAdvertiser: { session, serviceType, _, observer in
+            makeAdvertiser: { session, serviceType, discoveryInfo, observer in
                 guard let session = session as? NetworkPeerSessionTransport else {
                     fatalError("PeerConnectivity: Network advertiser requires NetworkPeerSessionTransport")
                 }
                 return NetworkPeerAdvertiserTransport(session: session,
                                                       serviceType: serviceType,
+                                                      discoveryInfo: discoveryInfo,
                                                       advertiserObserver: observer)
             },
             makeAdvertiserAssisstant: { _, _, _, _ in

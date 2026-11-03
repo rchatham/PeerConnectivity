@@ -133,6 +133,11 @@ public enum PeerConnectionError : Error {
      A targeted send could not be attempted because the peer has no connection.
      */
     case peerNotConnected(Peer)
+    /**
+     The discovery info cannot be published over Bonjour. See
+     `PeerConnectionManager.isValidNetworkDiscoveryInfo(_:)`. Advertising does not start.
+     */
+    case invalidDiscoveryInfo
 }
 
 /**

@@ -77,7 +77,15 @@ Guidance for app-managed secrets:
 - Scope the key to one app/environment and authorization group. Do not reuse it across unrelated protocols or groups.
 - Rotate the key when membership changes or compromise is suspected.
 - Treat every holder of the shared key as equally authorized under this mode.
-- Treat Bonjour TXT metadata (`pc-id`, `pc-name`, `pc-v`) as routing/discovery metadata only. It is not a trust assertion.
+- Treat Bonjour TXT metadata (`pc-id`, `pc-name`, `pc-v`, and app `discoveryInfo`) as routing/discovery metadata only. It is not a trust assertion.
+
+### Discovery info
+
+App `discoveryInfo` is published in the TXT record beside the reserved `pc-` keys and surfaces in `.foundPeerWithDiscoveryInfo` on browsing peers.
+- Validate it with `PeerConnectionManager.isValidNetworkDiscoveryInfo(_:)`: printable-ASCII keys without `=`, no `pc-` prefix in any case, and at most 255 bytes per `key=value` entry. Keep the whole record small (under about 400 bytes).
+- Invalid info fails closed: advertising does not start, and `.error(PeerConnectionError.invalidDiscoveryInfo)` is emitted.
+- On the browsing side, remote reserved or malformed entries are dropped. A peer with no app entries reports `nil`, matching MultipeerConnectivity.
+- Discovery info is public and unauthenticated. Never put secrets in it.
 
 ### Certificate mode
 

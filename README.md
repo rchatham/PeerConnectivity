@@ -178,14 +178,17 @@ the same backend; no interoperability bridge is included.
 
 ## API Compatibility Notes
 
-### Network backend discovery metadata limitation
+### Network backend discovery metadata
 
-The opt-in `.networkFramework` backend does **not** currently support app-provided
-`discoveryInfo`. A value passed to `PeerConnectionManager` is retained as configuration but
-ignored by Network advertising; the backend's Bonjour TXT record contains only reserved
-internal peer identity fields. Peers discovered through the Network backend therefore emit
-`foundPeerWithDiscoveryInfo(peer:discoveryInfo:)` with `discoveryInfo == nil`. Use the default
-`.multipeerConnectivity` backend when application discovery metadata is required.
+The opt-in `.networkFramework` backend publishes app-provided `discoveryInfo` in its Bonjour
+TXT record beside the reserved `pc-` keys, and discovered peers report it through
+`foundPeerWithDiscoveryInfo(peer:discoveryInfo:)`. Check values with
+`PeerConnectionManager.isValidNetworkDiscoveryInfo(_:)`:
+- Keys must be printable ASCII without `=` and must not start with `pc-`.
+- Each `key=value` entry must fit in 255 bytes.
+
+Invalid info stops Network advertising with `PeerConnectionError.invalidDiscoveryInfo`.
+Reserved or malformed entries from remote peers are dropped.
 
 `PeerConnectionEvent.foundPeer(peer:)` is still emitted for existing listeners. When
 advertised discovery metadata is available, PeerConnectivity also emits
