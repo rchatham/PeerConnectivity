@@ -453,6 +453,83 @@ final class NetworkPeerLoopbackTests : XCTestCase {
         wait(for: [unexpectedConnection], timeout: 5)
     }
 
+    internal func testNetworkBackendInvitationAcceptedWithContextConnects() {
+        guard #available(iOS 13.0, macOS 10.15, *) else { return }
+
+        let harness = makeInvitationPair()
+        let bobSawInvitation = expectation(description: "Bob saw Alice's invitation")
+        let aliceConnected = expectation(description: "Alice connected")
+        let bobConnected = expectation(description: "Bob connected")
+
+        harness.onInvitation = { context, respond in
+            XCTAssertEqual(context, Data("join".utf8))
+            bobSawInvitation.fulfill()
+            respond(true)
+        }
+        harness.onAliceConnected = { aliceConnected.fulfill() }
+        harness.onBobConnected = { bobConnected.fulfill() }
+        harness.start(context: Data("join".utf8), timeout: 10)
+        defer { harness.stop() }
+
+        wait(for: [bobSawInvitation, aliceConnected, bobConnected], timeout: 15)
+    }
+
+    internal func testNetworkBackendInvitationDeclinedNeverConnects() {
+        guard #available(iOS 13.0, macOS 10.15, *) else { return }
+
+        let harness = makeInvitationPair()
+        let bobSawInvitation = expectation(description: "Bob saw Alice's invitation")
+        let unexpectedConnection = expectation(description: "Declined peers must not connect")
+        unexpectedConnection.isInverted = true
+        unexpectedConnection.assertForOverFulfill = false
+
+        harness.onInvitation = { _, respond in
+            bobSawInvitation.fulfill()
+            respond(false)
+        }
+        harness.onAliceConnected = { unexpectedConnection.fulfill() }
+        harness.onBobConnected = { unexpectedConnection.fulfill() }
+        harness.start(context: nil, timeout: 10)
+        defer { harness.stop() }
+
+        wait(for: [bobSawInvitation], timeout: 15)
+        wait(for: [unexpectedConnection], timeout: 3)
+    }
+
+    internal func testNetworkBackendUnansweredInvitationExpiresAndIgnoresLateAcceptance() {
+        guard #available(iOS 13.0, macOS 10.15, *) else { return }
+
+        let harness = makeInvitationPair()
+        let bobSawInvitation = expectation(description: "Bob saw Alice's invitation")
+        let unexpectedConnection = expectation(description: "Expired invitations must not connect")
+        unexpectedConnection.isInverted = true
+        unexpectedConnection.assertForOverFulfill = false
+        var lateResponse : ((Bool) -> Void)?
+
+        harness.onInvitation = { _, respond in
+            lateResponse = respond
+            bobSawInvitation.fulfill()
+        }
+        harness.onAliceConnected = { unexpectedConnection.fulfill() }
+        harness.onBobConnected = { unexpectedConnection.fulfill() }
+        harness.start(context: nil, timeout: 1.5)
+        defer { harness.stop() }
+
+        wait(for: [bobSawInvitation], timeout: 15)
+        RunLoop.current.run(until: Date().addingTimeInterval(2.5))
+        lateResponse?(true)
+        wait(for: [unexpectedConnection], timeout: 2)
+    }
+
+    /// Alice and Bob in `.custom` mode: Alice invites Bob once she finds him; Bob's app decides.
+    @available(iOS 13.0, macOS 10.15, *)
+    private func makeInvitationPair() -> InvitationPair {
+        let serviceType = makeServiceType()
+        return InvitationPair(
+            alice: makeManager(serviceType: serviceType, displayName: "Alice", security: makeSecurity(), connectionType: .custom),
+            bob: makeManager(serviceType: serviceType, displayName: "Bob", security: makeSecurity(), connectionType: .custom))
+    }
+
     private func makeServiceType() -> String {
         return "pctest-\(UUID().uuidString.prefix(8).lowercased())"
     }
@@ -487,12 +564,68 @@ final class NetworkPeerLoopbackTests : XCTestCase {
     @available(iOS 13.0, macOS 10.15, *)
     private func makeManager(serviceType: ServiceType,
         displayName: String,
-        security: PeerConnectionNetworkSecurity) -> PeerConnectionManager {
+        security: PeerConnectionNetworkSecurity,
+        connectionType: PeerConnectionType = .automatic) -> PeerConnectionManager {
         return PeerConnectionManager(serviceType: serviceType,
-            connectionType: .automatic,
+            connectionType: connectionType,
             displayName: displayName,
             backend: .networkFramework,
             networkSecurity: security,
             transportFactory: .networkFramework(security: security))
+    }
+}
+
+private final class InvitationPair {
+    internal let alice : PeerConnectionManager
+    internal let bob : PeerConnectionManager
+    internal var onInvitation : (Data?, @escaping (Bool) -> Void) -> Void = { _, _ in }
+    internal var onAliceConnected : () -> Void = {}
+    internal var onBobConnected : () -> Void = {}
+    fileprivate let inviteLock = NSLock()
+    fileprivate var hasInvited = false
+
+    internal init(alice: PeerConnectionManager, bob: PeerConnectionManager) {
+        self.alice = alice
+        self.bob = bob
+    }
+
+    internal func start(context: Data?, timeout: TimeInterval) {
+        alice.listenOn({ [weak self] event in
+            guard let self = self else { return }
+            switch event {
+            case .foundPeer(let peer) where peer.displayName == "Bob":
+                let shouldInvite : Bool = self.inviteLock.locked {
+                    defer { self.hasInvited = true }
+                    return !self.hasInvited
+                }
+                if shouldInvite {
+                    self.alice.invitePeer(peer, withContext: context, timeout: timeout)
+                }
+            case .devicesChanged(peer: let peer, connectedPeers: let connectedPeers)
+                where peer.displayName == "Bob" && connectedPeers.contains(where: { $0.displayName == "Bob" }):
+                self.onAliceConnected()
+            default: break
+            }
+        }, performListenerInBackground: true, withKey: "alice-invitation-events")
+
+        bob.listenOn({ [weak self] event in
+            switch event {
+            case .receivedInvitation(peer: let peer, withContext: let context, invitationHandler: let respond)
+                where peer.displayName == "Alice":
+                self?.onInvitation(context, respond)
+            case .devicesChanged(peer: let peer, connectedPeers: let connectedPeers)
+                where peer.displayName == "Alice" && connectedPeers.contains(where: { $0.displayName == "Alice" }):
+                self?.onBobConnected()
+            default: break
+            }
+        }, performListenerInBackground: true, withKey: "bob-invitation-events")
+
+        bob.start()
+        alice.start()
+    }
+
+    internal func stop() {
+        alice.stop()
+        bob.stop()
     }
 }

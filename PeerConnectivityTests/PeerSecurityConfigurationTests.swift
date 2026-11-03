@@ -207,7 +207,7 @@ class PeerSecurityConfigurationTests: XCTestCase {
             }
         }, performListenerInBackground: true, withKey: "automatic-invitation-compatibility")
 
-        manager.handleInvitation(peer: manager.peer, context: expectedContext) { accepted, _ in
+        manager.handleInvitation(peer: manager.peer, context: expectedContext) { accepted in
             result = accepted
         }
         await fulfillment(of: [invitationExpectation], timeout: 1)
@@ -256,7 +256,7 @@ class PeerSecurityConfigurationTests: XCTestCase {
         }, performListenerInBackground: true, withKey: "manual-invitation")
 
         var result: Bool?
-        manager.handleInvitation(peer: manager.peer, context: expectedContext) { accepted, _ in
+        manager.handleInvitation(peer: manager.peer, context: expectedContext) { accepted in
             result = accepted
         }
         await fulfillment(of: [invitationExpectation], timeout: 1)
@@ -285,7 +285,7 @@ class PeerSecurityConfigurationTests: XCTestCase {
         }, performListenerInBackground: true, withKey: "custom-invitation")
 
         var result: Bool?
-        manager.handleInvitation(peer: manager.peer, context: nil) { accepted, _ in
+        manager.handleInvitation(peer: manager.peer, context: nil) { accepted in
             result = accepted
         }
         await fulfillment(of: [invitationExpectation], timeout: 1)
@@ -332,7 +332,7 @@ class PeerSecurityConfigurationTests: XCTestCase {
     /// Applies the manager invitation policy and returns the resulting handler value.
     private func evaluateInvitationPolicy(manager: PeerConnectionManager, context: Data?) -> Bool? {
         var result: Bool?
-        manager.handleInvitation(peer: manager.peer, context: context) { accepted, _ in
+        manager.handleInvitation(peer: manager.peer, context: context) { accepted in
             result = accepted
         }
         return result

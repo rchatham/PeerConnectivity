@@ -490,17 +490,15 @@ public class PeerConnectionManager {
         emit(.receivedCertificate(peer: peer, certificate: certificate, handler: { _ in }))
     }
 
+    /**
+     Applies the connection type and invitation policy to an inbound invitation.
+
+     - parameter decide: Backend-specific completion that admits (`true`) or declines the peer.
+     */
     internal func handleInvitation(peer: Peer,
                                    context: Data?,
-                                   invitationHandler: @escaping (Bool, MultipeerSessionTransport) -> Void) {
-        let completeInvitation = { [weak self] (accept: Bool) -> Void in
-            guard let strongSelf = self,
-                  let session = strongSelf.session as? MultipeerSessionTransport else { return }
-            invitationHandler(accept, session)
-            if accept && strongSelf.connectionType == .automatic {
-                strongSelf.advertiser.stopAdvertising()
-            }
-        }
+                                   decide: @escaping (Bool) -> Void) {
+        let completeInvitation = decide
 
         guard connectionType == .automatic else {
             emit(.receivedInvitation(peer: peer,
@@ -864,7 +862,15 @@ extension PeerConnectionManager {
 
                 switch event {
                 case .didReceiveInvitationFromPeer(peer: let peer, withContext: let context, invitationHandler: let invite):
-                    self?.handleInvitation(peer: peer, context: context, invitationHandler: invite)
+                    self?.handleInvitation(peer: peer, context: context) { [weak self] accept in
+                        guard let strongSelf = self,
+                              let session = strongSelf.session as? MultipeerSessionTransport else { return }
+                        invite(accept, session)
+                        // Historical MultipeerConnectivity behavior: stop advertising once joined.
+                        if accept && strongSelf.connectionType == .automatic {
+                            strongSelf.advertiser.stopAdvertising()
+                        }
+                    }
                 case .didNotStartAdvertisingPeer(let error):
                     self?.emit(.error(error))
                 default: break
@@ -898,6 +904,8 @@ extension PeerConnectionManager {
                 self?.emit(.receivedEvent(peer: peer, eventInfo: eventInfo))
             case .didReceiveCertificate(peer: let peer, certificate: let certificate, handler: let handler):
                 self?.handleCertificate(peer: peer, certificate: certificate, handler: handler)
+            case .didReceiveInvitation(peer: let peer, context: let context, handler: let handler):
+                self?.handleInvitation(peer: peer, context: context, decide: handler)
             case .didReceiveStream(peer: let peer, stream: let stream, name: let name):
                 self?.emit(.receivedStream(peer: peer, stream: stream, name: name))
             case .startedReceivingResource(peer: let peer, name: let name, progress: let progress):

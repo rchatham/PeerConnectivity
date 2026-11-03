@@ -57,10 +57,18 @@ private final class MockNetworkPeerBrowser : NetworkPeerBrowsing {
 private final class ConnectedEndpointRecorder {
     fileprivate let lock = NSLock()
     fileprivate var endpoints : [NWEndpoint] = []
+    fileprivate var storedInvitations : [PeerNetworkInvitation] = []
 
-    internal func append(_ endpoint: NWEndpoint) {
+    internal var invitations : [PeerNetworkInvitation] {
+        lock.lock()
+        defer { lock.unlock() }
+        return storedInvitations
+    }
+
+    internal func append(_ endpoint: NWEndpoint, _ invitation: PeerNetworkInvitation) {
         lock.lock()
         endpoints.append(endpoint)
+        storedInvitations.append(invitation)
         lock.unlock()
     }
 
@@ -183,7 +191,7 @@ final class NetworkPeerTransportAdapterTests : XCTestCase {
         await observer.addObserverAsync { event in events.append(event) }
 
         for displayName in [String(repeating: "a", count: 64), String(repeating: "é", count: 32)] {
-            let txtRecord = ["pc-id": "remote", "pc-name": displayName, "pc-v": "1"]
+            let txtRecord = ["pc-id": "remote", "pc-name": displayName, "pc-v": String(PeerNetworkHandshake.currentProtocolVersion)]
             guard let identity = PeerNetworkDiscoveryInfo(txtRecordDictionary: txtRecord)?.identity else {
                 XCTFail("The TXT record must be valid before the browser rejects its display name")
                 return
@@ -241,6 +249,23 @@ final class NetworkPeerTransportAdapterTests : XCTestCase {
         let connectedEndpoints = recorder.snapshot()
         XCTAssertEqual(connectedEndpoints.count, finalEndpoints.count)
         XCTAssertEqual(Set(connectedEndpoints), Set(finalEndpoints))
+    }
+
+    internal func testBrowserTransportInvitePassesContextAndTimeout() {
+        guard #available(iOS 13.0, macOS 10.15, *) else { return }
+
+        let recorder = ConnectedEndpointRecorder()
+        let transport = NetworkPeerBrowserTransport(session: makeSessionTransport(),
+            browser: MockNetworkPeerBrowser(),
+            browserObserver: Observable<PeerBrowserEvent>(.none),
+            connectToEndpoint: recorder.append)
+        let identity = PeerIdentity(identifier: "remote", displayName: "Remote")
+        let endpoint = NWEndpoint.hostPort(host: .ipv4(IPv4Address("127.0.0.1")!), port: 34570)
+
+        transport.foundEndpoint(endpoint, identity: identity)
+        transport.invitePeer(Peer(identity: identity, status: .notConnected), withContext: Data("ctx".utf8), timeout: 12)
+
+        XCTAssertEqual(recorder.invitations, [PeerNetworkInvitation(context: Data("ctx".utf8), timeout: 12)])
     }
 
     internal func testBrowserTransportIgnoresSelfEndpoint() async {

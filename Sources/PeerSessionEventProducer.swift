@@ -17,6 +17,8 @@ internal enum PeerSessionEvent {
     case startedReceivingResource(peer: Peer, name: String, progress: Progress)
     case finishedReceivingResource(peer: Peer, name: String, url: URL?, error: Error?)
     case didReceiveCertificate(peer: Peer, certificate: [Any]?, handler: (Bool) -> Void)
+    /// Network backend only: an inbound peer asks to connect; `handler` admits or declines it.
+    case didReceiveInvitation(peer: Peer, context: Data?, handler: (Bool) -> Void)
 }
 
 internal class PeerSessionEventProducer: NSObject {
