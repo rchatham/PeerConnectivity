@@ -391,6 +391,41 @@ final class PeerConnectionManagerTransportTests : XCTestCase {
         await fulfillment(of: [surfaced, decision], timeout: 1)
     }
 
+    internal func testSetAdvertisingEnabledTogglesAdvertiserWithoutStoppingSession() async {
+        let harness = PeerConnectionTransportHarness()
+        let manager = PeerConnectionManager(serviceType: "test-service",
+            connectionType: .custom,
+            displayName: "Local",
+            transportFactory: harness.factory)
+
+        await startBrowsingOnly(manager)
+        XCTAssertEqual(harness.advertiser.startAdvertisingCallCount, 0, "Browse-only start must not advertise")
+
+        manager.setAdvertisingEnabled(true)
+        manager.setAdvertisingEnabled(false)
+
+        XCTAssertEqual(harness.advertiser.startAdvertisingCallCount, 1)
+        XCTAssertEqual(harness.advertiser.stopAdvertisingCallCount, 1)
+        XCTAssertEqual(harness.session?.stopSessionCallCount, 0)
+        XCTAssertEqual(harness.browser.stopBrowsingCallCount, 0)
+        XCTAssertEqual(harness.advertiserAssisstant.startAdvertisingAssisstantCallCount, 0,
+            "Only .inviteOnly advertises through the assistant")
+    }
+
+    internal func testSetAdvertisingEnabledAlsoTogglesAssistantInInviteOnlyMode() {
+        let harness = PeerConnectionTransportHarness()
+        let manager = PeerConnectionManager(serviceType: "test-service",
+            connectionType: .inviteOnly,
+            displayName: "Local",
+            transportFactory: harness.factory)
+
+        manager.setAdvertisingEnabled(false)
+        manager.setAdvertisingEnabled(true)
+
+        XCTAssertEqual(harness.advertiserAssisstant.stopAdvertisingAssisstantCallCount, 1)
+        XCTAssertEqual(harness.advertiserAssisstant.startAdvertisingAssisstantCallCount, 1)
+    }
+
     internal func testTransportEventAfterStopDoesNotEmitReceivedData() async {
         let harness = PeerConnectionTransportHarness()
         let manager = PeerConnectionManager(serviceType: "test-service",

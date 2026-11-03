@@ -14,6 +14,8 @@ import Security
 internal protocol NetworkPeerListening {
     func start()
     func cancel()
+    /// Publishes or withdraws the Bonjour service without affecting the listener or connections.
+    func setAdvertising(_ isAdvertising: Bool)
 }
 
 @available(iOS 13.0, macOS 10.15, *)
@@ -229,6 +231,7 @@ internal final class NetworkPeerListener : NetworkPeerListening {
     internal typealias StateHandler = (NWListener.State) -> Void
 
     fileprivate let listener : NWListener
+    fileprivate let advertisedService : NWListener.Service
     fileprivate let queue : DispatchQueue
     fileprivate let connectionHandler : ConnectionHandler?
     fileprivate let stateHandler : StateHandler?
@@ -249,10 +252,13 @@ internal final class NetworkPeerListener : NetworkPeerListening {
         if let identity = identity {
             let txtRecord = NWTXTRecord(PeerNetworkDiscoveryInfo(identity: identity,
                 appInfo: discoveryInfo ?? [:]).txtRecordDictionary)
-            listener.service = NWListener.Service(name: nil, type: service.bonjourType, domain: nil, txtRecord: txtRecord)
+            advertisedService = NWListener.Service(name: nil, type: service.bonjourType, domain: nil, txtRecord: txtRecord)
         } else {
-            listener.service = NWListener.Service(name: nil, type: service.bonjourType)
+            advertisedService = NWListener.Service(name: nil, type: service.bonjourType)
         }
+        // The listener starts unpublished; the advertiser transport publishes it on demand so
+        // browse-only managers accept connections without being discoverable.
+        listener.service = nil
         self.listener = listener
         self.queue = queue
         self.connectionHandler = connectionHandler
@@ -275,6 +281,13 @@ internal final class NetworkPeerListener : NetworkPeerListening {
 
     internal func cancel() {
         listener.cancel()
+    }
+
+    internal func setAdvertising(_ isAdvertising: Bool) {
+        let service = isAdvertising ? advertisedService : nil
+        queue.async { [listener] in
+            listener.service = service
+        }
     }
 }
 
