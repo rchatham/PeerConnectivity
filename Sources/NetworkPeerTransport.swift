@@ -205,9 +205,13 @@ internal final class NetworkPeerConnection : NetworkPeerConnectionCancellable {
             sec_protocol_options_set_peer_authentication_required(options.securityProtocolOptions, true)
             // Self-signed peer certificates fail system trust evaluation. TLS still proves key
             // possession, so require a presented chain here and leave trust to the app's
-            // certificate policy after the identity handshake.
-            sec_protocol_options_set_verify_block(options.securityProtocolOptions, { _, trust, complete in
-                complete(SecTrustGetCertificateCount(sec_trust_copy_ref(trust).takeRetainedValue()) > 0)
+            // certificate policy after the identity handshake. Read the chain from the metadata:
+            // SecTrustGetCertificateCount was seen blocking for over 30 seconds while trustd was
+            // slow, and this queue is shared, so that stalled every connection.
+            sec_protocol_options_set_verify_block(options.securityProtocolOptions, { metadata, _, complete in
+                var hasPeerCertificate = false
+                sec_protocol_metadata_access_peer_certificate_chain(metadata) { _ in hasPeerCertificate = true }
+                complete(hasPeerCertificate)
             }, certificateVerificationQueue)
             parameters = NWParameters(tls: options, tcp: tcpOptions)
         }
