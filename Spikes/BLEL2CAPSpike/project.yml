@@ -1,0 +1,54 @@
+# SPIKE app for the BLE L2CAP feasibility prototype. Generate with `xcodegen` in this folder.
+name: BLEL2CAPSpike
+options:
+  bundleIdPrefix: com.hermes.spike
+  deploymentTarget:
+    iOS: "18.0"
+packages:
+  PeerConnectivity:
+    path: ../..
+settings:
+  base:
+    DEVELOPMENT_TEAM: 82W93M4H92
+    CODE_SIGN_STYLE: Automatic
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "0.1"
+    CURRENT_PROJECT_VERSION: "1"
+targets:
+  # Declares bluetooth-central and bluetooth-peripheral background modes.
+  BLEL2CAPSpike:
+    type: application
+    platform: iOS
+    sources: [App]
+    dependencies:
+      - package: PeerConnectivity
+    info:
+      path: Generated/BLEL2CAPSpike-Info.plist
+      properties:
+        UIBackgroundModes: [bluetooth-central, bluetooth-peripheral]
+        CFBundleDisplayName: BLE Spike
+        UILaunchScreen: {}
+        NSBluetoothAlwaysUsageDescription: "Spike: measures Bluetooth LE L2CAP between two test devices."
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.hermes.spike.blel2cap
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: Generated/BLEL2CAPSpike-Info.plist
+  # Same app without background modes, to see what a foreground-only build loses.
+  BLEL2CAPSpikeNoBG:
+    type: application
+    platform: iOS
+    sources: [App]
+    dependencies:
+      - package: PeerConnectivity
+    info:
+      path: Generated/BLEL2CAPSpikeNoBG-Info.plist
+      properties:
+        CFBundleDisplayName: BLE Spike NoBG
+        UILaunchScreen: {}
+        NSBluetoothAlwaysUsageDescription: "Spike: measures Bluetooth LE L2CAP between two test devices."
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.hermes.spike.blel2cap.nobg
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: Generated/BLEL2CAPSpikeNoBG-Info.plist
