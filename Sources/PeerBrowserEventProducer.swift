@@ -9,7 +9,7 @@
 import Foundation
 import MultipeerConnectivity
 
-internal enum PeerBrowserEvent {
+package enum PeerBrowserEvent {
     case none
     case didNotStartBrowsingForPeers(Error)
     case foundPeer(Peer, discoveryInfo: PeerDiscoveryInfo?)

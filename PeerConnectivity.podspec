@@ -15,5 +15,7 @@ Pod::Spec.new do |s|
   s.source_files = "Sources/*.{swift,h}"
   s.frameworks   = "MultipeerConnectivity", "Network"
   s.swift_version = "5.0"
+  # The sources use `package` access, which needs a package name outside SwiftPM.
+  s.pod_target_xcconfig = { "OTHER_SWIFT_FLAGS" => "$(inherited) -package-name PeerConnectivity" }
   # s.documentation_url = "http://reidchatham.com/docs/PeerConnectivity/Classes/PeerConnectionManager.html"
 end

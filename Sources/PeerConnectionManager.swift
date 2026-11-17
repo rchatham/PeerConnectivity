@@ -165,7 +165,7 @@ fileprivate enum PeerConnectionStartupMode {
 /**
  Functional wrapper for Apple's MultipeerConnectivity framework.
  
- Initialize a PeerConnectionManager to enable mesh-networking over bluetooth and wifi when available. Configure the networking protocol of the session and then start to begin connecting to nearby peers.
+ Initialize a PeerConnectionManager to enable mesh-networking over Wi-Fi, including peer-to-peer Wi-Fi when no shared network is available. Configure the networking protocol of the session and then start to begin connecting to nearby peers.
  */
 public class PeerConnectionManager {
     
@@ -392,7 +392,7 @@ public class PeerConnectionManager {
             shouldRegisterSharedManager: true)
     }
 
-    internal convenience init(serviceType: ServiceType,
+    package convenience init(serviceType: ServiceType,
         connectionType: PeerConnectionType = .automatic,
         displayName: String,
         securityConfiguration: PeerSecurityConfiguration = .default,

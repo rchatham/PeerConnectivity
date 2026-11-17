@@ -122,7 +122,7 @@ fileprivate final class BoundedSubmission {
     }
 }
 
-internal actor Observable<T> {
+package actor Observable<T> {
     internal typealias Observer = (T) -> Void
 
     fileprivate enum Operation {
@@ -238,7 +238,7 @@ internal actor Observable<T> {
         operationContinuation.yield(.removeAllObservers(completion: nil))
     }
 
-    nonisolated internal func update(_ newValue: T) {
+    nonisolated package func update(_ newValue: T) {
         operationContinuation.yield(.update(newValue, completion: nil))
     }
 

@@ -8,11 +8,11 @@
 
 import Foundation
 
-internal protocol NetworkPeerConnectionCancellable : AnyObject {
+package protocol NetworkPeerConnectionCancellable : AnyObject {
     func cancel()
 }
 
-internal enum NetworkPeerConnectionDirection {
+package enum NetworkPeerConnectionDirection {
     case inbound
     case outbound
 }

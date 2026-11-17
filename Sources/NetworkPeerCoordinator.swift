@@ -8,12 +8,12 @@
 
 import Foundation
 
-internal struct NetworkPeerConnectionPolicy : Equatable {
+package struct NetworkPeerConnectionPolicy : Equatable {
     internal let handshakeTimeout : TimeInterval
     internal let maxPendingConnections : Int
     internal let maxConnectedPeers : Int
     /// Bounds the browser's endpoint table so hostile Bonjour traffic cannot grow it without limit.
-    internal let maxDiscoveredPeers : Int
+    package let maxDiscoveredPeers : Int
     /// TCP keepalive replaces an idle timeout: quiet peers stay connected, dead peers fail.
     internal let keepaliveIdle : Int
     internal let keepaliveInterval : Int
@@ -21,7 +21,7 @@ internal struct NetworkPeerConnectionPolicy : Equatable {
     /// Upper bound on how long an invitation can hold a pending connection open.
     internal let maxInvitationTimeout : TimeInterval
 
-    internal init(handshakeTimeout: TimeInterval = 10,
+    package init(handshakeTimeout: TimeInterval = 10,
         maxPendingConnections: Int = 16,
         maxConnectedPeers: Int = 8,
         maxDiscoveredPeers: Int = 64,
@@ -47,9 +47,9 @@ internal struct NetworkPeerConnectionPolicy : Equatable {
     }
 }
 
-internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending> {
+package final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending> {
 
-    internal typealias HandshakeEncoder = (PeerNetworkHandshake) throws -> Data
+    package typealias HandshakeEncoder = (PeerNetworkHandshake) throws -> Data
 
     /// Registration waits for every local gate and the remote peer's `.admitted` frame, so
     /// neither side reports the other connected (or sends data) before both have decided.
@@ -82,7 +82,7 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
     /// Handshaken connections held pending until both peers admit each other.
     fileprivate var pendingAdmissions : [ObjectIdentifier:PendingAdmission] = [:]
 
-    internal init(localPeer: Peer,
+    package init(localPeer: Peer,
         sessionObserver: Observable<PeerSessionEvent>,
         policy: NetworkPeerConnectionPolicy = NetworkPeerConnectionPolicy(),
         requiresCertificateDecision: Bool = false,
@@ -96,7 +96,7 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
         self.handshakeEncoder = handshakeEncoder
     }
 
-    internal var connectedPeers : [Peer] {
+    package var connectedPeers : [Peer] {
         return queue.sync { connectedPeerSnapshot() }
     }
 
@@ -111,7 +111,7 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
      - parameter invitation: Sent after the handshake on outbound connections. Its timeout,
        clamped to the policy, bounds how long the connection may stay pending.
      */
-    internal func addPendingConnection(_ connection: Connection,
+    package func addPendingConnection(_ connection: Connection,
         direction: NetworkPeerConnectionDirection,
         invitation: PeerNetworkInvitation? = nil) {
         queue.sync {
@@ -137,7 +137,7 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
         }
     }
 
-    internal func receiveFrame(_ frame: PeerNetworkFrame, from connection: Connection) {
+    package func receiveFrame(_ frame: PeerNetworkFrame, from connection: Connection) {
         let event : PeerSessionEvent? = queue.sync {
             switch frame.kind {
             case .handshake:
@@ -157,13 +157,13 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
         sessionObserver.update(event)
     }
 
-    internal func sendData(_ data: Data, toPeers peers: [Peer] = []) {
+    package func sendData(_ data: Data, toPeers peers: [Peer] = []) {
         queue.sync {
             dataSender.sendData(data, toPeers: peers.map { $0.identity })
         }
     }
 
-    internal func sendData(_ data: Data, toPeers peers: [Peer], completion: @escaping ([Peer:Error]) -> Void) {
+    package func sendData(_ data: Data, toPeers peers: [Peer], completion: @escaping ([Peer:Error]) -> Void) {
         queue.sync {
             dataSender.sendData(data, toPeers: peers.map { $0.identity }) { failures in
                 completion(Dictionary(failures.map { (Peer(identity: $0.key, status: .notConnected), $0.value) },
@@ -172,7 +172,7 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
         }
     }
 
-    internal func removeConnection(_ connection: Connection) {
+    package func removeConnection(_ connection: Connection) {
         var connectionToCancel : Connection?
         let event : PeerSessionEvent? = queue.sync {
             let identifier = ObjectIdentifier(connection)
@@ -193,7 +193,7 @@ internal final class NetworkPeerCoordinator<Connection: NetworkPeerFrameSending>
         sessionObserver.update(event)
     }
 
-    internal func cancelAllConnections() {
+    package func cancelAllConnections() {
         queue.sync {
             pendingConnections.values.forEach {
                 $0.timeout.cancel()

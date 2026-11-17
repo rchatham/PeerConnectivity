@@ -19,6 +19,7 @@
   - Network backend: discovery tracks at most 64 peers, and TCP keepalive detects dead peers in about 60 seconds; `.lostPeer` is no longer emitted for peers that were never reported found
   - Fixed: Network backend certificate mode no longer stalls connections when `trustd` is slow; the TLS verify block reads the peer chain from the TLS metadata instead of calling `SecTrustGetCertificateCount`
   - Packaging: the core target now links both Network.framework and MultipeerConnectivity.framework
+  - Packaging: the internal transport seam now uses Swift `package` access so a transport can live in its own SwiftPM product; the Xcode project and podspec pass `-package-name PeerConnectivity`. No public API change
   - Tooling: the Swift package manifest uses Swift tools 6.0, so SwiftPM consumers need a Swift 6 toolchain (Xcode 16 or newer); the library remains compiled in Swift 5 language mode
   - Platforms: the minimum supported versions increase to iOS 13 and macOS 10.15; CocoaPods consumers need an Xcode version with those platform SDKs (Xcode 11 or newer)
 

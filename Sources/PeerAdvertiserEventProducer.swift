@@ -9,7 +9,7 @@
 import Foundation
 import MultipeerConnectivity
 
-internal enum PeerAdvertiserEvent {
+package enum PeerAdvertiserEvent {
     case none
     case didNotStartAdvertisingPeer(Error)
     case didReceiveInvitationFromPeer(peer: Peer, withContext: Data?, invitationHandler: (Bool, MultipeerSessionTransport) -> Void)
