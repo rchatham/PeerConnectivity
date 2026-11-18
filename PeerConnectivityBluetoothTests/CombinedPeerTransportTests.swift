@@ -96,17 +96,24 @@ final class CombinedPeerTransportTests : XCTestCase {
     // MARK: - Merge rules with fake links
 
     func testConnectionChangesAreVisibleOnlyForTheFirstAndLastLink() {
+        // Each link delivers on its own pump, so each step waits for the previous one.
         let harness = SessionHarness()
         let bob = remotePeer("Bob")
         harness.push(.devicesChanged(peer: bob.with(.connected), connectedPeers: []), link: 0)
+        XCTAssertEqual(status(harness.output(count: 1)), [.connected])
         harness.push(.devicesChanged(peer: bob.with(.connected), connectedPeers: []), link: 1)
+        harness.assertNoMoreOutput()
         harness.push(.devicesChanged(peer: bob.with(.notConnected), connectedPeers: []), link: 0)
+        harness.assertNoMoreOutput()
         harness.push(.devicesChanged(peer: bob.with(.notConnected), connectedPeers: []), link: 1)
-        let statuses = harness.output(count: 2).compactMap { event -> Peer.Status? in
+        XCTAssertEqual(status(harness.output(count: 1)), [.notConnected])
+    }
+
+    private func status(_ events: [PeerSessionEvent]) -> [Peer.Status] {
+        return events.compactMap { event in
             guard case .devicesChanged(let peer, _) = event else { return nil }
             return peer.status
         }
-        XCTAssertEqual(statuses, [.connected, .notConnected])
     }
 
     func testSecondInvitationWaitsForTheAppsFirstAnswer() {
@@ -195,6 +202,66 @@ final class CombinedPeerTransportTests : XCTestCase {
         XCTAssertNil(answers.values["other"], "not answered on the app's behalf")
     }
 
+    func testStopForgetsConnectedPeersAndDeclinesWaitingDecisions() {
+        let harness = SessionHarness()
+        let bob = remotePeer("Bob")
+        let carol = remotePeer("Carol")
+        let answers = AnswerLog()
+        harness.push(.devicesChanged(peer: bob.with(.connected), connectedPeers: []), link: 0)
+        harness.push(.didReceiveInvitation(peer: carol, context: nil, handler: answers.record("carol first")), link: 0)
+        _ = harness.output(count: 2)
+        harness.push(.didReceiveInvitation(peer: carol, context: nil, handler: answers.record("carol waiting")), link: 1)
+        harness.assertNoMoreOutput()
+
+        harness.session.stopSession()
+        XCTAssertEqual(answers.values["carol waiting"], false, "a waiting decision is declined on stop")
+
+        // Bob's links were cancelled without reporting; after a restart his identity is new again.
+        harness.push(.didReceiveInvitation(peer: bob, context: nil, handler: answers.record("bob after stop")), link: 1)
+        guard case .didReceiveInvitation? = harness.output(count: 1).first else {
+            return XCTFail("a peer from before the stop is asked about again")
+        }
+        XCTAssertNil(answers.values["bob after stop"])
+    }
+
+    func testUnauthenticatedLinksPutEveryInvitationToTheApp() {
+        let harness = SessionHarness(sharesInvitationAnswers: false)
+        let bob = remotePeer("Bob")
+        let answers = AnswerLog()
+        harness.push(.devicesChanged(peer: bob.with(.connected), connectedPeers: []), link: 0)
+        _ = harness.output(count: 1)
+        // Anyone can claim Bob's identity without authentication, so a second link is not trusted.
+        harness.push(.didReceiveInvitation(peer: bob, context: nil, handler: answers.record("claimed bob")), link: 1)
+        guard case .didReceiveInvitation? = harness.output(count: 1).first else {
+            return XCTFail("the app decides")
+        }
+        XCTAssertNil(answers.values["claimed bob"])
+    }
+
+    func testDifferentCertificateDoesNotDisplaceAPendingDecision() throws {
+        let harness = SessionHarness()
+        let bob = remotePeer("Bob")
+        let answers = AnswerLog()
+        let bobCertificate = try certificate(.bob)
+        harness.push(.didReceiveCertificate(peer: bob, certificate: [bobCertificate], handler: answers.record("first")), link: 0)
+        guard case .didReceiveCertificate(_, _, let appHandler)? = harness.output(count: 1).first else {
+            return XCTFail("the app decides the first certificate")
+        }
+        // Both on link 1, so they arrive in this order.
+        harness.push(.didReceiveCertificate(peer: bob, certificate: [bobCertificate], handler: answers.record("same, waiting")), link: 1)
+        harness.push(.didReceiveCertificate(peer: bob, certificate: [try certificate(.mallory)], handler: answers.record("other")), link: 1)
+        guard case .didReceiveCertificate(_, let presented, _)? = harness.output(count: 1).first else {
+            return XCTFail("the other certificate is put to the app")
+        }
+        XCTAssertEqual(SecCertificateCopyData(presented?.first as! SecCertificate) as Data,
+            try PeerNetworkCertificateFixtures.certificateData(.mallory))
+
+        appHandler(true)
+        XCTAssertEqual(answers.values["first"], true)
+        XCTAssertEqual(answers.values["same, waiting"], true, "the waiter is answered despite the other certificate")
+        XCTAssertNil(answers.values["other"])
+    }
+
     func testSendsPreferTheFirstLinkAndFallBackWhenItFails() {
         let harness = SessionHarness()
         let bob = remotePeer("Bob")
@@ -243,7 +310,7 @@ final class CombinedPeerTransportTests : XCTestCase {
             displayName: name,
             networkSecurity: security,
             transportFactory: .combined(radios.map { .bluetooth(security: security, radio: $0.radio) },
-                backend: .networkFrameworkAndBluetooth))
+                backend: .networkFrameworkAndBluetooth, security: security))
         managers.append(manager)
         return manager
     }
@@ -360,9 +427,10 @@ private final class SessionHarness {
     private let lock = NSLock()
     private var received : [PeerSessionEvent] = []
 
-    init() {
+    init(sharesInvitationAnswers: Bool = true) {
         let links = self.links
-        session = CombinedPeerSessionTransport(peer: links[0].peer, observer: output, makeLinks: links.map { link in
+        session = CombinedPeerSessionTransport(peer: links[0].peer, observer: output,
+            sharesInvitationAnswers: sharesInvitationAnswers, makeLinks: links.map { link in
             return { observer in
                 link.observer = observer
                 return link

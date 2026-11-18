@@ -40,8 +40,11 @@ extension PeerConnectionManager {
      that switch links can arrive out of order relative to each other.
 
      The app answers one invitation and one certificate decision per peer, however many links
-     carry it. A second link is admitted without asking only while the peer is connected, and
-     with certificates only if it presents the certificate the app already accepted.
+     carry it. A second link is admitted without asking only while the peer is connected or was
+     just admitted, and with certificates only if it presents the certificate the app already
+     accepted. With a pre-shared key, any holder of the key can claim any identity, as on a
+     single link. With `.unauthenticated`, identity is only a claim, so every link's invitation
+     is put to the app.
 
      Security is the same setting the `.networkFramework` backend takes, applied to every link:
      `.unauthenticated` sends plaintext, `.preSharedKey(_:)` requires the same key on both peers,
@@ -110,6 +113,6 @@ extension PeerConnectionTransportFactory {
         if links.contains(.bluetooth) {
             factories.append(.bluetooth(security: security, lostPeerTimeout: lostPeerTimeout))
         }
-        return factories.count == 1 ? factories[0] : .combined(factories, backend: .networkFrameworkAndBluetooth)
+        return factories.count == 1 ? factories[0] : .combined(factories, backend: .networkFrameworkAndBluetooth, security: security)
     }
 }

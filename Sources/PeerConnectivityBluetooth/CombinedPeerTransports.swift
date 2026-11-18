@@ -26,6 +26,11 @@ internal final class CombinedPeerSessionTransport : PeerSessionTransport {
         var waiting : [(Bool) -> Void]
     }
 
+    fileprivate struct CertificateKey : Hashable {
+        let identity : PeerIdentity
+        let certificate : Data
+    }
+
     /// The app's answer for a peer, reused by its other links.
     fileprivate struct Answer {
         let accept : Bool
@@ -40,6 +45,9 @@ internal final class CombinedPeerSessionTransport : PeerSessionTransport {
     internal let peer : Peer
     /// Most preferred first.
     internal let links : [PeerSessionTransport]
+    /// False when identity is only a claim (no authentication), so each link's invitation goes
+    /// to the app and no answer is reused for another link.
+    fileprivate let sharesInvitationAnswers : Bool
     fileprivate let observer : Observable<PeerSessionEvent>
     fileprivate let linkObservers : [Observable<PeerSessionEvent>]
     fileprivate let lock = NSLock()
@@ -48,7 +56,8 @@ internal final class CombinedPeerSessionTransport : PeerSessionTransport {
     /// Accepted certificates only; a rejected one is always asked about again.
     fileprivate var certificateAnswers : [PeerIdentity:Answer] = [:]
     fileprivate var pendingInvitations : [PeerIdentity:PendingDecision] = [:]
-    fileprivate var pendingCertificates : [PeerIdentity:PendingDecision] = [:]
+    /// Keyed by certificate too, so a different certificate never displaces a pending decision.
+    fileprivate var pendingCertificates : [CertificateKey:PendingDecision] = [:]
 
     internal var connectedPeers : [Peer] {
         var seen = Set<PeerIdentity>()
@@ -57,9 +66,11 @@ internal final class CombinedPeerSessionTransport : PeerSessionTransport {
 
     internal init(peer: Peer,
         observer: Observable<PeerSessionEvent>,
+        sharesInvitationAnswers: Bool,
         makeLinks: [(Observable<PeerSessionEvent>) -> PeerSessionTransport]) {
         let linkObservers = makeLinks.map { _ in Observable<PeerSessionEvent>(.none) }
         self.peer = peer
+        self.sharesInvitationAnswers = sharesInvitationAnswers
         self.observer = observer
         self.linkObservers = linkObservers
         self.links = zip(makeLinks, linkObservers).map { make, linkObserver in make(linkObserver) }
@@ -79,8 +90,20 @@ internal final class CombinedPeerSessionTransport : PeerSessionTransport {
         links.forEach { $0.startSession() }
     }
 
+    /// Links cancel their connections without reporting each peer, so the merged state is reset
+    /// here; otherwise a restarted session would treat old peers as connected and admit their
+    /// identities without asking. Decisions still waiting are declined.
     internal func stopSession() {
+        lock.lock()
+        let waiting = pendingInvitations.values.flatMap { $0.waiting } + pendingCertificates.values.flatMap { $0.waiting }
+        connectedLinks.removeAll()
+        invitationAnswers.removeAll()
+        certificateAnswers.removeAll()
+        pendingInvitations.removeAll()
+        pendingCertificates.removeAll()
+        lock.unlock()
         links.forEach { $0.stopSession() }
+        waiting.forEach { $0(false) }
     }
 
     internal func sendData(_ data: Data, toPeers peers: [Peer]) {
@@ -210,6 +233,10 @@ internal final class CombinedPeerSessionTransport : PeerSessionTransport {
     /// with a pre-shared key both links prove the key, and with certificates each link still
     /// has to present the certificate the app accepted (see `decideCertificate`).
     fileprivate func decideInvitation(from invitingPeer: Peer, context: Data?, handler: @escaping (Bool) -> Void) {
+        guard sharesInvitationAnswers else {
+            observer.update(.didReceiveInvitation(peer: invitingPeer, context: context, handler: handler))
+            return
+        }
         let identity = invitingPeer.identity
         lock.lock()
         if connectedLinks[identity] != nil {
@@ -257,26 +284,28 @@ internal final class CombinedPeerSessionTransport : PeerSessionTransport {
             handler(true)
             return
         }
-        if let leaf = leaf, var pending = pendingCertificates[identity], pending.certificate == leaf, isFresh(pending.startedAt) {
+        // Without a certificate there is nothing to match, so the app always decides.
+        let key = leaf.map { CertificateKey(identity: identity, certificate: $0) }
+        if let key = key, var pending = pendingCertificates[key], isFresh(pending.startedAt) {
             pending.waiting.append(handler)
-            pendingCertificates[identity] = pending
+            pendingCertificates[key] = pending
             lock.unlock()
             return
         }
-        pendingCertificates[identity] = PendingDecision(startedAt: Date(), certificate: leaf, waiting: [])
+        if let key = key {
+            pendingCertificates[key] = PendingDecision(startedAt: Date(), certificate: leaf, waiting: [])
+        }
         lock.unlock()
         observer.update(.didReceiveCertificate(peer: certifiedPeer, certificate: certificate, handler: { [weak self] accept in
-            guard let self = self else {
-                handler(accept)
-                return
+            var waiting : [(Bool) -> Void] = []
+            if let self = self, let key = key {
+                self.lock.lock()
+                if accept {
+                    self.certificateAnswers[identity] = Answer(accept: true, answeredAt: Date(), certificate: key.certificate)
+                }
+                waiting = self.pendingCertificates.removeValue(forKey: key)?.waiting ?? []
+                self.lock.unlock()
             }
-            self.lock.lock()
-            if accept, let leaf = leaf {
-                self.certificateAnswers[identity] = Answer(accept: true, answeredAt: Date(), certificate: leaf)
-            }
-            let waiting = self.pendingCertificates[identity]?.certificate == leaf
-                ? (self.pendingCertificates.removeValue(forKey: identity)?.waiting ?? []) : []
-            self.lock.unlock()
             handler(accept)
             waiting.forEach { $0(accept) }
         }))
@@ -414,13 +443,18 @@ internal final class CombinedPeerAdvertiserTransport : PeerAdvertiserTransport {
 extension PeerConnectionTransportFactory {
 
     /// Combines link factories, most preferred first, into one transport.
+    /// - parameter security: The links' security; `.unauthenticated` turns off reusing an
+    ///   invitation answer across links, because any device can claim any identity.
     internal static func combined(_ linkFactories: [PeerConnectionTransportFactory],
-        backend: PeerConnectionBackend) -> PeerConnectionTransportFactory {
+        backend: PeerConnectionBackend,
+        security: PeerConnectionNetworkSecurity) -> PeerConnectionTransportFactory {
         precondition(linkFactories.count > 1, "PeerConnectivity: combine at least two links")
         return PeerConnectionTransportFactory(
             backend: backend,
             makeSession: { peer, configuration, observer in
-                return CombinedPeerSessionTransport(peer: peer, observer: observer, makeLinks: linkFactories.map { factory in
+                return CombinedPeerSessionTransport(peer: peer, observer: observer,
+                    sharesInvitationAnswers: security != .unauthenticated,
+                    makeLinks: linkFactories.map { factory in
                     return { linkObserver in factory.makeSession(peer, configuration, linkObserver) }
                 })
             },
