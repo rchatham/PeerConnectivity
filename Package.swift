@@ -22,18 +22,28 @@ let package = Package(
             name: "PeerConnectivity",
             dependencies: [],
             path: "Sources",
-            exclude: ["PeerConnectivityUI"]
+            exclude: ["PeerConnectivityUI", "PeerConnectivityBluetooth"]
         ),
         .target(
             name: "PeerConnectivityUI",
             dependencies: ["PeerConnectivity"],
             path: "Sources/PeerConnectivityUI"
         ),
+        .target(
+            name: "PeerConnectivityBluetooth",
+            dependencies: ["PeerConnectivity"],
+            path: "Sources/PeerConnectivityBluetooth"
+        ),
         .testTarget(
             name: "PeerConnectivityTests",
             dependencies: ["PeerConnectivity"],
             path: "PeerConnectivityTests",
             exclude: ["Info.plist"]
+        ),
+        .testTarget(
+            name: "PeerConnectivityBluetoothTests",
+            dependencies: ["PeerConnectivityBluetooth"],
+            path: "PeerConnectivityBluetoothTests"
         )
     ],
     swiftLanguageModes: [.v5]
