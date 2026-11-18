@@ -108,10 +108,17 @@ public enum PeerConnectionBackend : Equatable {
 
      This backend lives in the `PeerConnectivityBluetooth` product so apps that do not use it
      never link Core Bluetooth. Create the manager with
-     `PeerConnectionManager(bluetoothServiceType:)` from that product; passing `.bluetooth`
-     to `init(serviceType:...backend:)` is a programmer error.
+     `PeerConnectionManager(serviceType:links:)` from that product, passing `.bluetooth`;
+     passing `.bluetooth` to `init(serviceType:...backend:)` is a programmer error.
      */
     case bluetooth
+    /**
+     Use the Network framework and Bluetooth LE at the same time. A peer reachable over both
+     radios is connected over both and reported once, and stays connected while either link is
+     up. Create the manager with `PeerConnectionManager(serviceType:links:)` from the
+     `PeerConnectivityBluetooth` product, passing `.all`.
+     */
+    case networkFrameworkAndBluetooth
 }
 
 /**
@@ -443,7 +450,7 @@ public class PeerConnectionManager {
         switch backend {
         case .multipeerConnectivity:
             self.peer = Peer(displayName: sanitizedDisplayName)
-        case .networkFramework, .bluetooth:
+        case .networkFramework, .bluetooth, .networkFrameworkAndBluetooth:
             self.peer = Peer(networkDisplayName: sanitizedDisplayName)
         }
         self.securityConfiguration = securityConfiguration
@@ -498,9 +505,9 @@ public class PeerConnectionManager {
                 return .networkFramework(security: networkSecurity)
             }
             fatalError("PeerConnectivity: Network framework backend requires iOS 13.0 or macOS 10.15")
-        case .bluetooth:
-            fatalError("PeerConnectivity: the Bluetooth backend is in the PeerConnectivityBluetooth product; "
-                + "create the manager with PeerConnectionManager(bluetoothServiceType:)")
+        case .bluetooth, .networkFrameworkAndBluetooth:
+            fatalError("PeerConnectivity: Bluetooth backends are in the PeerConnectivityBluetooth product; "
+                + "create the manager with PeerConnectionManager(serviceType:links:)")
         }
     }
 
