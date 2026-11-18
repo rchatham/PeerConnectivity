@@ -224,6 +224,37 @@ final class CombinedPeerTransportTests : XCTestCase {
         XCTAssertNil(answers.values["bob after stop"])
     }
 
+    func testAnswerToAPromptFromBeforeStopIsNotReused() {
+        let harness = SessionHarness()
+        let bob = remotePeer("Bob")
+        let answers = AnswerLog()
+        harness.push(.didReceiveInvitation(peer: bob, context: nil, handler: answers.record("old")), link: 0)
+        guard case .didReceiveInvitation(_, _, let staleHandler)? = harness.output(count: 1).first else {
+            return XCTFail("the app is asked")
+        }
+        harness.session.stopSession()
+
+        harness.push(.didReceiveInvitation(peer: bob, context: nil, handler: answers.record("new")), link: 0)
+        guard case .didReceiveInvitation(_, _, let currentHandler)? = harness.output(count: 1).first else {
+            return XCTFail("the restarted session asks again")
+        }
+        harness.push(.didReceiveInvitation(peer: bob, context: nil, handler: answers.record("new, waiting")), link: 1)
+        harness.assertNoMoreOutput()
+
+        // The app answers the prompt from before the stop with yes.
+        staleHandler(true)
+        XCTAssertEqual(answers.values["old"], true, "the old link still gets its answer")
+        XCTAssertNil(answers.values["new, waiting"], "the stale yes does not answer the current prompt's waiters")
+        harness.push(.didReceiveInvitation(peer: bob, context: nil, handler: answers.record("after stale")), link: 1)
+        harness.assertNoMoreOutput()
+        XCTAssertNil(answers.values["after stale"], "the stale yes is not reused for another link")
+
+        currentHandler(false)
+        XCTAssertEqual(answers.values["new"], false)
+        XCTAssertEqual(answers.values["new, waiting"], false)
+        XCTAssertEqual(answers.values["after stale"], false)
+    }
+
     func testUnauthenticatedLinksPutEveryInvitationToTheApp() {
         let harness = SessionHarness(sharesInvitationAnswers: false)
         let bob = remotePeer("Bob")

@@ -21,6 +21,9 @@ import PeerConnectivity
 internal final class CombinedPeerSessionTransport : PeerSessionTransport {
 
     fileprivate struct PendingDecision {
+        /// Identifies the prompt this entry belongs to, so a late answer to an older prompt
+        /// (from before a stop, or abandoned and replaced) never touches this one.
+        let token = UUID()
         let startedAt : Date
         let certificate : Data?
         var waiting : [(Bool) -> Void]
@@ -92,7 +95,8 @@ internal final class CombinedPeerSessionTransport : PeerSessionTransport {
 
     /// Links cancel their connections without reporting each peer, so the merged state is reset
     /// here; otherwise a restarted session would treat old peers as connected and admit their
-    /// identities without asking. Decisions still waiting are declined.
+    /// identities without asking. Decisions still waiting are declined, and the app's answer to a
+    /// prompt shown before the stop then answers only its own link.
     internal func stopSession() {
         lock.lock()
         let waiting = pendingInvitations.values.flatMap { $0.waiting } + pendingCertificates.values.flatMap { $0.waiting }
@@ -256,14 +260,18 @@ internal final class CombinedPeerSessionTransport : PeerSessionTransport {
             lock.unlock()
             return
         }
-        pendingInvitations[identity] = PendingDecision(startedAt: Date(), certificate: nil, waiting: [])
+        let decision = PendingDecision(startedAt: Date(), certificate: nil, waiting: [])
+        pendingInvitations[identity] = decision
         lock.unlock()
         observer.update(.didReceiveInvitation(peer: invitingPeer, context: context, handler: { [weak self] accept in
             var waiting : [(Bool) -> Void] = []
             if let self = self {
                 self.lock.lock()
-                self.invitationAnswers[identity] = Answer(accept: accept, answeredAt: Date(), certificate: nil)
-                waiting = self.pendingInvitations.removeValue(forKey: identity)?.waiting ?? []
+                // A stale prompt answers only its own link and is not reused.
+                if self.pendingInvitations[identity]?.token == decision.token {
+                    self.invitationAnswers[identity] = Answer(accept: accept, answeredAt: Date(), certificate: nil)
+                    waiting = self.pendingInvitations.removeValue(forKey: identity)?.waiting ?? []
+                }
                 self.lock.unlock()
             }
             handler(accept)
@@ -292,18 +300,22 @@ internal final class CombinedPeerSessionTransport : PeerSessionTransport {
             lock.unlock()
             return
         }
+        let decision = PendingDecision(startedAt: Date(), certificate: leaf, waiting: [])
         if let key = key {
-            pendingCertificates[key] = PendingDecision(startedAt: Date(), certificate: leaf, waiting: [])
+            pendingCertificates[key] = decision
         }
         lock.unlock()
         observer.update(.didReceiveCertificate(peer: certifiedPeer, certificate: certificate, handler: { [weak self] accept in
             var waiting : [(Bool) -> Void] = []
             if let self = self, let key = key {
                 self.lock.lock()
-                if accept {
-                    self.certificateAnswers[identity] = Answer(accept: true, answeredAt: Date(), certificate: key.certificate)
+                // A stale prompt answers only its own link and is not reused.
+                if self.pendingCertificates[key]?.token == decision.token {
+                    if accept {
+                        self.certificateAnswers[identity] = Answer(accept: true, answeredAt: Date(), certificate: key.certificate)
+                    }
+                    waiting = self.pendingCertificates.removeValue(forKey: key)?.waiting ?? []
                 }
-                waiting = self.pendingCertificates.removeValue(forKey: key)?.waiting ?? []
                 self.lock.unlock()
             }
             handler(accept)
