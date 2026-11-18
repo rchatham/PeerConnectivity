@@ -45,6 +45,9 @@ internal final class BluetoothPeerConnection : NSObject, NetworkPeerFrameSending
     fileprivate var pendingWrites : [PendingWrite] = []
     fileprivate var readBuffer = [UInt8](repeating: 0, count: BluetoothPeerConnection.readChunkLength)
     fileprivate var isClosed = false
+    /// Stream delegates are unretained, and Core Foundation can deliver an event already queued
+    /// after the connection is released; the proxy turns such an event into a no-op.
+    fileprivate let streamEvents = StreamEventProxy()
     fileprivate let peerCertificateChainLock = NSLock()
     fileprivate var storedPeerCertificateChain : [SecCertificate]?
 
@@ -81,11 +84,12 @@ internal final class BluetoothPeerConnection : NSObject, NetworkPeerFrameSending
         self.owner = owner
         self.queue = queue
         super.init()
+        streamEvents.connection = self
     }
 
     deinit {
-        // Released without `cancel()`: stream delegates are not retained, so never leave a
-        // scheduled stream pointing at a freed connection.
+        // Released without `cancel()`: stop and unschedule the streams. Events already queued
+        // reach the proxy, whose weak reference is now nil.
         if !isClosed {
             tearDownStreams()
         }
@@ -102,8 +106,8 @@ internal final class BluetoothPeerConnection : NSObject, NetworkPeerFrameSending
             }
             frameHandler = onFrame
             closeHandler = onClose
-            inputStream.delegate = self
-            outputStream.delegate = self
+            inputStream.delegate = streamEvents
+            outputStream.delegate = streamEvents
             CFReadStreamSetDispatchQueue(inputStream, queue)
             CFWriteStreamSetDispatchQueue(outputStream, queue)
             inputStream.open()
@@ -245,13 +249,15 @@ internal final class BluetoothPeerConnection : NSObject, NetworkPeerFrameSending
         CFWriteStreamSetDispatchQueue(outputStream, nil)
         inputStream.close()
         outputStream.close()
+        // Core Foundation may already have queued an event block for these streams, and it does
+        // not retain them or their delegate. Keep the streams, the channel that owns them and the
+        // delegate proxy alive until every block queued before this one has run; otherwise
+        // releasing the connection right after closing it crashes inside Core Foundation.
+        let retained : (InputStream, OutputStream, AnyObject?, StreamEventProxy) = (inputStream, outputStream, owner, streamEvents)
+        queue.async { withExtendedLifetime(retained) {} }
     }
-}
 
-@available(iOS 13.0, macOS 10.15, *)
-extension BluetoothPeerConnection : StreamDelegate {
-
-    internal func stream(_ stream: Stream, handle eventCode: Stream.Event) {
+    fileprivate func handleStreamEvent(_ stream: Stream, _ eventCode: Stream.Event) {
         // All connection state is confined to `queue`; the streams were scheduled on it in `start`.
         dispatchPrecondition(condition: .onQueue(queue))
         switch eventCode {
@@ -267,5 +273,17 @@ extension BluetoothPeerConnection : StreamDelegate {
             close()
         default: break
         }
+    }
+}
+
+/// Forwards stream events to a connection that may already have been released.
+@available(iOS 13.0, macOS 10.15, *)
+private final class StreamEventProxy : NSObject, StreamDelegate {
+
+    /// Loading a weak reference is thread-safe and yields nil once the connection's deinit begins.
+    weak var connection : BluetoothPeerConnection?
+
+    func stream(_ stream: Stream, handle eventCode: Stream.Event) {
+        connection?.handleStreamEvent(stream, eventCode)
     }
 }
