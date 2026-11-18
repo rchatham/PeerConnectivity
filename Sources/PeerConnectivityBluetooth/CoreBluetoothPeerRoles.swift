@@ -142,20 +142,32 @@ extension CoreBluetoothPeerPeripheral : CBPeripheralManagerDelegate {
 @available(iOS 13.0, macOS 10.15, *)
 internal final class CoreBluetoothPeerCentral : NSObject, BluetoothPeerScanning {
 
+    /// Bounds on what nearby advertisers can make this device hold or do. Addresses rotate, so
+    /// one device (or an attacker cycling addresses) can appear as many peripherals.
+    internal struct Limits {
+        internal var maxKnownPeripherals = 128
+        internal var maxPendingReads = 4
+        internal var readTimeout : TimeInterval = 10
+    }
+
     fileprivate let serviceUUID : CBUUID
     fileprivate let handlers : BluetoothPeerScanningHandlers
+    fileprivate let limits : Limits
     fileprivate let queue = DispatchQueue(label: "PeerConnectivity.CoreBluetoothPeerCentral")
     fileprivate var manager : CBCentralManager?
     fileprivate var wantsScanning = false
     /// Retained while known: Core Bluetooth does not keep discovered peripherals alive.
     fileprivate var peripherals : [UUID:CBPeripheral] = [:]
+    fileprivate var lastSeen : [UUID:Date] = [:]
     fileprivate var identities : [UUID:PeerNetworkDiscoveryInfo] = [:]
     fileprivate var psms : [UUID:CBL2CAPPSM] = [:]
+    fileprivate var pendingReads : Set<UUID> = []
     fileprivate var channelRequests : Set<UUID> = []
 
-    internal init(serviceUUID: CBUUID, handlers: BluetoothPeerScanningHandlers) {
+    internal init(serviceUUID: CBUUID, handlers: BluetoothPeerScanningHandlers, limits: Limits = Limits()) {
         self.serviceUUID = serviceUUID
         self.handlers = handlers
+        self.limits = limits
         super.init()
     }
 
@@ -211,13 +223,60 @@ internal final class CoreBluetoothPeerCentral : NSObject, BluetoothPeerScanning 
     /// Ends a link that failed or was only needed for reading, reporting any pending channel request.
     fileprivate func finish(_ peripheral: CBPeripheral, error: Error?) {
         let identifier = peripheral.identifier
+        pendingReads.remove(identifier)
         if channelRequests.remove(identifier) != nil {
             handlers.channelFailed(identifier, error)
         }
         if identities[identifier] == nil {
             // Unknown peers are retried on their next advertisement.
-            peripherals.removeValue(forKey: identifier)
+            forget(identifier)
         }
+    }
+
+    /// Starts reading a new peripheral's identity, within the limits. Returns false when it must wait.
+    fileprivate func beginIdentityRead(_ peripheral: CBPeripheral, using central: CBCentralManager) -> Bool {
+        guard pendingReads.count < limits.maxPendingReads, makeRoomForPeripheral() else { return false }
+        let identifier = peripheral.identifier
+        peripherals[identifier] = peripheral
+        pendingReads.insert(identifier)
+        peripheral.delegate = self
+        central.connect(peripheral)
+        queue.asyncAfter(deadline: .now() + limits.readTimeout) { [weak self] in
+            self?.abandonIdentityRead(identifier)
+        }
+        return true
+    }
+
+    /// A peripheral that accepts the connection but never answers would otherwise hold a slot forever.
+    fileprivate func abandonIdentityRead(_ identifier: UUID) {
+        guard pendingReads.remove(identifier) != nil, let peripheral = peripherals[identifier] else { return }
+        manager?.cancelPeripheralConnection(peripheral)
+        if channelRequests.remove(identifier) != nil {
+            handlers.channelFailed(identifier, nil)
+        }
+        forget(identifier)
+    }
+
+    /// Evicts the least recently seen idle peripheral when the table is full.
+    fileprivate func makeRoomForPeripheral() -> Bool {
+        guard peripherals.count >= limits.maxKnownPeripherals else { return true }
+        let evictable = peripherals.keys.filter { !pendingReads.contains($0) && !channelRequests.contains($0) }
+        guard let oldest = evictable.min(by: { (lastSeen[$0] ?? .distantPast) < (lastSeen[$1] ?? .distantPast) }) else {
+            return false
+        }
+        if let peripheral = peripherals[oldest], peripheral.state != .disconnected {
+            manager?.cancelPeripheralConnection(peripheral)
+        }
+        forget(oldest)
+        return true
+    }
+
+    fileprivate func forget(_ identifier: UUID) {
+        peripherals.removeValue(forKey: identifier)
+        lastSeen.removeValue(forKey: identifier)
+        identities.removeValue(forKey: identifier)
+        psms.removeValue(forKey: identifier)
+        pendingReads.remove(identifier)
     }
 }
 
@@ -232,6 +291,8 @@ extension CoreBluetoothPeerCentral : CBCentralManagerDelegate {
         identities.removeAll()
         psms.removeAll()
         peripherals.removeAll()
+        lastSeen.removeAll()
+        pendingReads.removeAll()
         channelRequests.removeAll()
         if let error = PeerBluetoothError(state: central.state) {
             handlers.failed(.browsingFailed(underlying: error))
@@ -243,15 +304,16 @@ extension CoreBluetoothPeerCentral : CBCentralManagerDelegate {
         advertisementData: [String:Any],
         rssi RSSI: NSNumber) {
         let identifier = peripheral.identifier
+        if peripherals[identifier] != nil {
+            lastSeen[identifier] = Date()
+        }
         if let info = identities[identifier] {
             handlers.sighted(identifier, info)
             return
         }
-        // Identity unknown and no read in flight: connect once to read it.
-        guard peripherals[identifier] == nil else { return }
-        peripherals[identifier] = peripheral
-        peripheral.delegate = self
-        central.connect(peripheral)
+        // Identity unknown and no read in flight: connect once to read it, if a slot is free.
+        guard peripherals[identifier] == nil, beginIdentityRead(peripheral, using: central) else { return }
+        lastSeen[identifier] = Date()
     }
 
     internal func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
@@ -313,6 +375,7 @@ extension CoreBluetoothPeerCentral : CBPeripheralDelegate {
         }
 
         guard identities[identifier] != nil, let psm = psms[identifier] else { return }
+        pendingReads.remove(identifier)
         if channelRequests.contains(identifier) {
             peripheral.openL2CAPChannel(psm)
         } else {
