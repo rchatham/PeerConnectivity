@@ -15,6 +15,10 @@ let package = Package(
         .library(
             name: "PeerConnectivityUI",
             targets: ["PeerConnectivityUI"]
+        ),
+        .library(
+            name: "PeerConnectivityBluetooth",
+            targets: ["PeerConnectivityBluetooth"]
         )
     ],
     targets: [
