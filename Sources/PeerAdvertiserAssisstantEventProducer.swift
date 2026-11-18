@@ -9,7 +9,7 @@
 import Foundation
 import MultipeerConnectivity
 
-internal enum PeerAdvertiserAssisstantEvent {
+package enum PeerAdvertiserAssisstantEvent {
     case none
     case didDissmissInvitation
     case willPresentInvitation

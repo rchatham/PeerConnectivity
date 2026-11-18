@@ -8,14 +8,14 @@
 
 import Foundation
 
-internal protocol NetworkPeerFrameSending : NetworkPeerConnectionCancellable {
+package protocol NetworkPeerFrameSending : NetworkPeerConnectionCancellable {
     /// The remote TLS certificate chain, when the transport authenticated one.
     var peerCertificateChain : [Any]? { get }
     func sendFrame(_ frame: PeerNetworkFrame, onProcessed: @escaping (Error?) -> Void)
 }
 
 extension NetworkPeerFrameSending {
-    internal var peerCertificateChain : [Any]? {
+    package var peerCertificateChain : [Any]? {
         return nil
     }
 

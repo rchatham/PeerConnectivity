@@ -9,7 +9,7 @@
 import Foundation
 import MultipeerConnectivity
 
-internal protocol PeerSessionTransport {
+package protocol PeerSessionTransport {
     var peer : Peer { get }
     var connectedPeers : [Peer] { get }
 
@@ -25,7 +25,7 @@ internal protocol PeerSessionTransport {
         withCompletionHandler completion: ((Error?)->Void)?) -> Progress?
 }
 
-internal protocol MultipeerSessionTransport : PeerSessionTransport {
+package protocol MultipeerSessionTransport : PeerSessionTransport {
     var multipeerSession : MCSession { get }
 
     func nearbyConnectionDataForPeer(_ peer: Peer, withCompletionHandler completion: @escaping (Data?, Error?)->Void)
@@ -33,7 +33,7 @@ internal protocol MultipeerSessionTransport : PeerSessionTransport {
     func cancelConnectPeer(_ peer: Peer)
 }
 
-internal protocol PeerBrowserTransport {
+package protocol PeerBrowserTransport {
     func invitePeer(_ peer: Peer, withContext context: Data?, timeout: TimeInterval)
     func startBrowsing()
     func stopBrowsing()
@@ -45,22 +45,36 @@ extension PeerBrowserTransport {
     }
 }
 
-internal protocol PeerAdvertiserTransport {
+package protocol PeerAdvertiserTransport {
     func startAdvertising()
     func stopAdvertising()
 }
 
-internal protocol PeerAdvertiserAssisstantTransport {
+package protocol PeerAdvertiserAssisstantTransport {
     func startAdvertisingAssisstant()
     func stopAdvertisingAssisstant()
 }
 
-internal struct PeerConnectionTransportFactory {
-    internal let backend : PeerConnectionBackend
-    internal let makeSession : (Peer, PeerSecurityConfiguration, Observable<PeerSessionEvent>) -> PeerSessionTransport
-    internal let makeBrowser : (PeerSessionTransport, ServiceType, Observable<PeerBrowserEvent>) -> PeerBrowserTransport
-    internal let makeAdvertiser : (PeerSessionTransport, ServiceType, PeerDiscoveryInfo?, Observable<PeerAdvertiserEvent>) -> PeerAdvertiserTransport
-    internal let makeAdvertiserAssisstant : (PeerSessionTransport, ServiceType, PeerDiscoveryInfo?, Observable<PeerAdvertiserAssisstantEvent>) -> PeerAdvertiserAssisstantTransport
+package struct PeerConnectionTransportFactory {
+    package let backend : PeerConnectionBackend
+    package let makeSession : (Peer, PeerSecurityConfiguration, Observable<PeerSessionEvent>) -> PeerSessionTransport
+    package let makeBrowser : (PeerSessionTransport, ServiceType, Observable<PeerBrowserEvent>) -> PeerBrowserTransport
+    package let makeAdvertiser : (PeerSessionTransport, ServiceType, PeerDiscoveryInfo?, Observable<PeerAdvertiserEvent>) -> PeerAdvertiserTransport
+    package let makeAdvertiserAssisstant : (PeerSessionTransport, ServiceType, PeerDiscoveryInfo?, Observable<PeerAdvertiserAssisstantEvent>) -> PeerAdvertiserAssisstantTransport
+
+    /// Explicit because a synthesized memberwise initializer is internal, and transports
+    /// outside this module build their own factory.
+    package init(backend: PeerConnectionBackend,
+        makeSession: @escaping (Peer, PeerSecurityConfiguration, Observable<PeerSessionEvent>) -> PeerSessionTransport,
+        makeBrowser: @escaping (PeerSessionTransport, ServiceType, Observable<PeerBrowserEvent>) -> PeerBrowserTransport,
+        makeAdvertiser: @escaping (PeerSessionTransport, ServiceType, PeerDiscoveryInfo?, Observable<PeerAdvertiserEvent>) -> PeerAdvertiserTransport,
+        makeAdvertiserAssisstant: @escaping (PeerSessionTransport, ServiceType, PeerDiscoveryInfo?, Observable<PeerAdvertiserAssisstantEvent>) -> PeerAdvertiserAssisstantTransport) {
+        self.backend = backend
+        self.makeSession = makeSession
+        self.makeBrowser = makeBrowser
+        self.makeAdvertiser = makeAdvertiser
+        self.makeAdvertiserAssisstant = makeAdvertiserAssisstant
+    }
 
     @available(iOS 13.0, macOS 10.15, *)
     internal static var networkFramework : PeerConnectionTransportFactory {

@@ -1,7 +1,7 @@
 # AGENTS.md — PeerConnectivity
 
 Guidelines for AI coding agents working in this repository. This is a Swift framework
-wrapping Apple's MultipeerConnectivity for Bluetooth/WiFi mesh networking.
+wrapping Apple's MultipeerConnectivity for Wi-Fi and peer-to-peer Wi-Fi mesh networking.
 
 ## Build & Test Commands
 

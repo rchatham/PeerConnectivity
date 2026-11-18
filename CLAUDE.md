@@ -4,7 +4,7 @@ This document provides guidance for AI assistants working with the PeerConnectiv
 
 ## Project Overview
 
-PeerConnectivity is a functional Swift wrapper for Apple's MultipeerConnectivity framework. It provides a lightweight, easy-to-use API for mesh networking over Bluetooth and WiFi, abstracting away the complexity and edge cases of the underlying framework.
+PeerConnectivity is a functional Swift wrapper for Apple's MultipeerConnectivity framework. It provides a lightweight, easy-to-use API for mesh networking over Wi-Fi and peer-to-peer Wi-Fi, abstracting away the complexity and edge cases of the underlying framework.
 
 - **Language**: Swift 5.0
 - **Platform**: iOS 8.0+, macOS 10.10+

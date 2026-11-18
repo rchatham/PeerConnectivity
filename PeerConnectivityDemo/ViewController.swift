@@ -597,7 +597,7 @@ private extension ViewController {
             hints.append("Multipeer encryption alone does not authenticate peers; the demo uses a nil identity and accepts all certificates, leaving it vulnerable to MITM attacks.")
         }
         if isNetworking && discoveredPeers.isEmpty && connectedPeers.isEmpty {
-            hints.append("No peers yet. Confirm both devices use the same service type, are on the same Wi‑Fi or have Bluetooth enabled, and accepted Local Network permission.")
+            hints.append("No peers yet. Confirm both devices use the same service type, have Wi‑Fi turned on, and accepted Local Network permission.")
         }
         if isNetworking && !mode.isAdvertising {
             hints.append("Advertising is disabled. Another device cannot discover this one unless it is already connected or this mode changes.")

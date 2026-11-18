@@ -9,7 +9,7 @@
 import Foundation
 import MultipeerConnectivity
 
-internal enum PeerSessionEvent {
+package enum PeerSessionEvent {
     case none
     case devicesChanged(peer: Peer, connectedPeers: [Peer])
     case didReceiveData(peer: Peer, data: Data)

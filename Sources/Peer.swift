@@ -90,7 +90,7 @@ public struct Peer {
     
     
     
-    internal let identity : PeerIdentity
+    package let identity : PeerIdentity
     internal let peerID : MCPeerID
     
     /**
@@ -110,7 +110,7 @@ public struct Peer {
         self.status = status
     }
 
-    internal init(identity: PeerIdentity, status: Status) {
+    package init(identity: PeerIdentity, status: Status) {
         self.identity = identity
         self.peerID = MCPeerID(displayName: identity.displayName)
         self.status = status

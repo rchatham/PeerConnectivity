@@ -23,7 +23,7 @@ internal struct PeerNetworkBonjourService : Equatable {
     }
 }
 
-internal struct PeerNetworkDiscoveryInfo : Equatable {
+package struct PeerNetworkDiscoveryInfo : Equatable {
 
     fileprivate static let identifierKey = "pc-id"
     fileprivate static let displayNameKey = "pc-name"
@@ -33,12 +33,12 @@ internal struct PeerNetworkDiscoveryInfo : Equatable {
     /// Keys with this prefix (compared case-insensitively, as DNS-SD does) belong to PeerConnectivity.
     internal static let reservedKeyPrefix = "pc-"
 
-    internal let identity : PeerIdentity
-    internal let protocolVersion : Int
+    package let identity : PeerIdentity
+    package let protocolVersion : Int
     /// Caller-provided discovery metadata published beside the reserved keys.
-    internal let appInfo : [String:String]
+    package let appInfo : [String:String]
 
-    internal init(identity: PeerIdentity,
+    package init(identity: PeerIdentity,
         appInfo: [String:String] = [:],
         protocolVersion: Int = PeerNetworkHandshake.currentProtocolVersion) {
         let identifier = PeerNetworkDiscoveryInfo.truncate(identity.identifier,
@@ -50,7 +50,7 @@ internal struct PeerNetworkDiscoveryInfo : Equatable {
         self.appInfo = appInfo
     }
 
-    internal var txtRecordDictionary : [String:String] {
+    package var txtRecordDictionary : [String:String] {
         return appInfo.merging([
             PeerNetworkDiscoveryInfo.identifierKey: identity.identifier,
             PeerNetworkDiscoveryInfo.displayNameKey: identity.displayName,
@@ -60,7 +60,7 @@ internal struct PeerNetworkDiscoveryInfo : Equatable {
 
     /// Whether caller metadata can be published: DNS-SD key characters, no reserved prefix,
     /// and each `key=value` entry within the 255-byte TXT limit.
-    internal static func isValidAppInfo(_ appInfo: [String:String]) -> Bool {
+    package static func isValidAppInfo(_ appInfo: [String:String]) -> Bool {
         return appInfo.allSatisfy { isValidAppEntry(key: $0.key, value: $0.value) }
     }
 
@@ -71,7 +71,7 @@ internal struct PeerNetworkDiscoveryInfo : Equatable {
         return isTXTEntryByteSafe(key: key, value: value)
     }
 
-    internal init?(txtRecordDictionary: [String:String]) {
+    package init?(txtRecordDictionary: [String:String]) {
         guard let identifier = txtRecordDictionary[PeerNetworkDiscoveryInfo.identifierKey],
             let displayName = txtRecordDictionary[PeerNetworkDiscoveryInfo.displayNameKey],
             let protocolVersionText = txtRecordDictionary[PeerNetworkDiscoveryInfo.protocolVersionKey],
@@ -111,21 +111,21 @@ internal struct PeerNetworkDiscoveryInfo : Equatable {
     }
 }
 
-internal struct PeerNetworkHandshake : Codable, Equatable {
+package struct PeerNetworkHandshake : Codable, Equatable {
 
     /// Version 2 adds invitation and two-sided admission frames. Version 1 peers are rejected.
-    internal static let currentProtocolVersion = 2
+    package static let currentProtocolVersion = 2
 
-    internal let protocolVersion : Int
-    internal let identity : PeerIdentity
+    package let protocolVersion : Int
+    package let identity : PeerIdentity
 
-    internal init(identity: PeerIdentity, protocolVersion: Int = PeerNetworkHandshake.currentProtocolVersion) {
+    package init(identity: PeerIdentity, protocolVersion: Int = PeerNetworkHandshake.currentProtocolVersion) {
         self.identity = identity
         self.protocolVersion = protocolVersion
     }
 }
 
-internal enum PeerNetworkFrameKind : UInt8 {
+package enum PeerNetworkFrameKind : UInt8 {
     case data = 1
     case handshake = 2
     /// Sent once every local admission gate (certificate, invitation) has passed.
@@ -140,13 +140,13 @@ internal enum PeerNetworkFrameKind : UInt8 {
  Invitation sent by the connecting peer. The context is public, unauthenticated metadata,
  as it is under MultipeerConnectivity.
  */
-internal struct PeerNetworkInvitation : Codable, Equatable {
+package struct PeerNetworkInvitation : Codable, Equatable {
     internal static let maxContextLength = 64 * 1024
 
     internal let context : Data?
     internal let timeout : TimeInterval
 
-    internal init(context: Data? = nil, timeout: TimeInterval = 30) {
+    package init(context: Data? = nil, timeout: TimeInterval = 30) {
         self.context = context
         self.timeout = timeout
     }
@@ -166,20 +166,20 @@ internal enum PeerNetworkFrameDecoderError : Error, Equatable {
     case invalidFrame
 }
 
-internal struct PeerNetworkFrame : Equatable {
+package struct PeerNetworkFrame : Equatable {
 
     fileprivate static let headerLength = 5
-    internal static let maxPayloadLength = 1024 * 1024
+    package static let maxPayloadLength = 1024 * 1024
 
-    internal let kind : PeerNetworkFrameKind
-    internal let payload : Data
+    package let kind : PeerNetworkFrameKind
+    package let payload : Data
 
-    internal init(kind: PeerNetworkFrameKind, payload: Data) {
+    package init(kind: PeerNetworkFrameKind, payload: Data) {
         self.kind = kind
         self.payload = payload
     }
 
-    internal func encoded() -> Data {
+    package func encoded() -> Data {
         var data = Data()
         data.append(kind.rawValue)
 
@@ -222,14 +222,14 @@ internal struct PeerNetworkFrame : Equatable {
     }
 }
 
-internal struct PeerNetworkFrameDecoder {
+package struct PeerNetworkFrameDecoder {
 
     fileprivate var buffer = Data()
     fileprivate var isTerminal = false
 
-    internal init() {}
+    package init() {}
 
-    internal mutating func append(_ data: Data) throws -> [PeerNetworkFrame] {
+    package mutating func append(_ data: Data) throws -> [PeerNetworkFrame] {
         guard !isTerminal else { throw PeerNetworkFrameDecoderError.invalidFrame }
 
         buffer.append(data)

@@ -8,7 +8,7 @@
 
 import Foundation
 
-internal struct PeerIdentity : Codable, Hashable {
+package struct PeerIdentity : Codable, Hashable {
 
     internal static let maxIdentifierByteLength = 180
 
@@ -16,10 +16,10 @@ internal struct PeerIdentity : Codable, Hashable {
         return !identifier.isEmpty && identifier.utf8.count <= maxIdentifierByteLength
     }
 
-    internal let identifier : String
-    internal let displayName : String
+    package let identifier : String
+    package let displayName : String
 
-    internal init(identifier: String, displayName: String) {
+    package init(identifier: String, displayName: String) {
         self.identifier = identifier
         self.displayName = displayName
     }
