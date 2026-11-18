@@ -146,8 +146,13 @@ internal final class CoreBluetoothPeerCentral : NSObject, BluetoothPeerScanning 
     /// one device (or an attacker cycling addresses) can appear as many peripherals.
     internal struct Limits {
         internal var maxKnownPeripherals = 128
-        internal var maxPendingReads = 4
-        internal var readTimeout : TimeInterval = 10
+        internal var maxPendingReads = 6
+        /// A GATT read normally completes in about a second; a stalling peripheral should not
+        /// hold a slot for long.
+        internal var readTimeout : TimeInterval = 5
+        /// How long a peripheral whose read timed out is ignored, so it cannot keep reclaiming a slot.
+        internal var timedOutBackoff : TimeInterval = 60
+        internal var maxBackoffEntries = 256
     }
 
     fileprivate let serviceUUID : CBUUID
@@ -163,6 +168,7 @@ internal final class CoreBluetoothPeerCentral : NSObject, BluetoothPeerScanning 
     fileprivate var psms : [UUID:CBL2CAPPSM] = [:]
     fileprivate var pendingReads : Set<UUID> = []
     fileprivate var channelRequests : Set<UUID> = []
+    fileprivate var ignoredUntil : [UUID:Date] = [:]
 
     internal init(serviceUUID: CBUUID, handlers: BluetoothPeerScanningHandlers, limits: Limits = Limits()) {
         self.serviceUUID = serviceUUID
@@ -235,8 +241,12 @@ internal final class CoreBluetoothPeerCentral : NSObject, BluetoothPeerScanning 
 
     /// Starts reading a new peripheral's identity, within the limits. Returns false when it must wait.
     fileprivate func beginIdentityRead(_ peripheral: CBPeripheral, using central: CBCentralManager) -> Bool {
-        guard pendingReads.count < limits.maxPendingReads, makeRoomForPeripheral() else { return false }
         let identifier = peripheral.identifier
+        if let until = ignoredUntil[identifier] {
+            guard until <= Date() else { return false }
+            ignoredUntil.removeValue(forKey: identifier)
+        }
+        guard pendingReads.count < limits.maxPendingReads, makeRoomForPeripheral() else { return false }
         peripherals[identifier] = peripheral
         pendingReads.insert(identifier)
         peripheral.delegate = self
@@ -255,17 +265,23 @@ internal final class CoreBluetoothPeerCentral : NSObject, BluetoothPeerScanning 
             handlers.channelFailed(identifier, nil)
         }
         forget(identifier)
+        let now = Date()
+        if ignoredUntil.count >= limits.maxBackoffEntries {
+            ignoredUntil = ignoredUntil.filter { $0.value > now }
+            if ignoredUntil.count >= limits.maxBackoffEntries { ignoredUntil.removeAll() }
+        }
+        ignoredUntil[identifier] = now.addingTimeInterval(limits.timedOutBackoff)
     }
 
-    /// Evicts the least recently seen idle peripheral when the table is full.
+    /// Evicts the least recently seen peripheral with no link when the table is full. A connected
+    /// or connecting peripheral may carry a live channel, so it is never evicted.
     fileprivate func makeRoomForPeripheral() -> Bool {
         guard peripherals.count >= limits.maxKnownPeripherals else { return true }
-        let evictable = peripherals.keys.filter { !pendingReads.contains($0) && !channelRequests.contains($0) }
+        let evictable = peripherals.filter { identifier, peripheral in
+            peripheral.state == .disconnected && !pendingReads.contains(identifier) && !channelRequests.contains(identifier)
+        }.keys
         guard let oldest = evictable.min(by: { (lastSeen[$0] ?? .distantPast) < (lastSeen[$1] ?? .distantPast) }) else {
             return false
-        }
-        if let peripheral = peripherals[oldest], peripheral.state != .disconnected {
-            manager?.cancelPeripheralConnection(peripheral)
         }
         forget(oldest)
         return true
@@ -294,6 +310,7 @@ extension CoreBluetoothPeerCentral : CBCentralManagerDelegate {
         lastSeen.removeAll()
         pendingReads.removeAll()
         channelRequests.removeAll()
+        ignoredUntil.removeAll()
         if let error = PeerBluetoothError(state: central.state) {
             handlers.failed(.browsingFailed(underlying: error))
         }
