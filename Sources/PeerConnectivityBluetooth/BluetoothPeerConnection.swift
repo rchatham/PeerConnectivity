@@ -7,22 +7,25 @@
 //
 
 import Foundation
+import Security
 import PeerConnectivity
 
 /// A framed peer connection over an ordered stream pair, such as the streams of a `CBL2CAPChannel`.
 ///
-/// It plays the part `NetworkPeerConnection` plays over TCP: bytes go through the shared frame codec,
-/// and with no TCP keepalive underneath, the stream ending is the signal that the peer has gone.
+/// It plays the part `NetworkPeerConnection` plays over TCP: frames go through the shared codec,
+/// a `BluetoothSecureChannel` stands in for TLS, and with no TCP keepalive underneath, the stream
+/// ending is the signal that the peer has gone.
 @available(iOS 13.0, macOS 10.15, *)
 internal final class BluetoothPeerConnection : NSObject, NetworkPeerFrameSending {
 
     internal typealias FrameHandler = (PeerNetworkFrame) -> Void
     internal typealias CloseHandler = () -> Void
+    internal typealias ProcessedHandler = (Error?) -> Void
 
     fileprivate struct PendingWrite {
         let bytes : Data
         var offset : Int
-        let onProcessed : (Error?) -> Void
+        let onProcessed : ProcessedHandler?
     }
 
     /// Bytes requested per read; large enough to drain a burst of L2CAP packets in one pass.
@@ -33,31 +36,64 @@ internal final class BluetoothPeerConnection : NSObject, NetworkPeerFrameSending
     /// Retained for the connection's lifetime: a `CBL2CAPChannel` closes its streams when released.
     fileprivate let owner : AnyObject?
     fileprivate let queue : DispatchQueue
+    fileprivate let channel : BluetoothSecureChannel
     fileprivate var frameHandler : FrameHandler?
     fileprivate var closeHandler : CloseHandler?
     fileprivate var frameDecoder = PeerNetworkFrameDecoder()
+    /// Encoded frames held back until the secure channel has authenticated the peer.
+    fileprivate var framesAwaitingChannel : [(bytes: Data, onProcessed: ProcessedHandler)] = []
     fileprivate var pendingWrites : [PendingWrite] = []
+    fileprivate var readBuffer = [UInt8](repeating: 0, count: BluetoothPeerConnection.readChunkLength)
     fileprivate var isClosed = false
+    fileprivate let peerCertificateChainLock = NSLock()
+    fileprivate var storedPeerCertificateChain : [SecCertificate]?
+
+    /// The peer's certificate, once the channel has verified it. The coordinator reads this from
+    /// its own queue when the peer's identity frame arrives, which is always after verification.
+    internal var peerCertificateChain : [Any]? {
+        peerCertificateChainLock.lock()
+        defer { peerCertificateChainLock.unlock() }
+        return storedPeerCertificateChain
+    }
+
+    /// - parameter direction: `.outbound` for the side that opened the channel, which starts the handshake.
+    internal convenience init(inputStream: InputStream,
+        outputStream: OutputStream,
+        direction: NetworkPeerConnectionDirection,
+        security: PeerConnectionNetworkSecurity = .unauthenticated,
+        owner: AnyObject? = nil,
+        queue: DispatchQueue = DispatchQueue(label: "PeerConnectivity.BluetoothPeerConnection")) {
+        self.init(inputStream: inputStream,
+            outputStream: outputStream,
+            channel: BluetoothSecureChannel(security: security, direction: direction),
+            owner: owner,
+            queue: queue)
+    }
 
     internal init(inputStream: InputStream,
         outputStream: OutputStream,
+        channel: BluetoothSecureChannel,
         owner: AnyObject? = nil,
         queue: DispatchQueue = DispatchQueue(label: "PeerConnectivity.BluetoothPeerConnection")) {
         self.inputStream = inputStream
         self.outputStream = outputStream
+        self.channel = channel
         self.owner = owner
         self.queue = queue
         super.init()
     }
 
     deinit {
-        // Stream delegates are not retained; never leave a stream pointing at a freed connection.
-        inputStream.delegate = nil
-        outputStream.delegate = nil
+        // Released without `cancel()`: stream delegates are not retained, so never leave a
+        // scheduled stream pointing at a freed connection.
+        if !isClosed {
+            tearDownStreams()
+        }
     }
 
-    /// Opens both streams. Handlers run on the connection's queue. `onClose` runs once, whether the
-    /// remote side closed, a stream failed, the incoming bytes were not valid frames, or `cancel()` ran.
+    /// Opens both streams and starts the channel handshake. Handlers run on the connection's queue.
+    /// `onClose` runs once, whether the remote side closed, a stream failed, the peer failed
+    /// authentication, the incoming bytes were not valid frames, or `cancel()` ran.
     internal func start(onFrame: @escaping FrameHandler, onClose: @escaping CloseHandler) {
         queue.async { [self] in
             guard !isClosed else {
@@ -72,6 +108,11 @@ internal final class BluetoothPeerConnection : NSObject, NetworkPeerFrameSending
             CFWriteStreamSetDispatchQueue(outputStream, queue)
             inputStream.open()
             outputStream.open()
+            do {
+                enqueueWrite(try channel.start(), onProcessed: nil)
+            } catch {
+                close()
+            }
         }
     }
 
@@ -80,7 +121,7 @@ internal final class BluetoothPeerConnection : NSObject, NetworkPeerFrameSending
         queue.async { [self] in close() }
     }
 
-    internal func sendFrame(_ frame: PeerNetworkFrame, onProcessed: @escaping (Error?) -> Void) {
+    internal func sendFrame(_ frame: PeerNetworkFrame, onProcessed: @escaping ProcessedHandler) {
         guard frame.payload.count <= PeerNetworkFrame.maxPayloadLength else {
             onProcessed(POSIXError(.EMSGSIZE))
             return
@@ -92,12 +133,31 @@ internal final class BluetoothPeerConnection : NSObject, NetworkPeerFrameSending
                 onProcessed(POSIXError(.ENOTCONN))
                 return
             }
-            pendingWrites.append(PendingWrite(bytes: bytes, offset: 0, onProcessed: onProcessed))
-            writePendingBytes()
+            guard channel.isOpen else {
+                // Like data sent on an `NWConnection` before TLS completes: held, not dropped.
+                framesAwaitingChannel.append((bytes, onProcessed))
+                return
+            }
+            sendThroughChannel(bytes, onProcessed: onProcessed)
         }
     }
 
-    /// Writes queued frames until the stream is full. A frame counts as processed only once
+    fileprivate func sendThroughChannel(_ bytes: Data, onProcessed: @escaping ProcessedHandler) {
+        do {
+            enqueueWrite(try channel.seal(bytes), onProcessed: onProcessed)
+        } catch {
+            onProcessed(error)
+            close()
+        }
+    }
+
+    fileprivate func enqueueWrite(_ bytes: Data, onProcessed: ProcessedHandler?) {
+        guard !bytes.isEmpty else { return }
+        pendingWrites.append(PendingWrite(bytes: bytes, offset: 0, onProcessed: onProcessed))
+        writePendingBytes()
+    }
+
+    /// Writes queued bytes until the stream is full. A frame counts as processed only once
     /// every byte is written, matching `NWConnection`'s `.contentProcessed`.
     fileprivate func writePendingBytes() {
         while !isClosed, let write = pendingWrites.first, outputStream.hasSpaceAvailable {
@@ -111,28 +171,54 @@ internal final class BluetoothPeerConnection : NSObject, NetworkPeerFrameSending
             }
             pendingWrites[0].offset += written
             if pendingWrites[0].offset == write.bytes.count {
-                pendingWrites.removeFirst().onProcessed(nil)
+                pendingWrites.removeFirst().onProcessed?(nil)
             }
         }
     }
 
     fileprivate func readAvailableBytes() {
-        var buffer = [UInt8](repeating: 0, count: BluetoothPeerConnection.readChunkLength)
         while !isClosed && inputStream.hasBytesAvailable {
-            let count = inputStream.read(&buffer, maxLength: buffer.count)
+            let count = inputStream.read(&readBuffer, maxLength: readBuffer.count)
             guard count > 0 else {
                 if count < 0 { close() }
                 return
             }
+            let output : BluetoothSecureChannel.Output
             do {
-                for frame in try frameDecoder.append(Data(buffer[0..<count])) {
-                    frameHandler?(frame)
-                }
+                output = try channel.receive(Data(readBuffer[0..<count]))
             } catch {
-                // A framing error cannot be resynchronised, so drop the link as the Network backend does.
+                // Failed authentication or a tampered message: drop the link, as a TLS failure would.
                 close()
                 return
             }
+            enqueueWrite(output.bytesToSend, onProcessed: nil)
+            if channel.isOpen {
+                releaseFramesAwaitingChannel()
+            }
+            deliver(output.plaintext)
+        }
+    }
+
+    fileprivate func releaseFramesAwaitingChannel() {
+        if let chain = channel.peerCertificateChain {
+            peerCertificateChainLock.lock()
+            storedPeerCertificateChain = chain
+            peerCertificateChainLock.unlock()
+        }
+        let frames = framesAwaitingChannel
+        framesAwaitingChannel.removeAll()
+        frames.forEach { sendThroughChannel($0.bytes, onProcessed: $0.onProcessed) }
+    }
+
+    fileprivate func deliver(_ plaintext: Data) {
+        guard !isClosed, !plaintext.isEmpty else { return }
+        do {
+            for frame in try frameDecoder.append(plaintext) {
+                frameHandler?(frame)
+            }
+        } catch {
+            // A framing error cannot be resynchronised, so drop the link as the Network backend does.
+            close()
         }
     }
 
@@ -140,21 +226,25 @@ internal final class BluetoothPeerConnection : NSObject, NetworkPeerFrameSending
     fileprivate func close() {
         guard !isClosed else { return }
         isClosed = true
+        tearDownStreams()
 
+        let unfinished = pendingWrites.compactMap { $0.onProcessed } + framesAwaitingChannel.map { $0.onProcessed }
+        let onClose = closeHandler
+        pendingWrites.removeAll()
+        framesAwaitingChannel.removeAll()
+        frameHandler = nil
+        closeHandler = nil
+        unfinished.forEach { $0(POSIXError(.ENOTCONN)) }
+        onClose?()
+    }
+
+    fileprivate func tearDownStreams() {
         inputStream.delegate = nil
         outputStream.delegate = nil
         CFReadStreamSetDispatchQueue(inputStream, nil)
         CFWriteStreamSetDispatchQueue(outputStream, nil)
         inputStream.close()
         outputStream.close()
-
-        let unfinishedWrites = pendingWrites
-        let onClose = closeHandler
-        pendingWrites.removeAll()
-        frameHandler = nil
-        closeHandler = nil
-        unfinishedWrites.forEach { $0.onProcessed(POSIXError(.ENOTCONN)) }
-        onClose?()
     }
 }
 
