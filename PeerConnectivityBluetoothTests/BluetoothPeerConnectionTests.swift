@@ -235,12 +235,16 @@ final class BluetoothPeerConnectionTests : XCTestCase {
 private final class RawRemote {
     let connection : BluetoothPeerConnection
     private let remoteOutput : OutputStream
+    /// Unread, but kept alive: a bound pair signals its other end, and a freed end crashes
+    /// inside Core Foundation.
+    private let remoteInput : InputStream
 
     init() {
         let (connectionIn, remoteOut) = makeBoundStreams(bufferSize: 4096)
-        let (_, connectionOut) = makeBoundStreams(bufferSize: 4096)
+        let (remoteIn, connectionOut) = makeBoundStreams(bufferSize: 4096)
         connection = BluetoothPeerConnection(inputStream: connectionIn, outputStream: connectionOut, direction: .inbound)
         remoteOutput = remoteOut
+        remoteInput = remoteIn
         remoteOutput.open()
     }
 

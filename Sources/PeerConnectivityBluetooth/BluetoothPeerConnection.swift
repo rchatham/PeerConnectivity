@@ -35,7 +35,8 @@ internal final class BluetoothPeerConnection : NSObject, NetworkPeerFrameSending
     fileprivate let outputStream : OutputStream
     /// Retained for the connection's lifetime: a `CBL2CAPChannel` closes its streams when released.
     fileprivate let owner : AnyObject?
-    fileprivate let queue : DispatchQueue
+    /// Every stream event and all connection state live on this thread's run loop.
+    fileprivate let streams = BluetoothStreamThread.shared
     fileprivate let channel : BluetoothSecureChannel
     fileprivate var frameHandler : FrameHandler?
     fileprivate var closeHandler : CloseHandler?
@@ -45,6 +46,9 @@ internal final class BluetoothPeerConnection : NSObject, NetworkPeerFrameSending
     fileprivate var pendingWrites : [PendingWrite] = []
     fileprivate var readBuffer = [UInt8](repeating: 0, count: BluetoothPeerConnection.readChunkLength)
     fileprivate var isClosed = false
+    /// Stream delegates are unretained; between the connection's release and its streams being
+    /// unscheduled, the proxy turns any event into a no-op.
+    fileprivate let streamEvents = StreamEventProxy()
     fileprivate let peerCertificateChainLock = NSLock()
     fileprivate var storedPeerCertificateChain : [SecCertificate]?
 
@@ -61,51 +65,48 @@ internal final class BluetoothPeerConnection : NSObject, NetworkPeerFrameSending
         outputStream: OutputStream,
         direction: NetworkPeerConnectionDirection,
         security: PeerConnectionNetworkSecurity = .unauthenticated,
-        owner: AnyObject? = nil,
-        queue: DispatchQueue = DispatchQueue(label: "PeerConnectivity.BluetoothPeerConnection")) {
+        owner: AnyObject? = nil) {
         self.init(inputStream: inputStream,
             outputStream: outputStream,
             channel: BluetoothSecureChannel(security: security, direction: direction),
-            owner: owner,
-            queue: queue)
+            owner: owner)
     }
 
     internal init(inputStream: InputStream,
         outputStream: OutputStream,
         channel: BluetoothSecureChannel,
-        owner: AnyObject? = nil,
-        queue: DispatchQueue = DispatchQueue(label: "PeerConnectivity.BluetoothPeerConnection")) {
+        owner: AnyObject? = nil) {
         self.inputStream = inputStream
         self.outputStream = outputStream
         self.channel = channel
         self.owner = owner
-        self.queue = queue
         super.init()
+        streamEvents.connection = self
     }
 
     deinit {
-        // Released without `cancel()`: stream delegates are not retained, so never leave a
-        // scheduled stream pointing at a freed connection.
+        // Released without `cancel()`: unschedule and close the streams on their thread. Until
+        // then, events reach the proxy, whose weak reference is now nil.
         if !isClosed {
             tearDownStreams()
         }
     }
 
-    /// Opens both streams and starts the channel handshake. Handlers run on the connection's queue.
-    /// `onClose` runs once, whether the remote side closed, a stream failed, the peer failed
+    /// Opens both streams and starts the channel handshake. Handlers run on the Bluetooth stream
+    /// thread. `onClose` runs once, whether the remote side closed, a stream failed, the peer failed
     /// authentication, the incoming bytes were not valid frames, or `cancel()` ran.
     internal func start(onFrame: @escaping FrameHandler, onClose: @escaping CloseHandler) {
-        queue.async { [self] in
+        streams.perform { [self] in
             guard !isClosed else {
                 onClose()
                 return
             }
             frameHandler = onFrame
             closeHandler = onClose
-            inputStream.delegate = self
-            outputStream.delegate = self
-            CFReadStreamSetDispatchQueue(inputStream, queue)
-            CFWriteStreamSetDispatchQueue(outputStream, queue)
+            inputStream.delegate = streamEvents
+            outputStream.delegate = streamEvents
+            inputStream.schedule(in: streams.runLoop, forMode: .default)
+            outputStream.schedule(in: streams.runLoop, forMode: .default)
             inputStream.open()
             outputStream.open()
             do {
@@ -118,7 +119,7 @@ internal final class BluetoothPeerConnection : NSObject, NetworkPeerFrameSending
 
     internal func cancel() {
         // Asynchronous, like `NWConnection.cancel()`: the coordinator cancels from inside its own queue.
-        queue.async { [self] in close() }
+        streams.perform { [self] in close() }
     }
 
     internal func sendFrame(_ frame: PeerNetworkFrame, onProcessed: @escaping ProcessedHandler) {
@@ -128,7 +129,7 @@ internal final class BluetoothPeerConnection : NSObject, NetworkPeerFrameSending
         }
 
         let bytes = frame.encoded()
-        queue.async { [self] in
+        streams.perform { [self] in
             guard !isClosed else {
                 onProcessed(POSIXError(.ENOTCONN))
                 return
@@ -238,22 +239,35 @@ internal final class BluetoothPeerConnection : NSObject, NetworkPeerFrameSending
         onClose?()
     }
 
+    /// Unschedules and closes the streams on the stream thread, where their events are delivered,
+    /// so no event can arrive afterwards. Streams were scheduled on a run loop rather than with
+    /// `CFReadStreamSetDispatchQueue`: Core Foundation's dispatch-queue delivery could still run an
+    /// event for a stream after it was unscheduled and released, crashing inside Core Foundation.
     fileprivate func tearDownStreams() {
-        inputStream.delegate = nil
-        outputStream.delegate = nil
-        CFReadStreamSetDispatchQueue(inputStream, nil)
-        CFWriteStreamSetDispatchQueue(outputStream, nil)
-        inputStream.close()
-        outputStream.close()
+        // From deinit the connection is going away, so capture the streams, not `self`.
+        let input = inputStream
+        let output = outputStream
+        let retained : (AnyObject?, StreamEventProxy) = (owner, streamEvents)
+        let runLoop : RunLoop = streams.runLoop
+        let tearDown = {
+            withExtendedLifetime(retained) {
+                for stream in [input, output] as [Stream] {
+                    stream.remove(from: runLoop, forMode: .default)
+                    stream.delegate = nil
+                    stream.close()
+                }
+            }
+        }
+        if streams.isCurrent {
+            tearDown()
+        } else {
+            streams.perform(tearDown)
+        }
     }
-}
 
-@available(iOS 13.0, macOS 10.15, *)
-extension BluetoothPeerConnection : StreamDelegate {
-
-    internal func stream(_ stream: Stream, handle eventCode: Stream.Event) {
-        // All connection state is confined to `queue`; the streams were scheduled on it in `start`.
-        dispatchPrecondition(condition: .onQueue(queue))
+    fileprivate func handleStreamEvent(_ stream: Stream, _ eventCode: Stream.Event) {
+        // All connection state is confined to the stream thread, where the streams are scheduled.
+        assert(streams.isCurrent, "Bluetooth stream event off the stream thread")
         switch eventCode {
         case .hasBytesAvailable:
             readAvailableBytes()
@@ -267,5 +281,59 @@ extension BluetoothPeerConnection : StreamDelegate {
             close()
         default: break
         }
+    }
+}
+
+/// One thread with a run loop for every Bluetooth stream. Bluetooth throughput is low, so one
+/// thread is enough, and work is queued with `perform` in the order it is submitted.
+@available(iOS 13.0, macOS 10.15, *)
+internal final class BluetoothStreamThread : Thread {
+
+    internal static let shared : BluetoothStreamThread = {
+        let thread = BluetoothStreamThread()
+        thread.name = "PeerConnectivity.BluetoothStreams"
+        thread.qualityOfService = .userInitiated
+        thread.start()
+        thread.started.wait()
+        return thread
+    }()
+
+    fileprivate let started = DispatchSemaphore(value: 0)
+    fileprivate var cfRunLoop : CFRunLoop!
+    internal fileprivate(set) var runLoop : RunLoop!
+
+    internal var isCurrent : Bool {
+        return Thread.current === self
+    }
+
+    internal override func main() {
+        runLoop = RunLoop.current
+        cfRunLoop = CFRunLoopGetCurrent()
+        // A port keeps the run loop running when no stream is scheduled.
+        runLoop.add(NSMachPort(), forMode: .default)
+        started.signal()
+        while true {
+            autoreleasepool {
+                _ = runLoop.run(mode: .default, before: .distantFuture)
+            }
+        }
+    }
+
+    /// Runs `block` on this thread, after any work submitted before it.
+    internal func perform(_ block: @escaping () -> Void) {
+        CFRunLoopPerformBlock(cfRunLoop, CFRunLoopMode.defaultMode.rawValue, block)
+        CFRunLoopWakeUp(cfRunLoop)
+    }
+}
+
+/// Forwards stream events to a connection that may already have been released.
+@available(iOS 13.0, macOS 10.15, *)
+private final class StreamEventProxy : NSObject, StreamDelegate {
+
+    /// Loading a weak reference is thread-safe and yields nil once the connection's deinit begins.
+    weak var connection : BluetoothPeerConnection?
+
+    func stream(_ stream: Stream, handle eventCode: Stream.Event) {
+        connection?.handleStreamEvent(stream, eventCode)
     }
 }

@@ -101,6 +101,17 @@ public enum PeerConnectionBackend : Equatable {
      events report `nil` metadata.
      */
     case networkFramework
+    /**
+     Use Bluetooth LE through Core Bluetooth, so peers connect with Wi-Fi turned off. It
+     supports the same discovery, connection, data, `PeerMessage` and security features as
+     `.networkFramework`.
+
+     This backend lives in the `PeerConnectivityBluetooth` product so apps that do not use it
+     never link Core Bluetooth. Create the manager with
+     `PeerConnectionManager(bluetoothServiceType:)` from that product; passing `.bluetooth`
+     to `init(serviceType:...backend:)` is a programmer error.
+     */
+    case bluetooth
 }
 
 /**
@@ -400,7 +411,8 @@ public class PeerConnectionManager {
         invitationPolicy: PeerInvitationPolicy = .acceptAll,
         backend: PeerConnectionBackend = .multipeerConnectivity,
         networkSecurity: PeerConnectionNetworkSecurity = .unauthenticated,
-        transportFactory: PeerConnectionTransportFactory) {
+        transportFactory: PeerConnectionTransportFactory,
+        registersSharedManager: Bool = false) {
         self.init(serviceType: serviceType,
             connectionType: connectionType,
             displayName: displayName,
@@ -410,7 +422,7 @@ public class PeerConnectionManager {
             backend: transportFactory.backend,
             networkSecurity: networkSecurity,
             transportFactory: transportFactory,
-            shouldRegisterSharedManager: false)
+            shouldRegisterSharedManager: registersSharedManager)
     }
 
     fileprivate init(serviceType: ServiceType,
@@ -431,7 +443,7 @@ public class PeerConnectionManager {
         switch backend {
         case .multipeerConnectivity:
             self.peer = Peer(displayName: sanitizedDisplayName)
-        case .networkFramework:
+        case .networkFramework, .bluetooth:
             self.peer = Peer(networkDisplayName: sanitizedDisplayName)
         }
         self.securityConfiguration = securityConfiguration
@@ -486,6 +498,9 @@ public class PeerConnectionManager {
                 return .networkFramework(security: networkSecurity)
             }
             fatalError("PeerConnectivity: Network framework backend requires iOS 13.0 or macOS 10.15")
+        case .bluetooth:
+            fatalError("PeerConnectivity: the Bluetooth backend is in the PeerConnectivityBluetooth product; "
+                + "create the manager with PeerConnectionManager(bluetoothServiceType:)")
         }
     }
 
