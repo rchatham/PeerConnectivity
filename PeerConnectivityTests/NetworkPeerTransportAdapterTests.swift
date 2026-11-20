@@ -342,6 +342,116 @@ final class NetworkPeerTransportAdapterTests : XCTestCase {
         XCTAssertEqual(recorder.invitations, [PeerNetworkInvitation(context: Data("ctx".utf8), timeout: 12)])
     }
 
+    // MARK: - Bonjour name reuse
+
+    internal func testBrowserTransportLosesAPeerWhoseAdvertisedMetadataIsWithdrawn() async {
+        guard #available(iOS 13.0, macOS 10.15, *) else { return }
+
+        let observer = Observable<PeerBrowserEvent>(.none)
+        let transport = NetworkPeerBrowserTransport(session: makeSessionTransport(),
+            browser: MockNetworkPeerBrowser(),
+            browserObserver: observer)
+        let bob = PeerIdentity(identifier: "bob", displayName: "Bob")
+        let name = NWEndpoint.hostPort(host: .ipv4(IPv4Address("127.0.0.1")!), port: 34580)
+        var lostPeers : [PeerIdentity] = []
+        await observer.addObserverAsync { event in
+            if case .lostPeer(let peer) = event { lostPeers.append(peer.identity) }
+        }
+
+        transport.foundEndpoint(name, identity: bob)
+        // Bob withdrew; Bonjour reports the name's TXT record gone instead of removing the name.
+        transport.changedEndpoint(name, to: name, identity: nil)
+        transport.changedEndpoint(name, to: name, identity: nil)
+        await observer.flush()
+
+        XCTAssertEqual(lostPeers, [bob])
+    }
+
+    internal func testBrowserTransportReportsANameTakenOverByAnotherPeer() async {
+        guard #available(iOS 13.0, macOS 10.15, *) else { return }
+
+        let observer = Observable<PeerBrowserEvent>(.none)
+        let recorder = ConnectedEndpointRecorder()
+        let transport = NetworkPeerBrowserTransport(session: makeSessionTransport(),
+            browser: MockNetworkPeerBrowser(),
+            browserObserver: observer,
+            connectToEndpoint: recorder.append)
+        let bob = PeerIdentity(identifier: "bob", displayName: "Bob")
+        let carol = PeerIdentity(identifier: "carol", displayName: "Carol")
+        let name = NWEndpoint.hostPort(host: .ipv4(IPv4Address("127.0.0.1")!), port: 34581)
+        var events : [String] = []
+        await observer.addObserverAsync { event in
+            switch event {
+            case .foundPeer(let peer, _): events.append("found \(peer.displayName)")
+            case .lostPeer(let peer): events.append("lost \(peer.displayName)")
+            default: break
+            }
+        }
+
+        transport.foundEndpoint(name, identity: bob)
+        transport.changedEndpoint(name, to: name, identity: carol)
+        await observer.flush()
+        XCTAssertEqual(events, ["found Bob", "lost Bob", "found Carol"])
+
+        // Inviting Bob must not connect to the name Carol now holds.
+        transport.invitePeer(Peer(identity: bob, status: .notConnected))
+        XCTAssertTrue(recorder.invitations.isEmpty)
+        transport.invitePeer(Peer(identity: carol, status: .notConnected))
+        XCTAssertEqual(recorder.invitations.count, 1)
+    }
+
+    internal func testBrowserTransportIgnoresItsOwnAdvertisementTakingOverAName() async {
+        guard #available(iOS 13.0, macOS 10.15, *) else { return }
+
+        let session = makeSessionTransport()
+        let observer = Observable<PeerBrowserEvent>(.none)
+        let transport = NetworkPeerBrowserTransport(session: session,
+            browser: MockNetworkPeerBrowser(),
+            browserObserver: observer)
+        let bob = PeerIdentity(identifier: "bob", displayName: "Bob")
+        let name = NWEndpoint.hostPort(host: .ipv4(IPv4Address("127.0.0.1")!), port: 34582)
+        var events : [String] = []
+        await observer.addObserverAsync { event in
+            switch event {
+            case .foundPeer(let peer, _): events.append("found \(peer.displayName)")
+            case .lostPeer(let peer): events.append("lost \(peer.displayName)")
+            default: break
+            }
+        }
+
+        // The sequence seen on one host: Bob withdraws, then this peer's own advertisement
+        // takes over the freed name.
+        transport.foundEndpoint(name, identity: bob)
+        transport.changedEndpoint(name, to: name, identity: nil)
+        transport.changedEndpoint(name, to: name, identity: session.peer.identity)
+        await observer.flush()
+
+        XCTAssertEqual(events, ["found Bob", "lost Bob"])
+    }
+
+    internal func testBrowserTransportReportsNothingWhenTheSamePeerChanges() async {
+        guard #available(iOS 13.0, macOS 10.15, *) else { return }
+
+        let observer = Observable<PeerBrowserEvent>(.none)
+        let transport = NetworkPeerBrowserTransport(session: makeSessionTransport(),
+            browser: MockNetworkPeerBrowser(),
+            browserObserver: observer)
+        let bob = PeerIdentity(identifier: "bob", displayName: "Bob")
+        let name = NWEndpoint.hostPort(host: .ipv4(IPv4Address("127.0.0.1")!), port: 34583)
+        var eventCount = 0
+        await observer.addObserverAsync { event in
+            if case .none = event { return }
+            eventCount += 1
+        }
+
+        transport.foundEndpoint(name, identity: bob)
+        // Interfaces or app metadata changed: a second found event would re-invite `.automatic` peers.
+        transport.changedEndpoint(name, to: name, identity: bob)
+        await observer.flush()
+
+        XCTAssertEqual(eventCount, 1)
+    }
+
     internal func testBrowserTransportIgnoresSelfEndpoint() async {
         guard #available(iOS 13.0, macOS 10.15, *) else { return }
 

@@ -232,7 +232,40 @@ internal final class NetworkPeerBrowserTransport : PeerBrowserTransport {
             foundResult(result)
         case .removed(let result):
             lostResult(result)
+        case .changed(old: let old, new: let new, flags: _):
+            let info = discoveryInfo(from: new)
+            changedEndpoint(old.endpoint,
+                to: new.endpoint,
+                identity: info?.identity,
+                discoveryInfo: info.flatMap { $0.appInfo.isEmpty ? nil : $0.appInfo })
         default: break
+        }
+    }
+
+    /// Handles a result whose metadata or interfaces changed. Bonjour reuses a freed service name,
+    /// and devices often share a default name ("iPhone"), so when one peer withdraws, another can
+    /// take over its name: that arrives as new (or no) TXT metadata on the same result, never as a
+    /// removal. The peer tracked at the name is lost, and a new peer found there is reported.
+    internal func changedEndpoint(_ oldEndpoint: NWEndpoint,
+        to newEndpoint: NWEndpoint,
+        identity newIdentity: PeerIdentity?,
+        discoveryInfo: PeerDiscoveryInfo? = nil) {
+        let trackedIdentity = lockedEndpoints { endpointsByIdentity.first { $0.value == oldEndpoint }?.key }
+        guard trackedIdentity != newIdentity else {
+            // Same peer (interfaces or app metadata changed): keep its endpoint current, report
+            // nothing, as a second found event would send `.automatic` peers a second invitation.
+            if let identity = newIdentity {
+                lockedEndpoints {
+                    if endpointsByIdentity[identity] != nil { endpointsByIdentity[identity] = newEndpoint }
+                }
+            }
+            return
+        }
+        if let trackedIdentity = trackedIdentity {
+            lostEndpoint(oldEndpoint, identity: trackedIdentity)
+        }
+        if let newIdentity = newIdentity {
+            foundEndpoint(newEndpoint, identity: newIdentity, discoveryInfo: discoveryInfo)
         }
     }
 
