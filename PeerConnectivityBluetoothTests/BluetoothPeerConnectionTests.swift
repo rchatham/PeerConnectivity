@@ -94,6 +94,39 @@ final class BluetoothPeerConnectionTests : XCTestCase {
         XCTAssertEqual((reportedError as? POSIXError)?.code, .EMSGSIZE)
     }
 
+    // MARK: - Secured pairs
+
+    func testPreSharedKeyPairExchangesFramesThroughSmallBuffers() {
+        // 7-byte buffers split the handshake as well as every encrypted message.
+        let (first, second) = makeConnectionPair(bufferSize: 7, security: .preSharedKey(Data("shared group key".utf8)))
+        assertExchange(first, second)
+        XCTAssertNil(first.peerCertificateChain)
+    }
+
+    func testCertificatePairExchangesFramesAndExposesVerifiedCertificates() throws {
+        let alice = try PeerNetworkCertificateFixtures.identity(.alice)
+        let bob = try PeerNetworkCertificateFixtures.identity(.bob)
+        let (first, second) = makeConnectionPair(bufferSize: 512,
+            security: .certificate(identity: alice), secondSecurity: .certificate(identity: bob))
+        assertExchange(first, second)
+
+        XCTAssertEqual(certificateData(first.peerCertificateChain), try PeerNetworkCertificateFixtures.certificateData(.bob))
+        XCTAssertEqual(certificateData(second.peerCertificateChain), try PeerNetworkCertificateFixtures.certificateData(.alice))
+    }
+
+    func testMismatchedPreSharedKeysCloseBothSides() {
+        let (first, second) = makeConnectionPair(bufferSize: 512,
+            security: .preSharedKey(Data("one key".utf8)), secondSecurity: .preSharedKey(Data("another key".utf8)))
+        assertBothClose(first, second)
+    }
+
+    func testMismatchedSecurityModesCloseBothSides() throws {
+        let (first, second) = makeConnectionPair(bufferSize: 512,
+            security: .preSharedKey(Data("group key".utf8)),
+            secondSecurity: .certificate(identity: try PeerNetworkCertificateFixtures.identity(.bob)))
+        assertBothClose(first, second)
+    }
+
     // MARK: - Raw bytes from the remote side
 
     func testDecodesFramesCoalescedIntoOneWriteAndSplitAcrossWrites() {
@@ -142,11 +175,58 @@ final class BluetoothPeerConnectionTests : XCTestCase {
     // MARK: - Helpers
 
     /// Two connections whose streams are joined by bound pairs of the given buffer size.
-    private func makeConnectionPair(bufferSize: Int) -> (BluetoothPeerConnection, BluetoothPeerConnection) {
+    /// The first opened the link, so it starts any handshake.
+    private func makeConnectionPair(bufferSize: Int,
+        security: PeerConnectionNetworkSecurity = .unauthenticated,
+        secondSecurity: PeerConnectionNetworkSecurity? = nil) -> (BluetoothPeerConnection, BluetoothPeerConnection) {
         let (firstIn, secondOut) = makeBoundStreams(bufferSize: bufferSize)
         let (secondIn, firstOut) = makeBoundStreams(bufferSize: bufferSize)
-        return (BluetoothPeerConnection(inputStream: firstIn, outputStream: firstOut),
-                BluetoothPeerConnection(inputStream: secondIn, outputStream: secondOut))
+        return (BluetoothPeerConnection(inputStream: firstIn, outputStream: firstOut,
+                    direction: .outbound, security: security),
+                BluetoothPeerConnection(inputStream: secondIn, outputStream: secondOut,
+                    direction: .inbound, security: secondSecurity ?? security))
+    }
+
+    /// Sends frames each way before either handshake can have finished, then checks every
+    /// frame arrives in order and fully written.
+    private func assertExchange(_ first: BluetoothPeerConnection,
+        _ second: BluetoothPeerConnection,
+        file: StaticString = #filePath,
+        line: UInt = #line) {
+        let outbound = [
+            PeerNetworkFrame(kind: .handshake, payload: Data("hello".utf8)),
+            PeerNetworkFrame(kind: .data, payload: Data((0..<70_000).map { UInt8($0 % 251) })),
+        ]
+        let inbound = [PeerNetworkFrame(kind: .data, payload: Data("reply".utf8))]
+        let secondReceived = FrameRecorder(expecting: outbound.count, description: "second receives")
+        let firstReceived = FrameRecorder(expecting: inbound.count, description: "first receives")
+        let processed = expectation(description: "every frame fully written")
+        processed.expectedFulfillmentCount = outbound.count + inbound.count
+
+        outbound.forEach { first.sendFrame($0) { XCTAssertNil($0, file: file, line: line); processed.fulfill() } }
+        inbound.forEach { second.sendFrame($0) { XCTAssertNil($0, file: file, line: line); processed.fulfill() } }
+        first.start(onFrame: firstReceived.record, onClose: {})
+        second.start(onFrame: secondReceived.record, onClose: {})
+
+        wait(for: [processed, secondReceived.expectation, firstReceived.expectation], timeout: 10)
+        XCTAssertEqual(secondReceived.frames, outbound, file: file, line: line)
+        XCTAssertEqual(firstReceived.frames, inbound, file: file, line: line)
+    }
+
+    /// Expects both sides to close without delivering a frame or completing a write.
+    private func assertBothClose(_ first: BluetoothPeerConnection, _ second: BluetoothPeerConnection) {
+        let closed = expectation(description: "both sides close")
+        closed.expectedFulfillmentCount = 2
+        let failedWrite = expectation(description: "held frame fails")
+        first.sendFrame(PeerNetworkFrame(kind: .handshake, payload: Data("secret".utf8))) { error in
+            XCTAssertEqual((error as? POSIXError)?.code, .ENOTCONN)
+            failedWrite.fulfill()
+        }
+        first.start(onFrame: { _ in XCTFail("no frame without authentication") }, onClose: { closed.fulfill() })
+        second.start(onFrame: { _ in XCTFail("no frame without authentication") }, onClose: { closed.fulfill() })
+        wait(for: [closed, failedWrite], timeout: 10)
+        XCTAssertNil(first.peerCertificateChain)
+        XCTAssertNil(second.peerCertificateChain)
     }
 }
 
@@ -159,7 +239,7 @@ private final class RawRemote {
     init() {
         let (connectionIn, remoteOut) = makeBoundStreams(bufferSize: 4096)
         let (_, connectionOut) = makeBoundStreams(bufferSize: 4096)
-        connection = BluetoothPeerConnection(inputStream: connectionIn, outputStream: connectionOut)
+        connection = BluetoothPeerConnection(inputStream: connectionIn, outputStream: connectionOut, direction: .inbound)
         remoteOutput = remoteOut
         remoteOutput.open()
     }
@@ -201,6 +281,11 @@ private final class FrameRecorder {
         lock.unlock()
         expectation.fulfill()
     }
+}
+
+private func certificateData(_ chain: [Any]?) -> Data? {
+    guard let leaf = chain?.first else { return nil }
+    return SecCertificateCopyData(leaf as! SecCertificate) as Data
 }
 
 private func makeBoundStreams(bufferSize: Int) -> (InputStream, OutputStream) {
