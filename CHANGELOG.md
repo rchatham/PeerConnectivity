@@ -18,6 +18,7 @@
   - New: `sendData(_:toPeers:completion:)` and `sendMessage(_:toPeers:completion:)` report per-peer send failures on both backends (local processing, not delivery); `PeerConnectionError.peerNotConnected` for targeted peers without a Network connection
   - Network backend: discovery tracks at most 64 peers, and TCP keepalive detects dead peers in about 60 seconds; `.lostPeer` is no longer emitted for peers that were never reported found
   - Fixed: Network backend certificate mode no longer stalls connections when `trustd` is slow; the TLS verify block reads the peer chain from the TLS metadata instead of calling `SecTrustGetCertificateCount`
+  - Fixed: Network backend now reports `.lostPeer` when a peer stops advertising and Bonjour hands its service name to another advertiser, which happens when devices share a default name. Bonjour reports that as changed metadata rather than a removal, so the peer was never lost and inviting it could connect to whoever took over the name
   - Packaging: the core target now links both Network.framework and MultipeerConnectivity.framework
   - Tooling: the Swift package manifest uses Swift tools 6.0, so SwiftPM consumers need a Swift 6 toolchain (Xcode 16 or newer); the library remains compiled in Swift 5 language mode
   - Platforms: the minimum supported versions increase to iOS 13 and macOS 10.15; CocoaPods consumers need an Xcode version with those platform SDKs (Xcode 11 or newer)
