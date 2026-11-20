@@ -82,7 +82,7 @@ package struct PeerConnectionTransportFactory {
     }
 
     @available(iOS 13.0, macOS 10.15, *)
-    internal static func networkFramework(security: PeerConnectionNetworkSecurity) -> PeerConnectionTransportFactory {
+    package static func networkFramework(security: PeerConnectionNetworkSecurity) -> PeerConnectionTransportFactory {
         return PeerConnectionTransportFactory(
             backend: .networkFramework,
             makeSession: { peer, _, observer in

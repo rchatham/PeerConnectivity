@@ -188,12 +188,19 @@ final class BluetoothPeerTransportTests : XCTestCase {
         XCTAssertNil(BluetoothPeerService.discoveryInfo(fromIdentityPayload: Data(count: 513)))
     }
 
-    func testPublicInitializerSelectsTheBluetoothBackend() {
-        // Not started: starting would ask the system for Bluetooth access.
-        let manager = PeerConnectionManager(bluetoothServiceType: "bt-entry", displayName: "Alice")
-        managers.append(manager)
-        XCTAssertEqual(manager.backend, .bluetooth)
-        XCTAssertEqual(manager.peer.displayName, "Alice")
+    func testPublicInitializerSelectsTheBackendForTheChosenLinks() {
+        // Not started: starting would ask the system for Bluetooth and local network access.
+        let expectations : [(PeerConnectionLinks, PeerConnectionBackend)] = [
+            (.bluetooth, .bluetooth),
+            (.networkFramework, .networkFramework),
+            (.all, .networkFrameworkAndBluetooth),
+        ]
+        for (links, backend) in expectations {
+            let manager = PeerConnectionManager(serviceType: "bt-entry-\(links.rawValue)", links: links, displayName: "Alice")
+            managers.append(manager)
+            XCTAssertEqual(manager.backend, backend)
+            XCTAssertEqual(manager.peer.displayName, "Alice")
+        }
     }
 
     // MARK: - Helpers
@@ -276,7 +283,7 @@ private final class TestClock {
 /// Replaces Core Bluetooth: advertising peripherals are sighted by started centrals with the
 /// same service type, and opening a channel joins both sides with bound stream pairs.
 @available(iOS 13.0, macOS 10.15, *)
-private final class SimulatedBluetoothRadio {
+final class SimulatedBluetoothRadio {
 
     final class Peripheral : BluetoothPeerAdvertising {
         let identifier = UUID()
@@ -322,6 +329,23 @@ private final class SimulatedBluetoothRadio {
     private let queue = DispatchQueue(label: "SimulatedBluetoothRadio")
     private var peripherals : [Peripheral] = []
     private var centrals : [Central] = []
+    private var channelOutputs : [OutputStream] = []
+
+    /// Channels opened so far, including ones since closed.
+    var openedChannelCount : Int {
+        lock.lock(); defer { lock.unlock() }
+        return channelOutputs.count / 2
+    }
+
+    /// Ends every channel on this radio and stops its advertisements reaching scanners, as
+    /// turning the radio off would. Both ends see their input close.
+    func severChannels() {
+        lock.lock()
+        let outputs = channelOutputs
+        peripherals.forEach { $0.isAdvertising = false }
+        lock.unlock()
+        queue.sync { outputs.forEach { $0.close() } }
+    }
 
     var radio : BluetoothPeerRadio {
         return BluetoothPeerRadio(
@@ -390,6 +414,9 @@ private final class SimulatedBluetoothRadio {
         var centralOut : OutputStream?
         Stream.getBoundStreams(withBufferSize: 4096, inputStream: &centralIn, outputStream: &peripheralOut)
         Stream.getBoundStreams(withBufferSize: 4096, inputStream: &peripheralIn, outputStream: &centralOut)
+        lock.lock()
+        channelOutputs.append(contentsOf: [peripheralOut!, centralOut!])
+        lock.unlock()
         queue.async {
             target.handlers.channelOpened(BluetoothChannelStreams(inputStream: peripheralIn!, outputStream: peripheralOut!, owner: nil))
             central.handlers.channelOpened(identifier, BluetoothChannelStreams(inputStream: centralIn!, outputStream: centralOut!, owner: nil))

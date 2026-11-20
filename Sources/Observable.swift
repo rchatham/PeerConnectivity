@@ -158,7 +158,7 @@ package actor Observable<T> {
         return boundedPermits.counts
     }
 
-    internal init(
+    package init(
         _ v: T,
         boundedCapacity: Int = 16,
         beforeBoundedEnqueue: (@Sendable () -> Void)? = nil,
@@ -217,8 +217,8 @@ package actor Observable<T> {
         return key
     }
 
-    nonisolated internal func addObserver(
-        _ observer: @escaping Observer,
+    nonisolated package func addObserver(
+        _ observer: @escaping (T) -> Void,
         key: String,
         replayCurrentValue: Bool = true
     ) {
